@@ -1,0 +1,88 @@
+# Repository hygiene
+# Ignoring a file does not remove secrets already committed to Git history.
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+*.local
+
+# Secrets, credentials, and certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.p7b
+*.jks
+*.keystore
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# Node.js / frontend
+node_modules/
+.next/
+dist/
+build/
+out/
+coverage/
+.turbo/
+.parcel-cache/
+.cache/
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+*.egg-info/
+pip-wheel-metadata/
+
+# Databases and local state
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.sqlitedb
+postgres-data/
+postgresql-data/
+volumes/postgres/
+data/postgres/
+minio-data/
+volumes/minio/
+data/minio/
+
+# Infrastructure and tooling state
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# IDEs and OS files
+.idea/
+.vscode/
+.fleet/
+.DS_Store
+Thumbs.db
+desktop.ini
+
