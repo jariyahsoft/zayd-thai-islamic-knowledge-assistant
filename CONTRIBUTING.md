@@ -65,3 +65,12 @@ security(repo): ignore local secret files
 - Keep `.env.example` free of real credentials.
 - Remember that `.gitignore` prevents new tracking but does not remove old secrets from Git history.
 
+## License and Provenance
+
+- Treat source-code, documentation, trademark, and dataset rights as separate.
+- Record imported or adapted third-party code in `CODE_PROVENANCE.md` before merge.
+- Add attribution requirements to `THIRD_PARTY_NOTICES.md` when applicable.
+- Keep dataset redistribution denied by default unless a dataset manifest
+  explicitly allows it.
+- Require human license review before merging third-party code, third-party
+  documentation assets, or redistributable sample data.

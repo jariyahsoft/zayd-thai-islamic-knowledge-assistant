@@ -1,0 +1,17 @@
+Zayd
+Thai Islamic Knowledge Assistant
+
+This repository's source code is intended to be distributed under the Apache
+License 2.0. Additional attribution, notice, and license obligations may apply
+to third-party components, documentation assets, and datasets.
+
+See the following project files before reuse or redistribution:
+
+- THIRD_PARTY_NOTICES.md
+- CODE_PROVENANCE.md
+- docs/LICENSES.md
+- licenses/README.md
+- TRADEMARK.md
+
+No statement in this NOTICE grants rights to datasets, religious texts,
+translations, trademarks, or logos beyond the terms documented in those files.

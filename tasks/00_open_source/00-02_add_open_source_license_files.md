@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`IN_REVIEW`
 
 ## Model Tier
 
@@ -140,28 +140,54 @@ Provide a dataset rights statement covering:
 
 ### Files Changed
 
-- Pending
+- `LICENSE`
+- `NOTICE`
+- `THIRD_PARTY_NOTICES.md`
+- `CODE_PROVENANCE.md`
+- `TRADEMARK.md`
+- `docs/LICENSES.md`
+- `licenses/README.md`
+- `README.md`
+- `CONTRIBUTING.md`
+- `tasks/00_open_source/00-02_add_open_source_license_files.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `test -f LICENSE -a -f NOTICE -a -f THIRD_PARTY_NOTICES.md -a -f CODE_PROVENANCE.md -a -f TRADEMARK.md -a -f docs/LICENSES.md -a -f licenses/README.md`
+- `rg -n "Apache License|Version 2.0" LICENSE`
+- `rg -n "docs/LICENSES.md|LICENSE|NOTICE|THIRD_PARTY_NOTICES.md|CODE_PROVENANCE.md|TRADEMARK.md|licenses/README.md" README.md`
+- `git diff --check`
+- Manual review of license separation, dataset default restrictions, and provenance template coverage
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed: Apache-2.0 full text is present in `LICENSE`.
+- Passed: Software, documentation, trademark, and dataset rights are separated in `docs/LICENSES.md`.
+- Passed: Third-party code attribution and provenance formats are documented.
+- Passed: Dataset reuse and redistribution are restricted by default pending explicit approval.
+- Passed: No unapproved corpora, religious texts, or copyrighted datasets were added.
+- Passed: Root `README.md` links to the new license and policy documents.
 
 ### Security and License Review
 
-- Pending
+- No secrets, credentials, or restricted datasets were added.
+- The dataset policy keeps unknown rights restricted by default.
+- Third-party code and data require human license review before merge.
+- Final task approval still requires human project-owner and compliance review.
 
 ### Known Limitations
 
-- Pending
+- Repository-platform SPDX recognition was not verifiable from the local workspace alone.
+- No third-party code entries exist yet; the notice and provenance files currently contain templates and policy guidance.
 
 ### Follow-up Tasks
 
-- Pending
+- Human project-owner review of the selected license structure.
+- Human legal/compliance review before changing task status from `IN_REVIEW` to `DONE`.
+- Future selective reuse must populate `THIRD_PARTY_NOTICES.md`, `CODE_PROVENANCE.md`, and `licenses/` with real component records.
 
 ### Commit
 
-- Pending
+- Pending focused commit creation

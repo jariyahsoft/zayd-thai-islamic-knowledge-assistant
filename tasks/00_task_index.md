@@ -51,7 +51,7 @@
 | Task ID | Task | Tier | Status | Dependencies | Path |
 |---|---|---:|---|---|---|
 | TASK-00-01 | Initialize Git Repository | B | DONE | None | `00_open_source/00-01_initialize_git_repository.md` |
-| TASK-00-02 | Add Open-source License Files | A | READY | TASK-00-01 | `00_open_source/00-02_add_open_source_license_files.md` |
+| TASK-00-02 | Add Open-source License Files | A | IN_REVIEW | TASK-00-01 | `00_open_source/00-02_add_open_source_license_files.md` |
 | TASK-00-03 | Add Community Governance Files | B | TODO | TASK-00-02 | `00_open_source/00-03_add_community_governance_files.md` |
 | TASK-00-04 | Configure GitHub Templates | C | TODO | TASK-00-03 | `00_open_source/00-04_configure_github_templates.md` |
 | TASK-01-01 | Create Monorepo Structure | S | TODO | TASK-00-01 through TASK-00-04 must be `DONE`. | `01_foundation/01-01_create_monorepo_structure.md` |
