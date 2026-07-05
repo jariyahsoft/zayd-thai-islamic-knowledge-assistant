@@ -1,0 +1,151 @@
+zayd_project/
+├── docs/
+│   ├── 00_project/
+│   │   ├── 00_project_charter.md
+│   │   ├── 01_master_development_plan.md
+│   │   ├── 04_glossary.md
+│   │   └── 05_decisions_log.md
+│   ├── 01_product/
+│   │   ├── archive/
+│   │   │   └── PRD_v1.0_compact.md
+│   │   └── PRD.md
+│   ├── 02_requirements/
+│   │   ├── archive/
+│   │   │   └── SRS_v1.0_compact.md
+│   │   ├── README.md
+│   │   ├── SRS.md
+│   │   ├── SRS_summary.md
+│   │   └── traceability_matrix.md
+│   ├── 03_architecture/
+│   │   ├── adr/
+│   │   │   ├── ADR-001_greenfield_selective_reuse.md
+│   │   │   ├── ADR-002_postgresql_pgvector.md
+│   │   │   └── ADR-003_local_first_rag.md
+│   │   └── system_architecture.md
+│   ├── 05_data/
+│   │   └── license_policy.md
+│   ├── 06_islamic_governance/
+│   │   ├── answer_safety_policy.md
+│   │   ├── madhhab_policy.md
+│   │   └── scholar_review_policy.md
+│   ├── 07_security/
+│   │   └── security_architecture.md
+│   ├── 08_evaluation/
+│   │   └── evaluation_plan.md
+│   ├── 09_development/
+│   │   └── ai_coding_agent_policy.md
+│   └── README.md
+├── tasks/
+│   ├── 00_open_source/
+│   │   ├── 00-01_initialize_git_repository.md
+│   │   ├── 00-02_add_open_source_license_files.md
+│   │   ├── 00-03_add_community_governance_files.md
+│   │   └── 00-04_configure_github_templates.md
+│   ├── 01_foundation/
+│   │   ├── 01-01_create_monorepo_structure.md
+│   │   ├── 01-02_configure_typescript_workspaces.md
+│   │   ├── 01-03_initialize_python_services.md
+│   │   ├── 01-04_create_development_docker_compose.md
+│   │   ├── 01-05_environment_configuration_validation.md
+│   │   └── 01-06_add_makefile_and_developer_commands.md
+│   ├── 02_database/
+│   │   ├── 02-01_design_core_database_schema.md
+│   │   ├── 02-02_create_initial_database_migration.md
+│   │   ├── 02-03_implement_domain_enums_and_state_machines.md
+│   │   ├── 02-04_add_repository_and_unit_of_work_layer.md
+│   │   └── 02-05_add_demo_seed_data.md
+│   ├── 03_auth/
+│   │   ├── 03-01_implement_user_authentication.md
+│   │   ├── 03-02_implement_guest_sessions.md
+│   │   ├── 03-03_implement_rbac.md
+│   │   ├── 03-04_implement_mfa_for_privileged_users.md
+│   │   └── 03-05_implement_immutable_audit_log.md
+│   ├── 04_data_governance/
+│   │   ├── 04-01_source_registry_api.md
+│   │   ├── 04-02_license_registry_api.md
+│   │   ├── 04-03_license_policy_engine.md
+│   │   └── 04-04_source_and_license_admin_ui.md
+│   ├── 05_ingestion/
+│   │   ├── 05-01_document_upload_api.md
+│   │   ├── 05-02_object_storage_integration.md
+│   │   ├── 05-03_malware_scan_pipeline.md
+│   │   ├── 05-04_document_parser_framework.md
+│   │   ├── 05-05_thai_and_arabic_text_normalization.md
+│   │   ├── 05-06_metadata_extraction_service.md
+│   │   └── 05-07_create_review_task_automatically.md
+│   ├── 06_review/
+│   │   ├── 06-01_review_queue_api.md
+│   │   ├── 06-02_document_review_api.md
+│   │   ├── 06-03_scholar_approval_workflow.md
+│   │   ├── 06-04_document_publishing_service.md
+│   │   └── 06-05_suspend_and_rollback_published_documents.md
+│   ├── 07_retrieval/
+│   │   ├── 07-01_chunking_framework.md
+│   │   ├── 07-02_embedding_provider_interface.md
+│   │   ├── 07-03_full_text_search.md
+│   │   ├── 07-04_vector_search_with_pgvector.md
+│   │   ├── 07-05_hybrid_search.md
+│   │   ├── 07-06_multilingual_query_expansion.md
+│   │   ├── 07-07_reranker_interface.md
+│   │   └── 07-08_evidence_sufficiency_engine.md
+│   ├── 08_orchestrator/
+│   │   ├── 08-01_provider_sdk.md
+│   │   ├── 08-02_openai_compatible_llm_adapter.md
+│   │   ├── 08-03_local_ollama_and_vllm_adapter.md
+│   │   ├── 08-04_question_classification.md
+│   │   ├── 08-05_risk_policy_engine.md
+│   │   ├── 08-06_answer_orchestration_workflow.md
+│   │   ├── 08-07_citation_registry.md
+│   │   ├── 08-08_citation_verification_engine.md
+│   │   ├── 08-09_prompt_version_management.md
+│   │   └── 08-10_streaming_chat_api.md
+│   ├── 09_user_web/
+│   │   ├── 09-01_user_application_shell.md
+│   │   ├── 09-02_chat_interface.md
+│   │   ├── 09-03_citation_cards_and_source_detail.md
+│   │   ├── 09-04_madhhab_and_answer_preferences.md
+│   │   ├── 09-05_conversation_history.md
+│   │   ├── 09-06_saved_answers.md
+│   │   └── 09-07_user_feedback_form.md
+│   ├── 10_admin_reviewer/
+│   │   ├── 10-01_reviewer_dashboard.md
+│   │   ├── 10-02_document_review_workspace.md
+│   │   ├── 10-03_scholar_approval_workspace.md
+│   │   ├── 10-04_admin_dashboard.md
+│   │   ├── 10-05_provider_and_model_management_ui.md
+│   │   └── 10-06_user_and_role_management_ui.md
+│   ├── 11_feedback/
+│   │   ├── 11-01_feedback_api.md
+│   │   ├── 11-02_feedback_review_queue.md
+│   │   ├── 11-03_incident_management.md
+│   │   ├── 11-04_answer_invalidation.md
+│   │   └── 11-05_convert_incident_to_regression_test.md
+│   ├── 12_evaluation/
+│   │   ├── 12-01_evaluation_data_schema.md
+│   │   ├── 12-02_benchmark_runner.md
+│   │   ├── 12-03_retrieval_metrics.md
+│   │   ├── 12-04_citation_metrics.md
+│   │   ├── 12-05_safety_and_abstention_metrics.md
+│   │   ├── 12-06_create_zayd_islamicqa_th_starter_set.md
+│   │   └── 12-07_evaluation_dashboard.md
+│   ├── 13_operations/
+│   │   ├── 13-01_central_logging_and_request_ids.md
+│   │   ├── 13-02_opentelemetry_instrumentation.md
+│   │   ├── 13-03_metrics_and_dashboards.md
+│   │   ├── 13-04_security_hardening.md
+│   │   ├── 13-05_ci_pipeline.md
+│   │   ├── 13-06_software_bill_of_materials.md
+│   │   ├── 13-07_backup_and_restore.md
+│   │   ├── 13-08_minimal_self_host_profile.md
+│   │   └── 13-09_production_deployment_profile.md
+│   ├── 14_release/
+│   │   ├── 14-01_pilot_environment.md
+│   │   ├── 14-02_scholar_pilot_workflow.md
+│   │   ├── 14-03_user_pilot_workflow.md
+│   │   ├── 14-04_performance_and_load_test.md
+│   │   ├── 14-05_security_review_and_penetration_test.md
+│   │   ├── 14-06_release_documentation.md
+│   │   └── 14-07_zayd_1_0_release.md
+│   ├── 00_task_index.md
+│   └── README.md
+└── README.md
