@@ -86,3 +86,5 @@ data/minio/
 Thumbs.db
 desktop.ini
 
+docs/cli.md
+
