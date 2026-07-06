@@ -1,0 +1,18 @@
+[project]
+name = "zayd-common"
+version = "0.0.0"
+requires-python = "==3.12.3"
+dependencies = [
+  "pydantic==2.13.4",
+  "pydantic-settings==2.14.2",
+  "sqlalchemy>=2.0.38",
+  "asyncpg>=0.30.0",
+  "psycopg2-binary>=2.9.10",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zayd_common"]

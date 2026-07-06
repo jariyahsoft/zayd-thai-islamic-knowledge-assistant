@@ -1,0 +1,255 @@
+name: zayd-dev
+
+services:
+  postgres:
+    build:
+      context: ../..
+      dockerfile: infra/docker/postgres/Dockerfile
+    environment:
+      POSTGRES_DB: zayd_dev
+      POSTGRES_USER: zayd_dev
+      POSTGRES_PASSWORD: zayd_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zayd_dev -d zayd_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - internal
+
+  redis:
+    image: redis:7.4.2-bookworm
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - redis-data:/data
+    networks:
+      - internal
+
+  minio:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - minio-data:/data
+    networks:
+      - internal
+
+  minio-bootstrap:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      S3_BUCKET: zayd-private
+    entrypoint: ["/bin/sh", "/bootstrap/minio-bootstrap.sh"]
+    volumes:
+      - ../scripts/minio-bootstrap.sh:/bootstrap/minio-bootstrap.sh:ro
+    networks:
+      - internal
+
+  api:
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_URL: ${APP_URL:-http://localhost:3100}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://zayd_dev:zayd_dev@postgres:5432/zayd_dev}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-zayd-private}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-jwt-secret-change-me}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-dev-session-secret-change-me}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-th}
+      DEFAULT_MADHHAB: ${DEFAULT_MADHHAB:-shafii}
+      ENABLE_EXTERNAL_PROVIDERS: ${ENABLE_EXTERNAL_PROVIDERS:-false}
+      ENABLE_GUEST_MODE: ${ENABLE_GUEST_MODE:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PROVIDER_TOKEN: ${PROVIDER_TOKEN:-redacted-placeholder}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../services:/workspace/services
+      - ../../pyproject.toml:/workspace/pyproject.toml:ro
+      - ../../uv.lock:/workspace/uv.lock:ro
+      - ../../.python-version:/workspace/.python-version:ro
+    networks:
+      - internal
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: services/worker/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_URL: ${APP_URL:-http://localhost:3100}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://zayd_dev:zayd_dev@postgres:5432/zayd_dev}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-zayd-private}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-jwt-secret-change-me}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-dev-session-secret-change-me}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-local}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-th}
+      DEFAULT_MADHHAB: ${DEFAULT_MADHHAB:-shafii}
+      ENABLE_EXTERNAL_PROVIDERS: ${ENABLE_EXTERNAL_PROVIDERS:-false}
+      ENABLE_GUEST_MODE: ${ENABLE_GUEST_MODE:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PROVIDER_TOKEN: ${PROVIDER_TOKEN:-redacted-placeholder}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "from zayd_service_worker import get_health; assert get_health().status == 'ok'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ../../services:/workspace/services
+      - ../../pyproject.toml:/workspace/pyproject.toml:ro
+      - ../../uv.lock:/workspace/uv.lock:ro
+      - ../../.python-version:/workspace/.python-version:ro
+    networks:
+      - internal
+
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${WEB_PORT:-3100}:3000"
+    volumes:
+      - ../../apps:/workspace/apps
+      - ../../packages:/workspace/packages
+      - ../../package.json:/workspace/package.json:ro
+      - ../../pnpm-workspace.yaml:/workspace/pnpm-workspace.yaml:ro
+      - ../../pnpm-lock.yaml:/workspace/pnpm-lock.yaml:ro
+      - ../../tsconfig.base.json:/workspace/tsconfig.base.json:ro
+    networks:
+      - internal
+
+  reviewer:
+    build:
+      context: ../..
+      dockerfile: apps/reviewer/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${REVIEWER_PORT:-3101}:3001"
+    volumes:
+      - ../../apps:/workspace/apps
+      - ../../packages:/workspace/packages
+      - ../../package.json:/workspace/package.json:ro
+      - ../../pnpm-workspace.yaml:/workspace/pnpm-workspace.yaml:ro
+      - ../../pnpm-lock.yaml:/workspace/pnpm-lock.yaml:ro
+      - ../../tsconfig.base.json:/workspace/tsconfig.base.json:ro
+    networks:
+      - internal
+
+  admin:
+    build:
+      context: ../..
+      dockerfile: apps/admin/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${ADMIN_PORT:-3102}:3002"
+    volumes:
+      - ../../apps:/workspace/apps
+      - ../../packages:/workspace/packages
+      - ../../package.json:/workspace/package.json:ro
+      - ../../pnpm-workspace.yaml:/workspace/pnpm-workspace.yaml:ro
+      - ../../pnpm-lock.yaml:/workspace/pnpm-lock.yaml:ro
+      - ../../tsconfig.base.json:/workspace/tsconfig.base.json:ro
+    networks:
+      - internal
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+
+networks:
+  internal:
+    driver: bridge
