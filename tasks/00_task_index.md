@@ -61,8 +61,8 @@
 | TASK-01-05 | Environment Configuration Validation | A | DONE | TASK-01-04 | `01_foundation/01-05_environment_configuration_validation.md` |
 | TASK-01-06 | Add Makefile and Developer Commands | B | DONE | TASK-01-05 | `01_foundation/01-06_add_makefile_and_developer_commands.md` |
 | TASK-02-01 | Design Core Database Schema | S | DONE | EPIC-01 complete | `02_database/02-01_design_core_database_schema.md` |
-| TASK-02-02 | Create Initial Database Migration | S | READY | TASK-02-01 | `02_database/02-02_create_initial_database_migration.md` |
-| TASK-02-03 | Implement Domain Enums and State Machines | A | TODO | TASK-02-02 | `02_database/02-03_implement_domain_enums_and_state_machines.md` |
+| TASK-02-02 | Create Initial Database Migration | S | DONE | TASK-02-01 | `02_database/02-02_create_initial_database_migration.md` |
+| TASK-02-03 | Implement Domain Enums and State Machines | A | READY | TASK-02-02 | `02_database/02-03_implement_domain_enums_and_state_machines.md` |
 | TASK-02-04 | Add Repository and Unit-of-Work Layer | A | TODO | TASK-02-03 | `02_database/02-04_add_repository_and_unit_of_work_layer.md` |
 | TASK-02-05 | Add Demo Seed Data | B | TODO | TASK-02-04 | `02_database/02-05_add_demo_seed_data.md` |
 | TASK-03-01 | Implement User Authentication | S | TODO | EPIC-02 complete | `03_auth/03-01_implement_user_authentication.md` |

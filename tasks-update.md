@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-06T09:10:00+00:00
+
+- Task: TASK-02-02 - Create Initial Database Migration
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added the initial PostgreSQL/pgvector core-domain migration, reversible development/test downgrade, lightweight migration runner, Makefile integration, migration documentation, and integration tests covering upgrade, downgrade, re-upgrade, constraints, indexes, success-path inserts, and an active-embedding failure path.
+- Changed files: `database/migrations/0001_initial_core_domain.up.sql`, `database/migrations/0001_initial_core_domain.down.sql`, `scripts/migrate.sh`, `Makefile`, `.gitignore`, `database/tests/test_initial_migration.py`, `database/migrations/README.md`, `docs/development/migrations.md`, `tasks/02_database/02-02_create_initial_database_migration.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `docker compose up -d postgres` passed; `MIGRATION_ACTION=reset make migrate` passed; `make migrate` passed as an idempotent no-op when the migration was already recorded; `bash -n scripts/migrate.sh` passed; `uv run pytest database/tests/test_initial_migration.py` passed with 4 tests; `uv run pytest database/tests/test_core_domain_schema.py database/tests/test_initial_migration.py` passed with 13 tests; `uv run ruff check ...` passed; `uv run ruff format --check ...` passed; `uv run mypy ...` passed; TASK-02-02 secret marker scan passed.
+- Self-review: The migration matches the TASK-02-01 schema design, keeps domain behavior outside migration files except narrow integrity triggers, provides deterministic upgrade/downgrade paths for development/test, protects referential integrity, and does not introduce secrets, production data, or restricted content.
+- Telegram notification: sent
+- Remaining risks: The migration runner is intentionally lightweight and development/test-oriented; production rollout, backup/restore gates, multi-migration orchestration, and model-specific vector dimension strategy remain follow-up operational work.
+
 ## 2026-07-06T08:30:00+00:00
 
 - Task: TASK-02-01 - Design Core Database Schema

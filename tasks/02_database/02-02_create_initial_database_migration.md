@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -95,28 +95,59 @@ Create the initial PostgreSQL migration for the approved schema.
 
 ### Files Changed
 
-- Pending
+- `database/migrations/0001_initial_core_domain.up.sql` — initial PostgreSQL/pgvector schema migration with extensions, enums, tables, constraints, indexes, triggers and migration tracking.
+- `database/migrations/0001_initial_core_domain.down.sql` — development/test rollback that drops migration-owned tables, functions and enum types in dependency order.
+- `scripts/migrate.sh` — development/test migration runner supporting `up`, `down` and `reset`, preferring Docker Compose PostgreSQL and falling back to host `psql`.
+- `Makefile` — wires `make migrate` to `scripts/migrate.sh` with `MIGRATION_ACTION` support.
+- `.gitignore` — keeps backup SQL artifacts ignored while explicitly allowing tracked SQL migrations under `database/migrations/`.
+- `database/tests/test_initial_migration.py` — integration tests for static migration linting, upgrade, downgrade, re-upgrade, constraints/indexes and active-embedding failure behavior.
+- `database/migrations/README.md` — migration index and execution notes.
+- `docs/development/migrations.md` — developer migration workflow, safety rules and verification notes.
+- `tasks/00_task_index.md`, `tasks/02_database/02-02_create_initial_database_migration.md`, `tasks-update.md` — task status and completion records.
 
 ### Commands and Tests Executed
 
-- Pending
+- `docker compose up -d postgres` — PostgreSQL/pgvector service running.
+- `MIGRATION_ACTION=reset make migrate` — passed; downgraded and re-applied the initial migration on the development database.
+- `make migrate` — passed; confirmed idempotent no-op when `0001_initial_core_domain` is already recorded.
+- `bash -n scripts/migrate.sh` — passed.
+- `uv run pytest database/tests/test_initial_migration.py` — passed, 4 tests.
+- `uv run pytest database/tests/test_core_domain_schema.py database/tests/test_initial_migration.py` — passed, 13 tests.
+- `uv run ruff check database/tests/test_core_domain_schema.py database/tests/test_initial_migration.py` — passed.
+- `uv run ruff format --check database/tests/test_core_domain_schema.py database/tests/test_initial_migration.py` — passed.
+- `uv run mypy database/tests/test_core_domain_schema.py database/tests/test_initial_migration.py` — passed.
+- TASK-02-02 secret marker scan — passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Migration succeeds from an empty database.
+- [x] Downgrade restores the prior state without leaving migration-owned tables/functions/types unmanaged.
+- [x] Indexes exist for foreign keys and documented high-frequency queries.
+- [x] Migration is deterministic and passes migration-lint checks.
 
 ### Security and License Review
 
-- Pending
+- No secrets, credentials, production data or restricted religious content were introduced.
+- Migration SQL creates structure only; it does not seed user data, document content or provider credentials.
+- Provider tables store secret references only, not secret values.
+- License-critical content and embedding boundaries are enforced by constraints/triggers where feasible.
+- Rollback is documented as development/test only; production rollback requires backup/restore policy and approval.
+- No third-party code or new dependencies were added.
 
 ### Known Limitations
 
-- Pending
+- The initial embedding vector dimension is fixed at 1536 for the first migration; future model-specific dimensions may require additional migrations.
+- Some state-machine and RBAC behavior remains service-level domain logic and is deferred to TASK-02-03 and later API/auth tasks.
+- The down migration intentionally leaves PostgreSQL extensions installed because extensions may be shared capabilities in a database.
+- `scripts/migrate.sh` is a lightweight development/test runner, not a production deployment migration framework.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-02-03 — Implement Domain Enums and State Machines.
+- TASK-02-04 — Add Repository and Unit-of-Work Layer.
+- TASK-07-04 — Vector Search with pgvector.
+- EPIC-13 — Production backup/restore and migration hardening.
 
 ### Commit
 
-- Pending
+- Focused TASK-02-02 commit created during finalization with message `feat(database): add initial core domain migration`.

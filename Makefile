@@ -13,7 +13,7 @@ help: ## Print this help message
 	@echo "  health        Check the health of all running services"
 	@echo ""
 	@echo "Database"
-	@echo "  migrate       Run database migrations (placeholder until EPIC-02)"
+	@echo "  migrate       Run database migrations"
 	@echo "  seed-admin    Create an initial admin user"
 	@echo "  seed-demo     Load redistributable demo data"
 	@echo "  backup        Take a development database backup (pg_dump)"
@@ -78,11 +78,9 @@ health: ## Check the health of all running services
 
 # ─── Database ──────────────────────────────────────────────────────────────────
 
-migrate: ## Run database migrations (placeholder until EPIC-02)
+migrate: ## Run database migrations
 	@echo "=== Zayd Database Migration ==="
-	@echo "Migration mechanism will be implemented under EPIC-02 (TASK-02-02)."
-	@echo "Until then, the schema is created by the postgres Docker entrypoint."
-	@docker compose exec -T postgres psql -U zayd_dev -d zayd_dev -c "SELECT current_database(), version();" 2>/dev/null || echo "(postgres is not running — start with 'make dev')"
+	@bash scripts/migrate.sh "$${MIGRATION_ACTION:-up}"
 
 seed-admin: ## Create an initial admin user (requires admin email)
 	@if [ -z "${ADMIN_EMAIL}" ]; then \

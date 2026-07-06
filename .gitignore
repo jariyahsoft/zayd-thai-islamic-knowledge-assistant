@@ -92,5 +92,6 @@ docs/cli.md
 backups/
 *.sql.gz
 *.sql
+!database/migrations/*.sql
 *.dump
 
