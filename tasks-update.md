@@ -1,5 +1,31 @@
 # Tasks Update
 
+## 2026-07-06T09:44:12+00:00
+
+- Task: TASK-02-04 - Add Repository and Unit-of-Work Layer
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented the persistence layer using the Repository and Unit of Work (UoW) patterns with SQLAlchemy 2.0. Created declarative models mapping Postgres core schemas seamlessly. Provided abstract interfaces and concrete SQLAlchemy implementations for User, Source, Document, and Incident aggregates, and SQLAlchemyUnitOfWork managing atomic transaction scopes and fail-closed transactions. Custom BaseUUID and BaseJSONB decorators enable running identical queries under Postgres in dev/production environments and SQLite in test environments.
+- Changed files: `services/common/pyproject.toml`, `uv.lock`, `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/database/repositories.py`, `services/common/src/zayd_common/database/unit_of_work.py`, `services/common/src/zayd_common/database/__init__.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_database.py`, `services/common/tests/test_database_postgres.py`, `infra/compose/development.yml`, `docs/architecture/persistence.md`, `tasks/02_database/02-04_add_repository_and_unit_of_work_layer.md`, `tasks-update.md`
+- Verification: Pinned ports in `development.yml` to expose Postgres; ran `uv sync --all-packages` to sync all packages; verified all tests passed with `uv run pytest` (63 passed); verified typecheck with `uv run mypy .` (passed); verified formatting and lint check with `uv run ruff check .` (passed).
+- Self-review: Clean decoupling of application logic from database persistence. Base interfaces using `abc.ABC` enable easy mocking in service tests. Safe transactional boundaries rollback on exceptions and commit atomically on explicit call. Exposed port 5432 is restricted to local docker environments. No secrets or restricted assets committed.
+- Telegram notification: sent
+- Remaining risks: Integration tests rely on a running PostgreSQL container. skipped via OperationalError when Postgres is unavailable.
+
+## 2026-07-06T09:25:00+00:00
+
+- Task: TASK-02-03 - Implement Domain Enums and State Machines
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented typed domain enums and explicit state-transition guards for Documents, Review Tasks, And Incidents in both Python and TypeScript to preserve data integrity and auditability.
+- Changed files: `services/common/src/zayd_common/enums.py`, `services/common/src/zayd_common/exceptions.py`, `services/common/src/zayd_common/state_machines.py`, `services/common/src/zayd_common/retrievability.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_enums.py`, `services/common/tests/test_state_machines.py`, `services/common/tests/test_retrievability.py`, `services/common/tests/test_state_machines_concurrency.py`, `packages/contracts/src/enums.ts`, `packages/contracts/src/state-machines.ts`, `packages/contracts/src/retrievability.ts`, `packages/contracts/src/enums.test.ts`, `packages/contracts/src/state-machines.test.ts`, `packages/contracts/src/retrievability.test.ts`, `packages/contracts/src/index.ts`, `docs/architecture/state-machines.md`, `tasks/02_database/02-03_implement_domain_enums_and_state_machines.md`, `tasks-update.md`
+- Verification: Verified python tests pass (52 tests passed); verified TS tests pass (11 tests passed); verified `npm run typecheck` passes; verified `uv run mypy` passes; verified `ruff check` passes.
+- Self-review: Server side validation rejects invalid transitions with stable error codes (e.g. DOCUMENT_INVALID_TRANSITION). Transitions to sensitive target states (published, suspended, rejected) require non-empty target reasons. Only published+frozen documents can be retrieved. Optimistic concurrency control is supported.
+- Telegram notification: sent
+- Remaining risks: Enums and state machines are standalone libraries; integration into REST APIs, evaluation tools, and ingestion pipeline is deferred to subsequent milestone tasks.
+
 ## 2026-07-06T09:10:00+00:00
 
 - Task: TASK-02-02 - Create Initial Database Migration
