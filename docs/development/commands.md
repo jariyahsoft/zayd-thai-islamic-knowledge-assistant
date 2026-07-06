@@ -41,7 +41,7 @@ make health
 |---|---|
 | `make migrate` | Run database migrations (placeholder — implemented under EPIC-02) |
 | `make seed-admin ADMIN_EMAIL=<email>` | Create an initial admin user; password is printed once |
-| `make seed-demo` | Load redistributable demo data (implemented under EPIC-02) |
+| `make seed-demo` | Load redistributable demo data and print temporary demo credentials once |
 | `make backup` | Take a pg_dump of the development database into `backups/` |
 | `make restore BACKUP_FILE=<path>` | Restore a development backup (requires interactive confirmation) |
 

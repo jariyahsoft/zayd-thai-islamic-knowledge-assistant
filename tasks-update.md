@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-06T10:22:35+00:00
+
+- Task: TASK-03-01 - Implement User Authentication
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier S
+- Summary: Blocked before implementation because `TASK-03-01` depends on `EPIC-02 complete`, and repository evidence shows `TASK-02-05 - Add Demo Seed Data` remains `TODO`.
+- Changed files: `tasks/03_auth/03-01_implement_user_authentication.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Inspected `TASK-03-01`, the task index, tasks-update history, and EPIC-02 task files `TASK-02-01` through `TASK-02-05`; confirmed `TASK-02-05` is not complete.
+- Self-review: No authentication code was started because the dependency gate is not satisfied; this preserves the task-runner rule that out-of-range unmet prerequisites must block the in-range task.
+- Telegram notification: sent
+- Remaining risks: The task can resume once `TASK-02-05` is complete and EPIC-02 is marked complete in task tracking.
+
 ## 2026-07-06T09:44:12+00:00
 
 - Task: TASK-02-04 - Add Repository and Unit-of-Work Layer
@@ -181,3 +194,15 @@
 - Self-review: The implementation centralized config validation in shared modules, preserved secret redaction, kept browser exposure limited to explicit public variables, and used the example env as the reproducible local baseline without weakening runtime failure behavior for invalid explicit values.
 - Telegram notification: sent
 - Remaining risks: Provider validation still uses built-in allowlists plus future registration hooks because the actual plugin registry is not implemented yet; app build scripts inject the documented example public API base URL when unset to keep workspace builds reproducible; unrelated pre-existing worktree changes remain untouched.
+## 2026-07-06T11:05:00+00:00
+
+- Task: TASK-02-05 - Add Demo Seed Data
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Implemented the real demo seed command path, documented the synthetic dataset workflow, added explicit demo-data guidance, and synchronized the task board so EPIC-02 is now complete and TASK-03-01 is READY.
+- Changed files: `Makefile`, `database/seeds/README.md`, `database/seeds/seed.py`, `docs/development/commands.md`, `docs/development/demo-data.md`, `services/common/src/zayd_common/database/seeding.py`, `services/common/tests/test_seeding.py`, `tasks/02_database/02-05_add_demo_seed_data.md`, `tasks/00_task_index.md`, `tasks/03_auth/03-01_implement_user_authentication.md`, `tasks-update.md`
+- Verification: idempotency and success/failure coverage added for the seed CLI; seed fixture secret scan added; license-manifest validation covered by `test_license_manifest_validation`; seed command wired through `make seed-demo`.
+- Self-review: The seed data remains synthetic, visibly labeled non-authoritative, and uses generated temporary credentials on first run. The updated command avoids placeholder behavior and keeps the workflow consistent with the existing developer tooling.
+- Telegram notification: pending
+- Remaining risks: `make seed-demo` depends on a reachable PostgreSQL database, so the command still needs the development stack or an explicit `DATABASE_URL`.

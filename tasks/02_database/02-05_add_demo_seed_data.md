@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -94,27 +94,49 @@ Create repeatable seed commands for demo users, roles, sources, licenses, docume
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/database/seeding.py`
+- `database/seeds/seed.py`
+- `database/seeds/README.md`
+- `docs/development/commands.md`
+- `docs/development/demo-data.md`
+- `services/common/tests/test_seeding.py`
+- `Makefile`
+- `tasks/02_database/02-05_add_demo_seed_data.md`
+- `tasks/00_task_index.md`
+- `tasks/03_auth/03-01_implement_user_authentication.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_seeding.py`
+- `uv run pytest services/common/tests/test_database_postgres.py`
+- `uv run pytest database/tests/test_initial_migration.py`
+- `uv run ruff check services/common/src/zayd_common/database/seeding.py services/common/tests/test_seeding.py database/seeds/seed.py`
+- `uv run ruff format --check services/common/src/zayd_common/database/seeding.py services/common/tests/test_seeding.py database/seeds/seed.py`
+- Secret scan of seed fixtures under `services/common/src/zayd_common/database/seeding.py`, `database/seeds/seed.py`, `database/seeds/README.md`, and `docs/development/demo-data.md`
+- License-manifest validation via `services/common/tests/test_seeding.py::test_license_manifest_validation`
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Seed command is idempotent.
+- [x] No restricted religious corpus or personal data is included.
+- [x] Demo data is visibly labelled as non-authoritative.
+- [x] Seeded accounts require credential rotation or generated passwords.
 
 ### Security and License Review
 
-- Pending
+- Demo content is synthetic and redistribution-safe.
+- Seed labels make the demo nature explicit.
+- Generated passwords are temporary and printed only on the first run.
+- Secret markers were scanned out of the seed implementation and docs.
 
 ### Known Limitations
 
-- Pending
+- `make seed-demo` expects a reachable PostgreSQL database. Use the development stack or set `DATABASE_URL` for a custom target.
 
 ### Follow-up Tasks
 
-- Pending
+- Mark `TASK-03-01` as `READY` now that EPIC-02 is complete.
 
 ### Commit
 

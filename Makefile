@@ -93,9 +93,8 @@ seed-admin: ## Create an initial admin user (requires admin email)
 
 seed-demo: ## Load redistributable demo data
 	@echo "=== Zayd Demo Data ==="
-	@echo "Demo data loading will be implemented under EPIC-02 (TASK-02-05)."
-	@echo "Only redistributable, non-copyrighted demo data will be used."
-	@docker compose exec -T postgres psql -U zayd_dev -d zayd_dev -c "SELECT 'Demo seed placeholder — TASK-02-05 implements this.' AS status;" 2>/dev/null || echo "(postgres is not running — start with 'make dev')"
+	@echo "Loading synthetic, non-authoritative demo data."
+	@DATABASE_URL="$${DATABASE_URL:-postgresql://zayd_dev:zayd_dev@localhost:5432/zayd_dev}" uv run python database/seeds/seed.py
 
 backup: ## Take a development database backup
 	@bash scripts/backup.sh
