@@ -42,6 +42,7 @@ class Permission(StrEnum):
     MODELS_MANAGE = "models.manage"
     AUDIT_READ = "audit.read"
     AUDIT_EXPORT = "audit.export"
+    AUDIT_VERIFY = "audit.verify"
     FEEDBACK_CREATE = "feedback.create"
     FEEDBACK_READ = "feedback.read"
     FEEDBACK_MANAGE = "feedback.manage"
@@ -147,6 +148,8 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.PROMPTS_MANAGE,
         Permission.MODELS_MANAGE,
         Permission.AUDIT_READ,
+        Permission.AUDIT_EXPORT,
+        Permission.AUDIT_VERIFY,
         Permission.FEEDBACK_READ,
         Permission.FEEDBACK_MANAGE,
     },
@@ -159,6 +162,7 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.LICENSES_READ,
         Permission.AUDIT_READ,
         Permission.AUDIT_EXPORT,
+        Permission.AUDIT_VERIFY,
         Permission.FEEDBACK_READ,
     },
     "maintainer": {
@@ -463,6 +467,7 @@ class RbacService:
                 resource_id=resource_id,
                 outcome=outcome,
                 reason=reason,
+                request_id=trace_id,
                 trace_id=trace_id,
                 before_summary=before_summary,
                 after_summary=after_summary,

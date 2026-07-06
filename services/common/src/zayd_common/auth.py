@@ -639,6 +639,7 @@ class AuthService:
                 resource_id=resource_id,
                 outcome=outcome,
                 reason=reason,
+                request_id=trace_id,
                 trace_id=trace_id,
                 before_summary=before_summary,
                 after_summary=after_summary,

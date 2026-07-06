@@ -69,8 +69,8 @@
 | TASK-03-02 | Implement Guest Sessions | A | DONE | TASK-03-01 | `03_auth/03-02_implement_guest_sessions.md` |
 | TASK-03-03 | Implement RBAC | S | DONE | TASK-03-01 | `03_auth/03-03_implement_rbac.md` |
 | TASK-03-04 | Implement MFA for Privileged Users | A | DONE | TASK-03-03 | `03_auth/03-04_implement_mfa_for_privileged_users.md` |
-| TASK-03-05 | Implement Immutable Audit Log | S | READY | TASK-03-03 | `03_auth/03-05_implement_immutable_audit_log.md` |
-| TASK-04-01 | Source Registry API | A | TODO | EPIC-03 complete | `04_data_governance/04-01_source_registry_api.md` |
+| TASK-03-05 | Implement Immutable Audit Log | S | DONE | TASK-03-03 | `03_auth/03-05_implement_immutable_audit_log.md` |
+| TASK-04-01 | Source Registry API | A | READY | EPIC-03 complete | `04_data_governance/04-01_source_registry_api.md` |
 | TASK-04-02 | License Registry API | S | TODO | TASK-04-01 | `04_data_governance/04-02_license_registry_api.md` |
 | TASK-04-03 | License Policy Engine | S | TODO | TASK-04-02 | `04_data_governance/04-03_license_policy_engine.md` |
 | TASK-04-04 | Source and License Admin UI | A | TODO | TASK-04-03 | `04_data_governance/04-04_source_and_license_admin_ui.md` |

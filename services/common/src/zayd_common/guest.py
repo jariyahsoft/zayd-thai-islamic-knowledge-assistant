@@ -120,7 +120,9 @@ class GuestService:
             return GuestSessionInfo(
                 id=session.execute(
                     select(GuestSession).where(GuestSession.session_token_hash == token_hash)
-                ).scalar_one().id,
+                )
+                .scalar_one()
+                .id,
                 token=token,
                 expires_at=expires_at,
                 message_quota=self.message_quota,
@@ -364,6 +366,7 @@ class GuestService:
                 resource_id=resource_id,
                 outcome=outcome,
                 reason=reason,
+                request_id=trace_id,
                 trace_id=trace_id,
                 before_summary=before_summary,
                 after_summary=after_summary,

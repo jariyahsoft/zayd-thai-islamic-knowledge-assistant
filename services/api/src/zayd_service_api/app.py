@@ -1,11 +1,13 @@
 import base64
 from collections.abc import Callable
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, Request
+from fastapi import Depends, FastAPI, Header, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
 from zayd_common.guest import GuestError, GuestService
@@ -109,6 +111,29 @@ class AuthorizationCheckResponse(BaseModel):
     status: str
 
 
+class AuditLogResponse(BaseModel):
+    id: str
+    actor_user_id: str | None
+    action: str
+    resource_type: str
+    resource_id: str | None
+    outcome: str
+    reason: str | None
+    request_id: str | None
+    trace_id: str | None
+    before_summary: dict[str, object] | None
+    after_summary: dict[str, object] | None
+    source_context: dict[str, object]
+    created_at: str
+    hash_algorithm: str
+    previous_hash: str | None
+    content_hash: str
+
+
+class AuditLogListResponse(BaseModel):
+    records: list[AuditLogResponse]
+
+
 class MfaEnrollmentResponse(BaseModel):
     provisioning_uri: str
     secret: str
@@ -180,6 +205,22 @@ def _enrollment_response(enrollment: MfaEnrollment) -> MfaEnrollmentResponse:
     )
 
 
+def _audit_log_response(record: Any) -> AuditLogResponse:
+    return AuditLogResponse(**serialize_audit_log(record))
+
+
+def _audit_outcome(value: str | None) -> AuditOutcome | None:
+    if value == "success":
+        return "success"
+    if value == "failure":
+        return "failure"
+    if value == "denied":
+        return "denied"
+    if value == "error":
+        return "error"
+    return None
+
+
 def create_app() -> FastAPI:
     settings = ServiceSettings.from_runtime_env(app_name="api")
     app = FastAPI(title=f"Zayd {settings.app_name} service")
@@ -202,6 +243,11 @@ def create_app() -> FastAPI:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
         return MfaService(SQLAlchemyUnitOfWork(session_factory))
+
+    def audit_service() -> AuditService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return AuditService(SQLAlchemyUnitOfWork(session_factory))
 
     def get_current_claims(
         service: Annotated[AuthService, Depends(auth_service)],
@@ -442,6 +488,70 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return AuthorizationCheckResponse(status="ok")
+
+    @app.get("/admin/audit-logs", response_model=AuditLogListResponse)
+    async def list_audit_logs(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.AUDIT_READ))],
+        service: Annotated[AuditService, Depends(audit_service)],
+        actor_user_id: UUID | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        resource_id: UUID | None = None,
+        outcome: str | None = None,
+        request_id: str | None = None,
+        trace_id: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        limit: int = 100,
+    ) -> AuditLogListResponse:
+        query = AuditLogQuery(
+            actor_user_id=actor_user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            outcome=_audit_outcome(outcome),
+            request_id=request_id,
+            trace_id=trace_id,
+            created_from=created_from,
+            created_to=created_to,
+            limit=limit,
+        )
+        return AuditLogListResponse(
+            records=[_audit_log_response(record) for record in service.list_records(query)]
+        )
+
+    @app.get("/admin/audit-logs/export")
+    async def export_audit_logs(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.AUDIT_EXPORT))],
+        service: Annotated[AuditService, Depends(audit_service)],
+        actor_user_id: UUID | None = None,
+        action: str | None = None,
+        resource_type: str | None = None,
+        resource_id: UUID | None = None,
+        outcome: str | None = None,
+        request_id: str | None = None,
+        trace_id: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        limit: int = 1000,
+    ) -> Response:
+        query = AuditLogQuery(
+            actor_user_id=actor_user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            outcome=_audit_outcome(outcome),
+            request_id=request_id,
+            trace_id=trace_id,
+            created_from=created_from,
+            created_to=created_to,
+            limit=limit,
+        )
+        return Response(
+            content=service.export_jsonl(query),
+            media_type="application/x-ndjson",
+            headers={"content-disposition": "attachment; filename=audit-logs.ndjson"},
+        )
 
     def guest_service() -> GuestService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork

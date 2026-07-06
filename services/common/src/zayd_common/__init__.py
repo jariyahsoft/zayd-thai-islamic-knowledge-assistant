@@ -1,5 +1,6 @@
 """Shared Python foundations for Zayd services."""
 
+from .audit import AuditLogQuery, AuditService, serialize_audit_log
 from .auth import (
     AccessTokenClaims,
     AuthError,
@@ -78,6 +79,9 @@ from .state_machines import (
 )
 
 __all__ = [
+    "AuditLogQuery",
+    "AuditService",
+    "serialize_audit_log",
     "HealthStatus",
     "ServiceSettings",
     "get_logger",

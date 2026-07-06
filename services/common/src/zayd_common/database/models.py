@@ -1,3 +1,5 @@
+import hashlib
+import json
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -12,6 +14,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
+    select,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -361,10 +365,14 @@ class AuditLog(Base):
     resource_id: Mapped[UUID | None] = mapped_column(BaseUUID, nullable=True)
     outcome: Mapped[str] = mapped_column(String, nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String, nullable=True)
     trace_id: Mapped[str | None] = mapped_column(String, nullable=True)
     before_summary: Mapped[dict[str, Any] | None] = mapped_column(BaseJSONB, nullable=True)
     after_summary: Mapped[dict[str, Any] | None] = mapped_column(BaseJSONB, nullable=True)
     source_context: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    hash_algorithm: Mapped[str] = mapped_column(String, default="sha256", nullable=False)
+    previous_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    content_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
@@ -374,6 +382,103 @@ class AuditLog(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
+
+
+SENSITIVE_AUDIT_KEYS = {
+    "authorization",
+    "access_token",
+    "refresh_token",
+    "token",
+    "password",
+    "password_hash",
+    "secret",
+    "mfa_secret",
+    "recovery_code",
+    "api_key",
+    "credential",
+}
+AUDIT_REDACTION = "[REDACTED]"
+
+
+def _redact_audit_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): AUDIT_REDACTION
+            if any(marker in str(key).lower() for marker in SENSITIVE_AUDIT_KEYS)
+            else _redact_audit_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_audit_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_audit_value(item) for item in value)
+    return value
+
+
+def _audit_hash_payload(record: AuditLog) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "actor_user_id": record.actor_user_id,
+        "action": record.action,
+        "resource_type": record.resource_type,
+        "resource_id": record.resource_id,
+        "outcome": record.outcome,
+        "reason": record.reason,
+        "request_id": record.request_id,
+        "trace_id": record.trace_id,
+        "before_summary": record.before_summary,
+        "after_summary": record.after_summary,
+        "source_context": record.source_context or {},
+        "created_at": record.created_at,
+        "previous_hash": record.previous_hash,
+    }
+
+
+def _audit_json_default(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    raise TypeError(f"Value of type {type(value).__name__} is not JSON serializable")
+
+
+@event.listens_for(AuditLog, "before_insert")
+def _set_audit_hash(_mapper: Any, connection: Any, target: AuditLog) -> None:
+    now = datetime.now(UTC)
+    if target.id is None:
+        target.id = uuid4()
+    if target.created_at is None:
+        target.created_at = now
+    if target.updated_at is None:
+        target.updated_at = target.created_at
+    target.before_summary = _redact_audit_value(target.before_summary)
+    target.after_summary = _redact_audit_value(target.after_summary)
+    target.source_context = _redact_audit_value(target.source_context or {})
+    if target.hash_algorithm is None:
+        target.hash_algorithm = "sha256"
+    if target.previous_hash is None:
+        target.previous_hash = connection.execute(
+            select(AuditLog.content_hash)
+            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+    canonical = json.dumps(
+        _audit_hash_payload(target),
+        default=_audit_json_default,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    target.content_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@event.listens_for(AuditLog, "before_update")
+def _deny_audit_update(_mapper: Any, _connection: Any, _target: AuditLog) -> None:
+    raise ValueError("audit_logs are append-only and cannot be updated")
+
+
+@event.listens_for(AuditLog, "before_delete")
+def _deny_audit_delete(_mapper: Any, _connection: Any, _target: AuditLog) -> None:
+    raise ValueError("audit_logs are append-only and cannot be deleted")
 
 
 class Source(Base):

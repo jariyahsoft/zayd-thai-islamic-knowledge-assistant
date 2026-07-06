@@ -13,6 +13,7 @@ Forward migrations and documented rollback plans belong here.
 | `0003_guest_sessions` | `0003_guest_sessions.up.sql`, `0003_guest_sessions.down.sql` | Anonymous guest sessions with TTL and message quota for TASK-03-02 |
 | `0004_rbac_seed` | `0004_rbac_seed.up.sql`, `0004_rbac_seed.down.sql` | RBAC system permissions, roles, and permission matrix for TASK-03-03 |
 | `0005_mfa_privileged` | `0005_mfa_privileged.up.sql`, `0005_mfa_privileged.down.sql` | MFA secrets, recovery codes, and challenges for TASK-03-04 |
+| `0006_immutable_audit_logs` | `0006_immutable_audit_logs.up.sql`, `0006_immutable_audit_logs.down.sql` | Append-only hash-chained audit logs with request IDs for TASK-03-05 |
 
 Use `scripts/migrate.sh up`, `scripts/migrate.sh down`, or `MIGRATION_ACTION=<up|down|reset> make migrate` for development/test execution. The `up` action is idempotent when `schema_migrations` already contains a migration version.
 
