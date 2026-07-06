@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-06T11:48:00+00:00
+
+- Task: TASK-03-02 - Implement Guest Sessions
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented anonymous guest sessions with configurable TTL, per-session message quota, and clean conversion to a registered user. Added the `GuestSession` model, `GuestService` with start/validate/consume/revoke/convert, migration `0003_guest_sessions`, FastAPI routes `/auth/guest/start` and `/auth/guest/convert`, comprehensive unit and API tests, and architecture documentation.
+- Changed files: `services/common/src/zayd_common/guest.py`, `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/database/__init__.py`, `services/common/src/zayd_common/settings.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `database/migrations/0003_guest_sessions.up.sql`, `database/migrations/0003_guest_sessions.down.sql`, `services/common/tests/test_guest.py`, `services/api/tests/test_guest_api.py`, `docs/architecture/guest-sessions.md`, `tasks/03_auth/03-02_implement_guest_sessions.md`, `tasks-update.md`
+- Verification: `uv run pytest` passed (89 tests); `uv run mypy` on guest module, models, and API passed; `uv run ruff check .` produced only pre-existing errors; migration applied successfully to dev database via `cat database/migrations/0003_guest_sessions.up.sql | docker compose exec -T postgres psql -U zayd_dev -d zayd_dev`.
+- Self-review: Tokens are 32 random bytes; only SHA-256 hash is persisted; quota and TTL are enforced server-side on every `validate_session` call; conversion to a user is wrapped in a single UoW and preserves only explicit fields; errors are non-enumerating; no secrets or restricted data introduced.
+- Telegram notification: sent
+- Remaining risks: Rate limiting on `start_session` and `convert_to_user`, plus full chat history migration, are deferred to follow-up tasks (TASK-13-04 and TASK-09-02).
+
 ## 2026-07-06T11:35:00+00:00
 
 - Task: TASK-03-01 - Implement User Authentication
