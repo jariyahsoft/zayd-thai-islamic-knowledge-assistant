@@ -1,5 +1,16 @@
 """Shared Python foundations for Zayd services."""
 
+from .auth import (
+    AccessTokenClaims,
+    AuthError,
+    AuthResult,
+    AuthService,
+    AuthTokens,
+    UserPublic,
+    hash_password,
+    hash_token,
+    verify_password,
+)
 from .database import (
     AbstractDocumentRepository,
     AbstractIncidentRepository,
@@ -13,6 +24,7 @@ from .database import (
     SQLAlchemyUnitOfWork,
     SQLAlchemyUserRepository,
     get_sessionmaker,
+    seed_demo_data,
 )
 from .enums import (
     DocumentStatus,
@@ -77,4 +89,14 @@ __all__ = [
     "AbstractUnitOfWork",
     "SQLAlchemyUnitOfWork",
     "get_sessionmaker",
+    "seed_demo_data",
+    "AccessTokenClaims",
+    "AuthError",
+    "AuthResult",
+    "AuthService",
+    "AuthTokens",
+    "UserPublic",
+    "hash_password",
+    "hash_token",
+    "verify_password",
 ]

@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -96,37 +96,63 @@ Implement registration, login, refresh-token rotation, logout, password reset an
 
 ### Files Changed
 
+- `services/common/src/zayd_common/auth.py`
+- `services/common/src/zayd_common/database/models.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/api/src/zayd_service_api/app.py`
+- `database/migrations/0002_auth_token_rotation.up.sql`
+- `database/migrations/0002_auth_token_rotation.down.sql`
+- `scripts/migrate.sh`
+- `database/migrations/README.md`
+- `services/common/tests/test_auth.py`
+- `services/api/tests/test_auth_api.py`
+- `docs/security/authentication.md`
+- `docs/api/authentication.md`
 - `tasks/03_auth/03-01_implement_user_authentication.md`
 - `tasks/00_task_index.md`
 - `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- `sed -n '1,260p' tasks/03_auth/03-01_implement_user_authentication.md`
-- `sed -n '1,220p' tasks/00_task_index.md`
-- `sed -n '1,320p' tasks-update.md`
-- `sed -n '1,80p' tasks/02_database/02-01_design_core_database_schema.md`
-- `sed -n '1,80p' tasks/02_database/02-02_create_initial_database_migration.md`
-- `sed -n '1,80p' tasks/02_database/02-03_implement_domain_enums_and_state_machines.md`
-- `sed -n '1,80p' tasks/02_database/02-04_add_repository_and_unit_of_work_layer.md`
-- `sed -n '1,80p' tasks/02_database/02-05_add_demo_seed_data.md`
+- `uv run pytest services/common/tests/test_auth.py services/api/tests/test_auth_api.py`
+- `uv run pytest services/common/tests/test_auth.py services/api/tests/test_auth_api.py services/common/tests/test_database.py services/common/tests/test_seeding.py`
+- `uv run pytest database/tests/test_initial_migration.py`
+- `MIGRATION_ACTION=up make migrate`
+- `uv run ruff check services/common/src/zayd_common/auth.py services/api/src/zayd_service_api/app.py services/common/src/zayd_common/database/models.py services/common/src/zayd_common/__init__.py services/common/tests/test_auth.py services/api/tests/test_auth_api.py`
+- `uv run ruff format --check services/common/src/zayd_common/auth.py services/api/src/zayd_service_api/app.py services/common/src/zayd_common/database/models.py services/common/src/zayd_common/__init__.py services/common/tests/test_auth.py services/api/tests/test_auth_api.py`
+- `uv run mypy services/common/src/zayd_common/auth.py services/api/src/zayd_service_api/app.py`
+- `bash -n scripts/migrate.sh`
 
 ### Acceptance Criteria Result
 
-- Blocked before implementation. `TASK-03-01` depends on `EPIC-02 complete`, and `TASK-02-05 — Add Demo Seed Data` is still `TODO`.
+- [x] Passwords use an approved adaptive hash.
+- [x] Refresh-token reuse is detected and related sessions are revoked.
+- [x] Login and reset endpoints are rate limited.
+- [x] Users can revoke all active sessions.
+- [x] Authentication events are auditable without logging secrets.
 
 ### Security and License Review
 
-- No implementation changes were made. No secrets, credentials, production data, restricted religious content, or authentication logic were introduced.
+- Passwords use PBKDF2-HMAC-SHA256 with per-password salts and 310,000 iterations.
+- Refresh tokens and reset tokens are opaque random values; only SHA-256 hashes are stored.
+- Access tokens are short-lived signed bearer tokens.
+- Login, reset, refresh, logout and session-revocation events write sanitized audit log records.
+- Tests verify audit records do not contain plaintext passwords.
+- No secrets, production data, restricted religious content, or new third-party code were introduced.
 
 ### Known Limitations
 
-- Authentication implementation cannot begin until all EPIC-02 tasks are complete.
+- Email delivery for password reset is not implemented yet; the development API returns the reset token for local/test workflows.
+- MFA and RBAC authorization policy are deferred to follow-up tasks.
+- The current access-token implementation is intentionally minimal HS256 signing without a JWKS/key-rotation layer.
 
 ### Follow-up Tasks
 
-- Complete `TASK-02-05` and confirm the EPIC-02 completion gate before retrying `TASK-03-01`.
+- TASK-03-02 - Implement Guest Sessions
+- TASK-03-03 - Implement RBAC
+- TASK-03-04 - Implement MFA for Privileged Users
+- TASK-03-05 - Implement Immutable Audit Log
 
 ### Commit
 
-- Not created in this blocked attempt.
+- Pending

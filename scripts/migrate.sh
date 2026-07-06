@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # TASK-02-02 — development/test migration runner.
-# Applies or rolls back the initial PostgreSQL schema migration.
+# Applies or rolls back PostgreSQL schema migrations.
 set -euo pipefail
 
 ACTION="${1:-up}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-UP_FILE="${ROOT_DIR}/database/migrations/0001_initial_core_domain.up.sql"
-DOWN_FILE="${ROOT_DIR}/database/migrations/0001_initial_core_domain.down.sql"
+MIGRATIONS_DIR="${ROOT_DIR}/database/migrations"
 SERVICE="${POSTGRES_SERVICE:-postgres}"
 DB_USER="${PGUSER:-zayd_dev}"
 DB_NAME="${PGDATABASE:-zayd_dev}"
@@ -18,9 +17,9 @@ Usage: scripts/migrate.sh [up|down|reset]
 Development/test migration runner for Zayd.
 
 Actions:
-  up     Apply the initial schema migration.
-  down   Roll back the initial schema migration.
-  reset  Roll back and re-apply the initial schema migration.
+  up     Apply pending schema migrations.
+  down   Roll back all schema migrations.
+  reset  Roll back and re-apply all schema migrations.
 
 The runner prefers the Docker Compose postgres service and falls back to host psql.
 USAGE
@@ -44,7 +43,8 @@ run_psql_scalar() {
   fi
 }
 
-is_initial_migration_applied() {
+is_migration_applied() {
+  local version="$1"
   local table_exists
   table_exists="$(run_psql_scalar "SELECT to_regclass('public.schema_migrations') IS NOT NULL;")"
   if [ "${table_exists}" != "t" ]; then
@@ -52,24 +52,39 @@ is_initial_migration_applied() {
   fi
 
   local version_exists
-  version_exists="$(run_psql_scalar "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = '0001_initial_core_domain');")"
+  version_exists="$(run_psql_scalar "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = '${version}');")"
   [ "${version_exists}" = "t" ]
+}
+
+apply_up_migrations() {
+  local file version
+  for file in "${MIGRATIONS_DIR}"/*.up.sql; do
+    version="$(basename "${file}" .up.sql)"
+    if is_migration_applied "${version}"; then
+      echo "Migration ${version} already applied."
+    else
+      run_psql_file "${file}"
+    fi
+  done
+}
+
+apply_down_migrations() {
+  local file
+  while IFS= read -r file; do
+    run_psql_file "${file}"
+  done < <(find "${MIGRATIONS_DIR}" -maxdepth 1 -name '*.down.sql' | sort -r)
 }
 
 case "${ACTION}" in
   up)
-    if is_initial_migration_applied; then
-      echo "Migration 0001_initial_core_domain already applied."
-    else
-      run_psql_file "${UP_FILE}"
-    fi
+    apply_up_migrations
     ;;
   down)
-    run_psql_file "${DOWN_FILE}"
+    apply_down_migrations
     ;;
   reset)
-    run_psql_file "${DOWN_FILE}"
-    run_psql_file "${UP_FILE}"
+    apply_down_migrations
+    apply_up_migrations
     ;;
   -h|--help|help)
     usage

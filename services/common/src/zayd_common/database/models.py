@@ -119,6 +119,120 @@ class UserRole(Base):
     )
 
 
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="CASCADE"), nullable=False
+    )
+    session_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    ip_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    user_agent_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class AuthRefreshToken(Base):
+    __tablename__ = "auth_refresh_tokens"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    parent_token_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reuse_detected_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "auth_password_reset_tokens"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class AuthRateLimit(Base):
+    __tablename__ = "auth_rate_limits"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    bucket: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    blocked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    actor_user_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    resource_type: Mapped[str] = mapped_column(String, nullable=False)
+    resource_id: Mapped[UUID | None] = mapped_column(BaseUUID, nullable=True)
+    outcome: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trace_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    before_summary: Mapped[dict[str, Any] | None] = mapped_column(BaseJSONB, nullable=True)
+    after_summary: Mapped[dict[str, Any] | None] = mapped_column(BaseJSONB, nullable=True)
+    source_context: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
 class Source(Base):
     __tablename__ = "sources"
 
@@ -290,6 +404,13 @@ class Feedback(Base):
     __tablename__ = "feedback"
 
     id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    answer_id: Mapped[UUID | None] = mapped_column(BaseUUID, nullable=True)
+    citation_id: Mapped[UUID | None] = mapped_column(BaseUUID, nullable=True)
+    category: Mapped[str] = mapped_column(String, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, default="open", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False

@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-06T11:35:00+00:00
+
+- Task: TASK-03-01 - Implement User Authentication
+- Attempt: 2
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented registration, login, refresh-token rotation and reuse detection, logout, password reset, session revocation, rate limiting, and sanitized audit events. Added auth persistence tables, API routes, security/API documentation, and focused unit/API coverage.
+- Changed files: `services/common/src/zayd_common/auth.py`, `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `database/migrations/0002_auth_token_rotation.up.sql`, `database/migrations/0002_auth_token_rotation.down.sql`, `scripts/migrate.sh`, `database/migrations/README.md`, `services/common/tests/test_auth.py`, `services/api/tests/test_auth_api.py`, `docs/security/authentication.md`, `docs/api/authentication.md`, `tasks/03_auth/03-01_implement_user_authentication.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_auth.py services/api/tests/test_auth_api.py` passed; `uv run pytest services/common/tests/test_auth.py services/api/tests/test_auth_api.py services/common/tests/test_database.py services/common/tests/test_seeding.py` passed; `uv run pytest database/tests/test_initial_migration.py` passed; `MIGRATION_ACTION=up make migrate` passed; `uv run ruff check ...` passed; `uv run ruff format --check ...` passed; `uv run mypy services/common/src/zayd_common/auth.py services/api/src/zayd_service_api/app.py` passed; `bash -n scripts/migrate.sh` passed.
+- Self-review: Tokens are generated as opaque random values where stored server-side, persisted only as hashes, and never written to audit output. Refresh reuse revokes the related session. Rate-limit buckets are hashed. The API uses stable non-enumerating errors for login/reset boundaries.
+- Telegram notification: pending
+- Remaining risks: Password-reset delivery, MFA, RBAC middleware, immutable audit hardening, and signing-key rotation are deferred to follow-up tasks.
+
 ## 2026-07-06T10:22:35+00:00
 
 - Task: TASK-03-01 - Implement User Authentication
