@@ -206,6 +206,32 @@ class AuthRateLimit(Base):
     )
 
 
+class GuestSession(Base):
+    __tablename__ = "guest_sessions"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    session_token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    ip_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    user_agent_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    converted_user_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    message_quota: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    messages_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

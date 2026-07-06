@@ -43,6 +43,12 @@ from .exceptions import (
     MissingTransitionMetadataError,
     StateTransitionError,
 )
+from .guest import (
+    GuestError,
+    GuestService,
+    GuestSessionInfo,
+    hash_guest_token,
+)
 from .health import HealthStatus
 from .logging import get_logger
 from .retrievability import can_activate_embedding, is_document_retrievable
@@ -99,4 +105,8 @@ __all__ = [
     "hash_password",
     "hash_token",
     "verify_password",
+    "GuestError",
+    "GuestService",
+    "GuestSessionInfo",
+    "hash_guest_token",
 ]

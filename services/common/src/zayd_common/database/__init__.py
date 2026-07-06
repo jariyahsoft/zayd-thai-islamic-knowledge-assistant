@@ -12,6 +12,7 @@ from zayd_common.database.repositories import (
     SQLAlchemySourceRepository,
     SQLAlchemyUserRepository,
 )
+from zayd_common.database.seeding import seed_demo_data
 from zayd_common.database.unit_of_work import AbstractUnitOfWork, SQLAlchemyUnitOfWork
 
 
@@ -35,4 +36,5 @@ __all__ = [
     "AbstractUnitOfWork",
     "SQLAlchemyUnitOfWork",
     "get_sessionmaker",
+    "seed_demo_data",
 ]

@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from zayd_common.auth import AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
+from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
 from zayd_common.logging import get_logger
 from zayd_common.settings import ServiceSettings
@@ -57,6 +58,20 @@ class AuthResponse(BaseModel):
 class PasswordResetResponse(BaseModel):
     status: str
     reset_token: str | None = None
+
+
+class GuestSessionResponse(BaseModel):
+    guest_token: str
+    expires_at: str
+    message_quota: int
+    messages_used: int
+
+
+class GuestConversionRequest(BaseModel):
+    guest_token: str = Field(min_length=20)
+    email: str = Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=12, max_length=256)
+    display_name: str = Field(min_length=1, max_length=200)
 
 
 def _auth_response(result: AuthResult) -> AuthResponse:
@@ -206,5 +221,60 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return {"revoked_sessions": revoked}
+
+    def guest_service() -> GuestService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return GuestService(
+            SQLAlchemyUnitOfWork(session_factory),
+            auth_service=AuthService(
+                SQLAlchemyUnitOfWork(session_factory),
+                signing_secret=settings.auth_jwt_secret.get_secret_value(),
+            ),
+            ttl_minutes=settings.guest_session_ttl_minutes,
+            message_quota=settings.guest_message_quota,
+            enabled=settings.enable_guest_mode,
+        )
+
+    @app.exception_handler(GuestError)
+    async def guest_error_handler(request: Request, exc: GuestError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.post("/auth/guest/start", response_model=GuestSessionResponse)
+    async def start_guest_session(
+        request: Request,
+        service: Annotated[GuestService, Depends(guest_service)],
+    ) -> GuestSessionResponse:
+        info = service.start_session(
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return GuestSessionResponse(
+            guest_token=info.token,
+            expires_at=info.expires_at.isoformat(),
+            message_quota=info.message_quota,
+            messages_used=info.messages_used,
+        )
+
+    @app.post("/auth/guest/convert", response_model=AuthResponse, status_code=201)
+    async def convert_guest_to_user(
+        payload: GuestConversionRequest,
+        request: Request,
+        service: Annotated[GuestService, Depends(guest_service)],
+    ) -> AuthResponse:
+        result = service.convert_to_user(
+            token=payload.guest_token,
+            email=str(payload.email),
+            password=payload.password,
+            display_name=payload.display_name,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _auth_response(result)
 
     return app

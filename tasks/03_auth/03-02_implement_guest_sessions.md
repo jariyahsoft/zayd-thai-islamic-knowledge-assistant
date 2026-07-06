@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -89,32 +89,80 @@ Create anonymous guest sessions with configurable TTL and usage limits.
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/guest.py` — `GuestService` with TTL, quota, validation, revocation, and conversion
+- `services/common/src/zayd_common/database/models.py` — `GuestSession` ORM model
+- `services/common/src/zayd_common/database/__init__.py` — re-export guest models
+- `services/common/src/zayd_common/settings.py` — `guest_session_ttl_minutes`, `guest_message_quota` settings
+- `services/common/src/zayd_common/__init__.py` — export `GuestService`, `GuestError`, `GuestSessionInfo`, `hash_guest_token`
+- `services/api/src/zayd_service_api/app.py` — `/auth/guest/start` and `/auth/guest/convert` routes with `GuestError` handler
+- `database/migrations/0003_guest_sessions.up.sql` — schema, indexes, and trigger
+- `database/migrations/0003_guest_sessions.down.sql` — rollback plan
+- `services/common/tests/test_guest.py` — 12 unit tests (expiry, privilege boundary, migration)
+- `services/api/tests/test_guest_api.py` — 2 API/route registration tests
+- `docs/architecture/guest-sessions.md` — architecture and security notes
 
 ### Commands and Tests Executed
 
-- Pending
+```bash
+# Apply the new migration to dev database
+cat database/migrations/0003_guest_sessions.up.sql | docker compose exec -T postgres psql -U zayd_dev -d zayd_dev
+
+# Run all tests
+uv run pytest                                            # 89 passed
+uv run pytest services/common/tests/test_guest.py        # 12 passed
+uv run pytest services/api/tests/test_guest_api.py       # 2 passed
+
+# Verify type safety
+uv run mypy services/common/src/zayd_common/guest.py services/common/src/zayd_common/database/models.py services/api/src/zayd_service_api/app.py
+
+# Format and lint
+uv run ruff format .
+uv run ruff check .                                     # 1 pre-existing error in settings.py
+```
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Guest cannot access privileged routes: Bearer token is required for all non-guest endpoints.
+- [x] Guest records expire according to policy: `validate_session` rejects expired sessions; TTL configurable via `GUEST_SESSION_TTL_MINUTES`.
+- [x] Conversion to a user account preserves only explicitly supported data: only email, display_name, and password are passed to `AuthService.register`; chat history stays out of scope.
+- [x] Guest identifiers are non-guessable and securely stored: 32 random bytes from `secrets.token_urlsafe`; only SHA-256 hash persisted.
 
 ### Security and License Review
 
-- Pending
+- Guest tokens, IPs, and User-Agents are hashed before persistence; no cleartext is logged.
+- Quota and TTL are enforced server-side on every `validate_session` call.
+- `convert_to_user` is wrapped in a single UoW; rollback path covers both registration failure and quota edge cases.
+- Errors are non-enumerating (`GUEST_INVALID_SESSION` for both unknown and revoked tokens; `convert_to_user` returns `AUTH_USER_EXISTS` consistently with public registration).
+- No production secrets, restricted religious content, or third-party data was introduced.
 
 ### Known Limitations
 
-- Pending
+- Audit retention is delegated to TASK-13-01.
+- Rate limiting on `/auth/guest/start` is delegated to TASK-13-04.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-13-04: rate-limit `start_session` and `convert_to_user`
+- TASK-09-02: tighten privilege boundary once chat endpoints are added
 
 ### Commit
 
-- Pending
+Ready to commit. Suggested message:
+
+```
+feat(auth): implement anonymous guest sessions
+
+- Add GuestSession model with TTL, message quota, and conversion fields
+- Implement GuestService with start, validate, consume, revoke, convert
+- Add stable GuestError codes and non-enumerating error responses
+- Wire /auth/guest/start and /auth/guest/convert routes with audit
+- Add migration 0003_guest_sessions with safe defaults
+- Add 12 unit tests (expiry, privilege boundary, conversion) and 2 API tests
+- Document data model, surface, and security guarantees
+
+Resolves: TASK-03-02
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
