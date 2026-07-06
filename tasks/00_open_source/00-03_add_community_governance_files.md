@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -125,28 +125,55 @@ This task creates the documentation listed above.
 
 ### Files Changed
 
-- Pending
+- `README.md`
+- `CONTRIBUTING.md`
+- `CODE_OF_CONDUCT.md`
+- `GOVERNANCE.md`
+- `SECURITY.md`
+- `SUPPORT.md`
+- `ROADMAP.md`
+- `CHANGELOG.md`
+- `docs/rfcs/README.md`
+- `tasks/00_open_source/00-03_add_community_governance_files.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `sed -n '1,260p' tasks/00_open_source/00-03_add_community_governance_files.md`
+- `sed -n '1,220p' tasks/00_task_index.md`
+- `git status --short`
+- `sed -n '1,220p' README.md`
+- `sed -n '1,220p' CONTRIBUTING.md`
+- `rg -n "## 39.1 Roles|## 39.2 Decision Process|## 39.3 RFC Structure|## 40|## 41|## 42|RFC" docs/02_requirements/SRS.md`
+- `sed -n '1,220p' docs/README.md`
+- `sed -n '1,220p' docs/05_data/license_policy.md`
+- `test -f README.md -a -f CONTRIBUTING.md -a -f CODE_OF_CONDUCT.md -a -f GOVERNANCE.md -a -f SECURITY.md -a -f SUPPORT.md -a -f ROADMAP.md -a -f CHANGELOG.md -a -d docs/rfcs`
+- `rg -n \"not an automated fatwa authority|security@zayd.example|docs/rfcs|source|license|permission evidence|madhhab|content review|redact\" README.md CONTRIBUTING.md CODE_OF_CONDUCT.md GOVERNANCE.md SECURITY.md SUPPORT.md ROADMAP.md CHANGELOG.md tasks/00_open_source/00-03_add_community_governance_files.md`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed: all eight files exist and are internally linked.
+- Passed: governance roles, decision flow, and RFC path are documented.
+- Passed: security reporting uses a private placeholder and warns against public disclosure.
+- Passed: dataset and religious-content contribution evidence requirements are documented in `CONTRIBUTING.md`.
+- Passed: project limitations state that Zayd is not an automated fatwa authority in `README.md`.
+- Passed: no personal data or credentials were introduced.
 
 ### Security and License Review
 
-- Pending
+- No secrets or restricted datasets were added.
+- Private security reporting and redaction guidance are documented.
+- License and provenance guidance remains separated from community governance.
 
 ### Known Limitations
 
-- Pending
+- `SECURITY.md` uses a placeholder private contact path that must be replaced before real-world deployment.
 
 ### Follow-up Tasks
 
-- Pending
+- Replace placeholder governance contacts with real project-maintainer and security-maintainer channels before public launch.
 
 ### Commit
 
-- Pending
+- Pending focused commit creation

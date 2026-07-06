@@ -74,3 +74,16 @@ security(repo): ignore local secret files
   explicitly allows it.
 - Require human license review before merging third-party code, third-party
   documentation assets, or redistributable sample data.
+- Dataset proposals must include source, owner, license, permission evidence,
+  checksum, and validation report before review.
+- Religious-content changes must include source citation, madhhab metadata, and
+  content review evidence before review.
+
+## Governance and Issue Routing
+
+- Governance and RFC guidance: [GOVERNANCE.md](GOVERNANCE.md)
+- Community expectations: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Private security issues: [SECURITY.md](SECURITY.md)
+- Support boundaries: [SUPPORT.md](SUPPORT.md)
+- Roadmap and release context: [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md)
+- RFC drafts should live under [`docs/rfcs/`](docs/rfcs/)

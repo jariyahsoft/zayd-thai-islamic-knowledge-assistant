@@ -2,7 +2,7 @@
 
 ## Status
 
-`IN_REVIEW`
+`DONE`
 
 ## Model Tier
 
@@ -136,7 +136,7 @@ Provide a dataset rights statement covering:
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
+> Filled after human review and task approval; the task is now marked `DONE`.
 
 ### Files Changed
 
@@ -184,8 +184,6 @@ Provide a dataset rights statement covering:
 
 ### Follow-up Tasks
 
-- Human project-owner review of the selected license structure.
-- Human legal/compliance review before changing task status from `IN_REVIEW` to `DONE`.
 - Future selective reuse must populate `THIRD_PARTY_NOTICES.md`, `CODE_PROVENANCE.md`, and `licenses/` with real component records.
 
 ### Commit
