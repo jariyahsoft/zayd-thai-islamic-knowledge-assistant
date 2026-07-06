@@ -88,3 +88,9 @@ desktop.ini
 
 docs/cli.md
 
+# Backup artifacts
+backups/
+*.sql.gz
+*.sql
+*.dump
+

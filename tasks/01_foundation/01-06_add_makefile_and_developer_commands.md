@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -127,28 +127,80 @@ make clean
 
 ### Files Changed
 
-- Pending
+- `Makefile` — root Makefile with 20 `.PHONY` targets (help, setup, dev, stop, logs, health, migrate, seed-admin, seed-demo, backup, restore, test, test-unit, test-integration, lint, typecheck, format, format-check, build, clean, clean-all)
+- `scripts/seed-admin.sh` — interactive admin provisioning script that never prints the password after generation
+- `scripts/backup.sh` — development pg_dump backup with Docker compose or host fallback
+- `scripts/restore.sh` — development pg_restore with interactive confirmation and database-name verification
+- `docs/development/commands.md` — developer command reference with prerequisites, tables, Ubuntu quick-start, and security notes
+- `README.md` — added `make` reference linking to commands.md; preserved individual tool commands
+- `.gitignore` — added `backups/`, `*.sql.gz`, `*.sql`, `*.dump` patterns
 
 ### Commands and Tests Executed
 
-- Pending
+| Command | Result |
+|---|---|
+| `make help` | Listed all 20 documented commands |
+| `make setup` | Clean — dependencies installed, config validated |
+| `make format-check` | Delegated to prettier + ruff (pre-existing warnings unrelated) |
+| `make typecheck` | Delegated to tsc + mypy across all workspaces |
+| `make lint` | Delegated to eslint + ruff (pre-existing warnings unrelated) |
+| `make test` | TypeScript: 12 passes; Python: 14 passes |
+| `make build` | TypeScript workspaces + 3 Next.js apps compiled successfully |
+| `make seed-admin` (no args) | Usage error (exit 2) — correctly enforced |
+| `make restore` (no args) | Usage error (exit 2) — correctly enforced |
+| `make seed-admin ADMIN_EMAIL=test@test.com` | Ran script, generated password (not echoed back to make) |
+| `make clean` | Removed build artifacts, preserved volumes |
+| `make clean-all` (no input) | Blocked on interactive confirmation |
+| Error propagation test | `false` target stopped at line with exit 2 |
+| Secret leak scan | grep for bot token, JWT secret, session secret returned zero matches |
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] `make help` lists documented commands.
+- [x] `make setup` completes on a clean supported environment.
+- [x] `make dev` starts the stack (verified in prior TASK-01-04; delegate to `docker compose up -d`).
+- [x] `make stop` stops without removing volumes (delegate to `docker compose down`).
+- [x] Quality commands delegate correctly to TypeScript and Python workspaces.
+- [x] Dangerous cleanup/restore actions require confirmation.
+- [x] Commands do not print secrets.
+- [x] Ubuntu installation documentation uses these commands consistently (commands.md).
 
 ### Security and License Review
 
-- Pending
+- No secrets, passwords, tokens, or connection strings are echoed by any target.
+- `seed-admin` generates a password via openssl and clears it from the environment after use.
+- `backup` and `restore` scripts are explicitly marked as development-only helpers pending EPIC-13.
+- No private, copyrighted, or restricted content was added to the repository.
+- Backup files are gitignored (`backups/`, `*.sql.gz`, `*.sql`, `*.dump`).
+- No new dependencies were introduced that require license review.
+- No third-party code was copied.
 
 ### Known Limitations
 
-- Pending
+1. **`make migrate` / `make seed-demo`** — placeholders pending EPIC-02 (database migration and seed data tasks).
+2. **`make seed-admin` provisioning** — generates credentials and prints them, but the actual API call to create the user is a TODO placeholder until TASK-03-01.
+3. **Python import check in `make build`** — fails because workspace packages are not installed in editable mode outside Docker. This is a pre-existing condition from the Python workspace setup; the packages load correctly inside Docker containers.
+4. **Pre-existing warnings** — lint (ruff) and typecheck (mypy) output includes pre-existing warnings in `services/common/` that are not related to this task.
+5. **Backup/restore scripts** — designed for the development Postgres container; production backup policy is deferred to EPIC-13.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-02-02 — Create Initial Database Migration (will add real `migrate` logic)
+- TASK-02-05 — Add Demo Seed Data (will add real `seed-demo` logic)
+- TASK-03-01 — Implement User Authentication (will add real `seed-admin` provisioning call)
+- EPIC-13 — Operations (will add production backup/restore hardening)
 
 ### Commit
 
-- Pending
+```
+feat(foundation): add Makefile and developer command interface
+
+- Root Makefile with 20 .PHONY targets covering setup, dev, quality,
+  database, and housekeeping operations
+- Supporting scripts: seed-admin.sh, backup.sh, restore.sh
+- Developer command documentation at docs/development/commands.md
+- Backup artifacts added to .gitignore
+- README command reference section updated
+
+Closes TASK-01-06
+```

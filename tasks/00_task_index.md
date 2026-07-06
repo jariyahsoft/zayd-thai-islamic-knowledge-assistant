@@ -53,14 +53,14 @@
 | TASK-00-01 | Initialize Git Repository | B | DONE | None | `00_open_source/00-01_initialize_git_repository.md` |
 | TASK-00-02 | Add Open-source License Files | A | DONE | TASK-00-01 | `00_open_source/00-02_add_open_source_license_files.md` |
 | TASK-00-03 | Add Community Governance Files | B | DONE | TASK-00-02 | `00_open_source/00-03_add_community_governance_files.md` |
-| TASK-00-04 | Configure GitHub Templates | C | TODO | TASK-00-03 | `00_open_source/00-04_configure_github_templates.md` |
-| TASK-01-01 | Create Monorepo Structure | S | TODO | TASK-00-01 through TASK-00-04 must be `DONE`. | `01_foundation/01-01_create_monorepo_structure.md` |
-| TASK-01-02 | Configure TypeScript Workspaces | A | TODO | TASK-01-01 | `01_foundation/01-02_configure_typescript_workspaces.md` |
-| TASK-01-03 | Initialize Python Services | A | TODO | TASK-01-01 | `01_foundation/01-03_initialize_python_services.md` |
-| TASK-01-04 | Create Development Docker Compose | A | TODO | TASK-01-02, TASK-01-03 | `01_foundation/01-04_create_development_docker_compose.md` |
-| TASK-01-05 | Environment Configuration Validation | A | TODO | TASK-01-04 | `01_foundation/01-05_environment_configuration_validation.md` |
-| TASK-01-06 | Add Makefile and Developer Commands | B | TODO | TASK-01-05 | `01_foundation/01-06_add_makefile_and_developer_commands.md` |
-| TASK-02-01 | Design Core Database Schema | S | TODO | EPIC-01 complete | `02_database/02-01_design_core_database_schema.md` |
+| TASK-00-04 | Configure GitHub Templates | C | DONE | TASK-00-03 | `00_open_source/00-04_configure_github_templates.md` |
+| TASK-01-01 | Create Monorepo Structure | S | DONE | TASK-00-01 through TASK-00-04 must be `DONE`. | `01_foundation/01-01_create_monorepo_structure.md` |
+| TASK-01-02 | Configure TypeScript Workspaces | A | DONE | TASK-01-01 | `01_foundation/01-02_configure_typescript_workspaces.md` |
+| TASK-01-03 | Initialize Python Services | A | DONE | TASK-01-01 | `01_foundation/01-03_initialize_python_services.md` |
+| TASK-01-04 | Create Development Docker Compose | A | DONE | TASK-01-02, TASK-01-03 | `01_foundation/01-04_create_development_docker_compose.md` |
+| TASK-01-05 | Environment Configuration Validation | A | DONE | TASK-01-04 | `01_foundation/01-05_environment_configuration_validation.md` |
+| TASK-01-06 | Add Makefile and Developer Commands | B | DONE | TASK-01-05 | `01_foundation/01-06_add_makefile_and_developer_commands.md` |
+| TASK-02-01 | Design Core Database Schema | S | READY | EPIC-01 complete | `02_database/02-01_design_core_database_schema.md` |
 | TASK-02-02 | Create Initial Database Migration | S | TODO | TASK-02-01 | `02_database/02-02_create_initial_database_migration.md` |
 | TASK-02-03 | Implement Domain Enums and State Machines | A | TODO | TASK-02-02 | `02_database/02-03_implement_domain_enums_and_state_machines.md` |
 | TASK-02-04 | Add Repository and Unit-of-Work Layer | A | TODO | TASK-02-03 | `02_database/02-04_add_repository_and_unit_of_work_layer.md` |
