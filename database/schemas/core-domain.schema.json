@@ -1,0 +1,1061 @@
+{
+  "schema_name": "core_domain",
+  "version": "0.1.0-design",
+  "status": "design",
+  "task": "TASK-02-01",
+  "database": "PostgreSQL 16 with optional pgvector",
+  "principles": [
+    "PostgreSQL-compatible types with explicit primary keys, foreign keys, uniqueness rules, and indexes.",
+    "Content, license metadata, normalized chunks, citations, retrieval traces, and embeddings are separate entities.",
+    "Production retrieval is allowed only for published document versions, published chunks, valid licenses, and active citations.",
+    "Sensitive mutations are attributable through actor, request, trace, status, and audit metadata.",
+    "Soft delete is used for user/application records; immutable evidence and audit records are append-only."
+  ],
+  "global_conventions": {
+    "id_type": "uuid",
+    "time_type": "timestamptz",
+    "json_type": "jsonb",
+    "text_search_type": "tsvector",
+    "vector_type": "vector(n)",
+    "timestamps": ["created_at", "updated_at"],
+    "soft_delete_field": "deleted_at",
+    "optimistic_lock_field": "row_version",
+    "request_trace_fields": ["request_id", "trace_id"],
+    "audit_actor_fields": ["created_by", "updated_by"],
+    "identifier_policy": "Externally visible identifiers are UUIDs; natural identifiers are constrained as unique columns only when stable."
+  },
+  "enums": {
+    "source_type": ["book", "fatwa_site", "quran", "hadith_collection", "article", "lecture", "external_provider", "other"],
+    "language_code": ["th", "ar", "en", "mixed"],
+    "madhhab": ["hanafi", "maliki", "shafii", "hanbali", "multi", "not_applicable", "unknown"],
+    "license_status": ["unknown", "review_required", "ephemeral_cache_only", "persistent_private", "persistent_redistributable", "prohibited", "expired"],
+    "permission_state": ["unknown", "allowed", "prohibited", "conditional"],
+    "document_status": ["draft", "uploaded", "parsing", "ai_extracted", "in_review", "changes_requested", "rejected", "scholar_review", "scholar_approved", "published", "suspended", "archived", "new_version"],
+    "review_decision": ["approve", "request_changes", "reject", "escalate", "mark_duplicate", "mark_license_issue"],
+    "approval_level": ["level_0_system", "level_1_reviewer", "level_2_scholar", "level_3_board"],
+    "citation_type": ["quran", "hadith", "book", "fatwa", "article", "web", "other"],
+    "risk_level": ["low", "medium", "high", "restricted"],
+    "feedback_status": ["open", "triaged", "linked_to_incident", "resolved", "dismissed"],
+    "incident_severity": ["p0", "p1", "p2", "p3"],
+    "incident_status": ["open", "triaged", "mitigated", "resolved", "closed"],
+    "provider_type": ["llm", "embedding", "reranker", "knowledge", "storage", "auth"],
+    "provider_status": ["enabled", "disabled", "degraded"],
+    "evaluation_status": ["draft", "ready", "running", "passed", "failed", "archived"]
+  },
+  "entities": {
+    "User": {
+      "table": "auth_users",
+      "domain": "identity",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "email", "type": "citext", "nullable": false, "sensitive": true},
+        {"name": "display_name", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "password_hash", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "mfa_enabled", "type": "boolean", "nullable": false, "default": false},
+        {"name": "preferred_language", "type": "language_code", "nullable": false, "default": "th"},
+        {"name": "preferred_madhhab", "type": "madhhab", "nullable": false, "default": "shafii"},
+        {"name": "status", "type": "text", "nullable": false, "default": "active"},
+        {"name": "last_login_at", "type": "timestamptz", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true},
+        {"name": "row_version", "type": "integer", "nullable": false, "default": 1}
+      ],
+      "unique_constraints": [{"name": "uq_auth_users_email_active", "columns": ["lower(email)"], "where": "deleted_at IS NULL"}],
+      "indexes": [{"name": "idx_auth_users_status", "columns": ["status"]}],
+      "foreign_keys": [],
+      "soft_delete": true,
+      "versioning": "row_version",
+      "retention": "User identity is retained while required for audit; anonymize display fields on deletion where policy permits."
+    },
+    "Role": {
+      "table": "auth_roles",
+      "domain": "identity",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "name", "type": "text", "nullable": false},
+        {"name": "description", "type": "text", "nullable": true},
+        {"name": "is_system", "type": "boolean", "nullable": false, "default": false},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true},
+        {"name": "row_version", "type": "integer", "nullable": false, "default": 1}
+      ],
+      "unique_constraints": [{"name": "uq_auth_roles_name_active", "columns": ["name"], "where": "deleted_at IS NULL"}],
+      "indexes": [{"name": "idx_auth_roles_system", "columns": ["is_system"]}],
+      "foreign_keys": [],
+      "soft_delete": true,
+      "versioning": "row_version"
+    },
+    "Permission": {
+      "table": "auth_permissions",
+      "domain": "identity",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "resource", "type": "text", "nullable": false},
+        {"name": "action", "type": "text", "nullable": false},
+        {"name": "description", "type": "text", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_auth_permissions_resource_action", "columns": ["resource", "action"]}],
+      "indexes": [{"name": "idx_auth_permissions_resource", "columns": ["resource"]}],
+      "foreign_keys": [],
+      "soft_delete": false,
+      "versioning": "append_or_migration_only"
+    },
+    "Session": {
+      "table": "auth_sessions",
+      "domain": "identity",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "user_id", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "session_hash", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "ip_hash", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "user_agent_hash", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "expires_at", "type": "timestamptz", "nullable": false},
+        {"name": "revoked_at", "type": "timestamptz", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_auth_sessions_session_hash", "columns": ["session_hash"]}],
+      "indexes": [{"name": "idx_auth_sessions_user_active", "columns": ["user_id", "expires_at"], "where": "revoked_at IS NULL"}],
+      "foreign_keys": [{"columns": ["user_id"], "references": "User.id", "on_delete": "cascade"}],
+      "soft_delete": false,
+      "versioning": "revocation_timestamp"
+    },
+    "Source": {
+      "table": "sources",
+      "domain": "source_governance",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "name", "type": "text", "nullable": false},
+        {"name": "source_type", "type": "source_type", "nullable": false},
+        {"name": "owner", "type": "text", "nullable": true},
+        {"name": "website", "type": "text", "nullable": true},
+        {"name": "language", "type": "language_code", "nullable": false},
+        {"name": "country", "type": "char(2)", "nullable": true},
+        {"name": "reliability_level", "type": "integer", "nullable": false},
+        {"name": "is_active", "type": "boolean", "nullable": false, "default": true},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "updated_by", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true},
+        {"name": "row_version", "type": "integer", "nullable": false, "default": 1}
+      ],
+      "unique_constraints": [{"name": "uq_sources_name_owner_active", "columns": ["name", "owner"], "where": "deleted_at IS NULL"}],
+      "indexes": [
+        {"name": "idx_sources_language_type_active", "columns": ["language", "source_type", "is_active"]},
+        {"name": "idx_sources_reliability", "columns": ["reliability_level"]}
+      ],
+      "foreign_keys": [
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"},
+        {"columns": ["updated_by"], "references": "User.id", "on_delete": "set_null"}
+      ],
+      "soft_delete": true,
+      "versioning": "row_version"
+    },
+    "SourceLicense": {
+      "table": "source_licenses",
+      "domain": "source_governance",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "source_id", "type": "uuid", "nullable": false, "references": "Source.id"},
+        {"name": "license_name", "type": "text", "nullable": false},
+        {"name": "license_version", "type": "text", "nullable": true},
+        {"name": "status", "type": "license_status", "nullable": false, "default": "unknown"},
+        {"name": "storage_permission", "type": "permission_state", "nullable": false, "default": "unknown"},
+        {"name": "embedding_permission", "type": "permission_state", "nullable": false, "default": "unknown"},
+        {"name": "commercial_use", "type": "permission_state", "nullable": false, "default": "unknown"},
+        {"name": "redistribution", "type": "permission_state", "nullable": false, "default": "unknown"},
+        {"name": "attribution_required", "type": "boolean", "nullable": false, "default": true},
+        {"name": "attribution_template", "type": "text", "nullable": true},
+        {"name": "permission_document_key", "type": "text", "nullable": true},
+        {"name": "valid_from", "type": "date", "nullable": true},
+        {"name": "valid_until", "type": "date", "nullable": true},
+        {"name": "notes", "type": "text", "nullable": true},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "updated_by", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "row_version", "type": "integer", "nullable": false, "default": 1}
+      ],
+      "unique_constraints": [{"name": "uq_source_licenses_source_name_valid_from", "columns": ["source_id", "license_name", "valid_from"]}],
+      "indexes": [
+        {"name": "idx_source_licenses_status", "columns": ["status"]},
+        {"name": "idx_source_licenses_expiry", "columns": ["valid_until"], "where": "valid_until IS NOT NULL"}
+      ],
+      "foreign_keys": [
+        {"columns": ["source_id"], "references": "Source.id", "on_delete": "restrict"},
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"},
+        {"columns": ["updated_by"], "references": "User.id", "on_delete": "set_null"}
+      ],
+      "check_constraints": [
+        {"name": "ck_source_licenses_valid_range", "expression": "valid_until IS NULL OR valid_from IS NULL OR valid_until >= valid_from"},
+        {"name": "ck_source_licenses_fail_closed", "expression": "status NOT IN ('persistent_private','persistent_redistributable') OR storage_permission IN ('allowed','conditional')"}
+      ],
+      "soft_delete": false,
+      "versioning": "row_version"
+    },
+    "Document": {
+      "table": "documents",
+      "domain": "content",
+      "owner": "services/ingestion",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "source_id", "type": "uuid", "nullable": false, "references": "Source.id"},
+        {"name": "source_license_id", "type": "uuid", "nullable": false, "references": "SourceLicense.id"},
+        {"name": "canonical_id", "type": "text", "nullable": false},
+        {"name": "document_type", "type": "text", "nullable": false},
+        {"name": "title", "type": "text", "nullable": false},
+        {"name": "author", "type": "text", "nullable": true},
+        {"name": "translator", "type": "text", "nullable": true},
+        {"name": "publisher", "type": "text", "nullable": true},
+        {"name": "edition", "type": "text", "nullable": true},
+        {"name": "language", "type": "language_code", "nullable": false},
+        {"name": "madhhab", "type": "madhhab", "nullable": false, "default": "unknown"},
+        {"name": "review_status", "type": "document_status", "nullable": false, "default": "draft"},
+        {"name": "published_version_id", "type": "uuid", "nullable": true, "references": "DocumentVersion.id"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "updated_by", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true},
+        {"name": "row_version", "type": "integer", "nullable": false, "default": 1}
+      ],
+      "unique_constraints": [{"name": "uq_documents_source_canonical_active", "columns": ["source_id", "canonical_id"], "where": "deleted_at IS NULL"}],
+      "indexes": [
+        {"name": "idx_documents_review_status", "columns": ["review_status"]},
+        {"name": "idx_documents_source_license", "columns": ["source_id", "source_license_id"]},
+        {"name": "idx_documents_language_madhhab", "columns": ["language", "madhhab"]},
+        {"name": "idx_documents_title_fts", "columns": ["to_tsvector('simple', title)"], "method": "gin"}
+      ],
+      "foreign_keys": [
+        {"columns": ["source_id"], "references": "Source.id", "on_delete": "restrict"},
+        {"columns": ["source_license_id"], "references": "SourceLicense.id", "on_delete": "restrict"},
+        {"columns": ["published_version_id"], "references": "DocumentVersion.id", "on_delete": "restrict", "deferrable": true},
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"},
+        {"columns": ["updated_by"], "references": "User.id", "on_delete": "set_null"}
+      ],
+      "check_constraints": [{"name": "ck_documents_published_has_version", "expression": "review_status <> 'published' OR published_version_id IS NOT NULL"}],
+      "soft_delete": true,
+      "versioning": "DocumentVersion rows are immutable; Document row points to active published version."
+    },
+    "DocumentVersion": {
+      "table": "document_versions",
+      "domain": "content",
+      "owner": "services/ingestion",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "document_id", "type": "uuid", "nullable": false, "references": "Document.id"},
+        {"name": "version_number", "type": "integer", "nullable": false},
+        {"name": "status", "type": "document_status", "nullable": false, "default": "uploaded"},
+        {"name": "content_hash", "type": "text", "nullable": false},
+        {"name": "original_file_key", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "extracted_text", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "metadata_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "frozen_at", "type": "timestamptz", "nullable": true}
+      ],
+      "unique_constraints": [
+        {"name": "uq_document_versions_document_version", "columns": ["document_id", "version_number"]},
+        {"name": "uq_document_versions_document_hash", "columns": ["document_id", "content_hash"]}
+      ],
+      "indexes": [
+        {"name": "idx_document_versions_document_status", "columns": ["document_id", "status"]},
+        {"name": "idx_document_versions_content_hash", "columns": ["content_hash"]}
+      ],
+      "foreign_keys": [
+        {"columns": ["document_id"], "references": "Document.id", "on_delete": "restrict"},
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "check_constraints": [
+        {"name": "ck_document_versions_positive_version", "expression": "version_number > 0"},
+        {"name": "ck_document_versions_published_frozen", "expression": "status <> 'published' OR frozen_at IS NOT NULL"}
+      ],
+      "soft_delete": false,
+      "versioning": "immutable_version_number"
+    },
+    "DocumentPage": {
+      "table": "document_pages",
+      "domain": "content",
+      "owner": "services/ingestion",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "document_version_id", "type": "uuid", "nullable": false, "references": "DocumentVersion.id"},
+        {"name": "page_number", "type": "integer", "nullable": false},
+        {"name": "source_locator", "type": "text", "nullable": true},
+        {"name": "text_hash", "type": "text", "nullable": false},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_document_pages_version_page", "columns": ["document_version_id", "page_number"]}],
+      "indexes": [{"name": "idx_document_pages_version", "columns": ["document_version_id"]}],
+      "foreign_keys": [{"columns": ["document_version_id"], "references": "DocumentVersion.id", "on_delete": "cascade"}],
+      "check_constraints": [{"name": "ck_document_pages_positive_page", "expression": "page_number > 0"}],
+      "soft_delete": false,
+      "versioning": "derived_from_document_version"
+    },
+    "DocumentChunk": {
+      "table": "document_chunks",
+      "domain": "retrieval",
+      "owner": "services/retrieval",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "document_version_id", "type": "uuid", "nullable": false, "references": "DocumentVersion.id"},
+        {"name": "chunk_index", "type": "integer", "nullable": false},
+        {"name": "content", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "content_normalized", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "content_tsvector", "type": "tsvector", "nullable": true},
+        {"name": "token_count", "type": "integer", "nullable": false},
+        {"name": "page_start", "type": "integer", "nullable": true},
+        {"name": "page_end", "type": "integer", "nullable": true},
+        {"name": "section", "type": "text", "nullable": true},
+        {"name": "reference", "type": "text", "nullable": true},
+        {"name": "metadata_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "is_published", "type": "boolean", "nullable": false, "default": false},
+        {"name": "chunking_strategy_version", "type": "text", "nullable": false},
+        {"name": "content_hash", "type": "text", "nullable": false},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [
+        {"name": "uq_document_chunks_version_index", "columns": ["document_version_id", "chunk_index"]},
+        {"name": "uq_document_chunks_version_hash", "columns": ["document_version_id", "content_hash"]}
+      ],
+      "indexes": [
+        {"name": "idx_document_chunks_published_version", "columns": ["document_version_id", "is_published"]},
+        {"name": "idx_document_chunks_reference", "columns": ["reference"], "where": "reference IS NOT NULL"},
+        {"name": "idx_document_chunks_fts", "columns": ["content_tsvector"], "method": "gin", "where": "is_published = true"}
+      ],
+      "foreign_keys": [{"columns": ["document_version_id"], "references": "DocumentVersion.id", "on_delete": "cascade"}],
+      "check_constraints": [
+        {"name": "ck_document_chunks_positive_index", "expression": "chunk_index >= 0"},
+        {"name": "ck_document_chunks_positive_tokens", "expression": "token_count > 0"},
+        {"name": "ck_document_chunks_page_range", "expression": "page_start IS NULL OR page_end IS NULL OR page_end >= page_start"}
+      ],
+      "soft_delete": false,
+      "versioning": "derived_from_document_version"
+    },
+    "EmbeddingRecord": {
+      "table": "embedding_records",
+      "domain": "retrieval",
+      "owner": "services/retrieval",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "document_version_id", "type": "uuid", "nullable": false, "references": "DocumentVersion.id"},
+        {"name": "chunk_id", "type": "uuid", "nullable": false, "references": "DocumentChunk.id"},
+        {"name": "model_configuration_id", "type": "uuid", "nullable": false, "references": "ModelConfiguration.id"},
+        {"name": "provider_id", "type": "uuid", "nullable": false, "references": "Provider.id"},
+        {"name": "embedding", "type": "vector(n)", "nullable": false},
+        {"name": "embedding_hash", "type": "text", "nullable": false},
+        {"name": "dimension", "type": "integer", "nullable": false},
+        {"name": "status", "type": "text", "nullable": false, "default": "staged"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_embedding_records_chunk_model", "columns": ["chunk_id", "model_configuration_id"]}],
+      "indexes": [
+        {"name": "idx_embedding_records_chunk", "columns": ["chunk_id"]},
+        {"name": "idx_embedding_records_vector", "columns": ["embedding"], "method": "hnsw", "where": "status = 'active'"},
+        {"name": "idx_embedding_records_model_active", "columns": ["model_configuration_id", "status"]}
+      ],
+      "foreign_keys": [
+        {"columns": ["document_version_id"], "references": "DocumentVersion.id", "on_delete": "cascade"},
+        {"columns": ["chunk_id"], "references": "DocumentChunk.id", "on_delete": "cascade"},
+        {"columns": ["model_configuration_id"], "references": "ModelConfiguration.id", "on_delete": "restrict"},
+        {"columns": ["provider_id"], "references": "Provider.id", "on_delete": "restrict"}
+      ],
+      "check_constraints": [
+        {"name": "ck_embedding_records_positive_dimension", "expression": "dimension > 0"},
+        {"name": "ck_embedding_records_status", "expression": "status IN ('staged','active','invalidated')"}
+      ],
+      "invariants": [
+        "published_document_version_required: document_version_id must reference a DocumentVersion whose status is 'published' before status becomes 'active'.",
+        "published_chunk_required: chunk_id must reference a DocumentChunk with is_published = true before status becomes 'active'.",
+        "license_embedding_permission_required: active embeddings require SourceLicense.embedding_permission IN ('allowed','conditional') and non-expired license status.",
+        "chunk_version_match_required: chunk.document_version_id must equal embedding_records.document_version_id."
+      ],
+      "soft_delete": false,
+      "versioning": "invalidate_and_recreate"
+    },
+    "ReviewTask": {
+      "table": "review_tasks",
+      "domain": "review",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "document_version_id", "type": "uuid", "nullable": false, "references": "DocumentVersion.id"},
+        {"name": "assigned_to", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "review_level", "type": "approval_level", "nullable": false},
+        {"name": "status", "type": "text", "nullable": false, "default": "open"},
+        {"name": "due_at", "type": "timestamptz", "nullable": true},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_review_tasks_open_level", "columns": ["document_version_id", "review_level"], "where": "status IN ('open','in_progress')"}],
+      "indexes": [{"name": "idx_review_tasks_queue", "columns": ["status", "review_level", "due_at"]}],
+      "foreign_keys": [
+        {"columns": ["document_version_id"], "references": "DocumentVersion.id", "on_delete": "cascade"},
+        {"columns": ["assigned_to"], "references": "User.id", "on_delete": "set_null"},
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": false,
+      "versioning": "status_transitions_audited"
+    },
+    "Review": {
+      "table": "reviews",
+      "domain": "review",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "review_task_id", "type": "uuid", "nullable": false, "references": "ReviewTask.id"},
+        {"name": "reviewer_id", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "decision", "type": "review_decision", "nullable": false},
+        {"name": "comments", "type": "text", "nullable": false},
+        {"name": "fields_changed", "type": "jsonb", "nullable": false, "default": "[]"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [],
+      "indexes": [{"name": "idx_reviews_task_created", "columns": ["review_task_id", "created_at"]}],
+      "foreign_keys": [
+        {"columns": ["review_task_id"], "references": "ReviewTask.id", "on_delete": "cascade"},
+        {"columns": ["reviewer_id"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": false,
+      "versioning": "append_only"
+    },
+    "Approval": {
+      "table": "approvals",
+      "domain": "review",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "document_version_id", "type": "uuid", "nullable": false, "references": "DocumentVersion.id"},
+        {"name": "review_id", "type": "uuid", "nullable": false, "references": "Review.id"},
+        {"name": "approval_level", "type": "approval_level", "nullable": false},
+        {"name": "approver_id", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "valid_until", "type": "timestamptz", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_approvals_version_level", "columns": ["document_version_id", "approval_level"]}],
+      "indexes": [{"name": "idx_approvals_valid_until", "columns": ["valid_until"], "where": "valid_until IS NOT NULL"}],
+      "foreign_keys": [
+        {"columns": ["document_version_id"], "references": "DocumentVersion.id", "on_delete": "cascade"},
+        {"columns": ["review_id"], "references": "Review.id", "on_delete": "restrict"},
+        {"columns": ["approver_id"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": false,
+      "versioning": "append_only"
+    },
+    "ReviewComment": {
+      "table": "review_comments",
+      "domain": "review",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "review_task_id", "type": "uuid", "nullable": false, "references": "ReviewTask.id"},
+        {"name": "author_id", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "body", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "anchor_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true}
+      ],
+      "unique_constraints": [],
+      "indexes": [{"name": "idx_review_comments_task_created", "columns": ["review_task_id", "created_at"]}],
+      "foreign_keys": [
+        {"columns": ["review_task_id"], "references": "ReviewTask.id", "on_delete": "cascade"},
+        {"columns": ["author_id"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": true,
+      "versioning": "row_update_audited"
+    },
+    "Conversation": {
+      "table": "conversations",
+      "domain": "chat",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "user_id", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "guest_session_id", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "title", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "language", "type": "language_code", "nullable": false, "default": "th"},
+        {"name": "madhhab", "type": "madhhab", "nullable": false, "default": "shafii"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true}
+      ],
+      "unique_constraints": [],
+      "indexes": [{"name": "idx_conversations_user_updated", "columns": ["user_id", "updated_at"], "where": "deleted_at IS NULL"}],
+      "foreign_keys": [{"columns": ["user_id"], "references": "User.id", "on_delete": "set_null"}],
+      "soft_delete": true,
+      "versioning": "row_update_audited"
+    },
+    "Message": {
+      "table": "messages",
+      "domain": "chat",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "conversation_id", "type": "uuid", "nullable": false, "references": "Conversation.id"},
+        {"name": "sender_type", "type": "text", "nullable": false},
+        {"name": "body", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "body_hash", "type": "text", "nullable": false},
+        {"name": "metadata_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true}
+      ],
+      "unique_constraints": [],
+      "indexes": [{"name": "idx_messages_conversation_created", "columns": ["conversation_id", "created_at"]}],
+      "foreign_keys": [{"columns": ["conversation_id"], "references": "Conversation.id", "on_delete": "cascade"}],
+      "check_constraints": [{"name": "ck_messages_sender_type", "expression": "sender_type IN ('user','assistant','system')"}],
+      "soft_delete": true,
+      "versioning": "append_or_redact"
+    },
+    "Answer": {
+      "table": "answers",
+      "domain": "chat",
+      "owner": "services/orchestrator",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "message_id", "type": "uuid", "nullable": false, "references": "Message.id"},
+        {"name": "retrieval_run_id", "type": "uuid", "nullable": false, "references": "RetrievalRun.id"},
+        {"name": "model_configuration_id", "type": "uuid", "nullable": false, "references": "ModelConfiguration.id"},
+        {"name": "prompt_version_id", "type": "uuid", "nullable": false, "references": "PromptVersion.id"},
+        {"name": "policy_version_id", "type": "uuid", "nullable": false, "references": "PolicyVersion.id"},
+        {"name": "risk_level", "type": "risk_level", "nullable": false},
+        {"name": "madhhab", "type": "madhhab", "nullable": false},
+        {"name": "answer_json", "type": "jsonb", "nullable": false, "sensitive": true},
+        {"name": "confidence_level", "type": "text", "nullable": false},
+        {"name": "evidence_sufficient", "type": "boolean", "nullable": false},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "invalidated_at", "type": "timestamptz", "nullable": true}
+      ],
+      "unique_constraints": [{"name": "uq_answers_message", "columns": ["message_id"]}],
+      "indexes": [
+        {"name": "idx_answers_policy_prompt_model", "columns": ["policy_version_id", "prompt_version_id", "model_configuration_id"]},
+        {"name": "idx_answers_invalidated", "columns": ["invalidated_at"], "where": "invalidated_at IS NOT NULL"}
+      ],
+      "foreign_keys": [
+        {"columns": ["message_id"], "references": "Message.id", "on_delete": "cascade"},
+        {"columns": ["retrieval_run_id"], "references": "RetrievalRun.id", "on_delete": "restrict"},
+        {"columns": ["model_configuration_id"], "references": "ModelConfiguration.id", "on_delete": "restrict"},
+        {"columns": ["prompt_version_id"], "references": "PromptVersion.id", "on_delete": "restrict"},
+        {"columns": ["policy_version_id"], "references": "PolicyVersion.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": false,
+      "versioning": "invalidate_and_create_revision"
+    },
+    "RetrievalRun": {
+      "table": "retrieval_runs",
+      "domain": "retrieval",
+      "owner": "services/retrieval",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "request_id", "type": "text", "nullable": false},
+        {"name": "trace_id", "type": "text", "nullable": true},
+        {"name": "query_original", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "query_normalized", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "query_expansions", "type": "jsonb", "nullable": false, "default": "[]"},
+        {"name": "filters", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "retriever_version", "type": "text", "nullable": false},
+        {"name": "evidence_sufficient", "type": "boolean", "nullable": false},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_retrieval_runs_request", "columns": ["request_id"]}],
+      "indexes": [
+        {"name": "idx_retrieval_runs_created", "columns": ["created_at"]},
+        {"name": "idx_retrieval_runs_trace", "columns": ["trace_id"], "where": "trace_id IS NOT NULL"}
+      ],
+      "foreign_keys": [],
+      "soft_delete": false,
+      "versioning": "append_only"
+    },
+    "RetrievalResult": {
+      "table": "retrieval_results",
+      "domain": "retrieval",
+      "owner": "services/retrieval",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "retrieval_run_id", "type": "uuid", "nullable": false, "references": "RetrievalRun.id"},
+        {"name": "document_version_id", "type": "uuid", "nullable": false, "references": "DocumentVersion.id"},
+        {"name": "chunk_id", "type": "uuid", "nullable": false, "references": "DocumentChunk.id"},
+        {"name": "citation_id", "type": "uuid", "nullable": true, "references": "Citation.id"},
+        {"name": "rank", "type": "integer", "nullable": false},
+        {"name": "score_exact", "type": "numeric", "nullable": true},
+        {"name": "score_full_text", "type": "numeric", "nullable": true},
+        {"name": "score_vector", "type": "numeric", "nullable": true},
+        {"name": "score_reranker", "type": "numeric", "nullable": true},
+        {"name": "score_final", "type": "numeric", "nullable": false},
+        {"name": "metadata_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_retrieval_results_run_rank", "columns": ["retrieval_run_id", "rank"]}],
+      "indexes": [
+        {"name": "idx_retrieval_results_run", "columns": ["retrieval_run_id", "rank"]},
+        {"name": "idx_retrieval_results_chunk", "columns": ["chunk_id"]}
+      ],
+      "foreign_keys": [
+        {"columns": ["retrieval_run_id"], "references": "RetrievalRun.id", "on_delete": "cascade"},
+        {"columns": ["document_version_id"], "references": "DocumentVersion.id", "on_delete": "restrict"},
+        {"columns": ["chunk_id"], "references": "DocumentChunk.id", "on_delete": "restrict"},
+        {"columns": ["citation_id"], "references": "Citation.id", "on_delete": "set_null"}
+      ],
+      "check_constraints": [{"name": "ck_retrieval_results_positive_rank", "expression": "rank > 0"}],
+      "invariants": [
+        "Production RetrievalResult rows must reference a published DocumentVersion and published DocumentChunk.",
+        "chunk_version_match_required: chunk.document_version_id must equal retrieval_results.document_version_id."
+      ],
+      "soft_delete": false,
+      "versioning": "append_only"
+    },
+    "Citation": {
+      "table": "citations",
+      "domain": "citation",
+      "owner": "services/orchestrator",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "canonical_reference", "type": "text", "nullable": false},
+        {"name": "document_version_id", "type": "uuid", "nullable": false, "references": "DocumentVersion.id"},
+        {"name": "chunk_id", "type": "uuid", "nullable": false, "references": "DocumentChunk.id"},
+        {"name": "citation_type", "type": "citation_type", "nullable": false},
+        {"name": "display_title", "type": "text", "nullable": false},
+        {"name": "arabic_text", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "thai_translation", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "hadith_grade", "type": "text", "nullable": true},
+        {"name": "volume", "type": "text", "nullable": true},
+        {"name": "page", "type": "text", "nullable": true},
+        {"name": "verified", "type": "boolean", "nullable": false, "default": false},
+        {"name": "invalidated_at", "type": "timestamptz", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_citations_canonical_version", "columns": ["canonical_reference", "document_version_id"]}],
+      "indexes": [
+        {"name": "idx_citations_chunk", "columns": ["chunk_id"]},
+        {"name": "idx_citations_active", "columns": ["verified", "invalidated_at"]},
+        {"name": "idx_citations_reference", "columns": ["canonical_reference"]}
+      ],
+      "foreign_keys": [
+        {"columns": ["document_version_id"], "references": "DocumentVersion.id", "on_delete": "restrict"},
+        {"columns": ["chunk_id"], "references": "DocumentChunk.id", "on_delete": "restrict"}
+      ],
+      "invariants": ["chunk_version_match_required: chunk.document_version_id must equal citations.document_version_id."],
+      "soft_delete": false,
+      "versioning": "invalidate_and_recreate"
+    },
+    "Feedback": {
+      "table": "feedback",
+      "domain": "feedback",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "user_id", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "answer_id", "type": "uuid", "nullable": true, "references": "Answer.id"},
+        {"name": "citation_id", "type": "uuid", "nullable": true, "references": "Citation.id"},
+        {"name": "category", "type": "text", "nullable": false},
+        {"name": "body", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "status", "type": "feedback_status", "nullable": false, "default": "open"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true}
+      ],
+      "unique_constraints": [],
+      "indexes": [{"name": "idx_feedback_status_created", "columns": ["status", "created_at"]}],
+      "foreign_keys": [
+        {"columns": ["user_id"], "references": "User.id", "on_delete": "set_null"},
+        {"columns": ["answer_id"], "references": "Answer.id", "on_delete": "set_null"},
+        {"columns": ["citation_id"], "references": "Citation.id", "on_delete": "set_null"}
+      ],
+      "soft_delete": true,
+      "versioning": "status_transitions_audited"
+    },
+    "Incident": {
+      "table": "incidents",
+      "domain": "feedback",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "feedback_id", "type": "uuid", "nullable": true, "references": "Feedback.id"},
+        {"name": "severity", "type": "incident_severity", "nullable": false},
+        {"name": "status", "type": "incident_status", "nullable": false, "default": "open"},
+        {"name": "summary", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "affected_answer_id", "type": "uuid", "nullable": true, "references": "Answer.id"},
+        {"name": "affected_document_id", "type": "uuid", "nullable": true, "references": "Document.id"},
+        {"name": "affected_citation_id", "type": "uuid", "nullable": true, "references": "Citation.id"},
+        {"name": "opened_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "closed_at", "type": "timestamptz", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [],
+      "indexes": [{"name": "idx_incidents_severity_status", "columns": ["severity", "status", "created_at"]}],
+      "foreign_keys": [
+        {"columns": ["feedback_id"], "references": "Feedback.id", "on_delete": "set_null"},
+        {"columns": ["affected_answer_id"], "references": "Answer.id", "on_delete": "set_null"},
+        {"columns": ["affected_document_id"], "references": "Document.id", "on_delete": "set_null"},
+        {"columns": ["affected_citation_id"], "references": "Citation.id", "on_delete": "set_null"},
+        {"columns": ["opened_by"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": false,
+      "versioning": "status_transitions_audited"
+    },
+    "AuditLog": {
+      "table": "audit_logs",
+      "domain": "audit",
+      "owner": "services/api",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "actor_user_id", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "action", "type": "text", "nullable": false},
+        {"name": "resource_type", "type": "text", "nullable": false},
+        {"name": "resource_id", "type": "uuid", "nullable": true},
+        {"name": "outcome", "type": "text", "nullable": false},
+        {"name": "request_id", "type": "text", "nullable": true},
+        {"name": "trace_id", "type": "text", "nullable": true},
+        {"name": "before_summary", "type": "jsonb", "nullable": true},
+        {"name": "after_summary", "type": "jsonb", "nullable": true},
+        {"name": "source_context", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [],
+      "indexes": [
+        {"name": "idx_audit_logs_resource", "columns": ["resource_type", "resource_id", "created_at"]},
+        {"name": "idx_audit_logs_actor", "columns": ["actor_user_id", "created_at"]},
+        {"name": "idx_audit_logs_trace", "columns": ["trace_id"], "where": "trace_id IS NOT NULL"}
+      ],
+      "foreign_keys": [{"columns": ["actor_user_id"], "references": "User.id", "on_delete": "set_null"}],
+      "soft_delete": false,
+      "versioning": "append_only"
+    },
+    "Provider": {
+      "table": "providers",
+      "domain": "providers",
+      "owner": "services/orchestrator",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "name", "type": "text", "nullable": false},
+        {"name": "provider_type", "type": "provider_type", "nullable": false},
+        {"name": "status", "type": "provider_status", "nullable": false, "default": "disabled"},
+        {"name": "base_url", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "secret_ref", "type": "text", "nullable": true, "sensitive": true},
+        {"name": "terms_url", "type": "text", "nullable": true},
+        {"name": "data_policy_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "updated_by", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true},
+        {"name": "row_version", "type": "integer", "nullable": false, "default": 1}
+      ],
+      "unique_constraints": [{"name": "uq_providers_name_type_active", "columns": ["name", "provider_type"], "where": "deleted_at IS NULL"}],
+      "indexes": [{"name": "idx_providers_type_status", "columns": ["provider_type", "status"]}],
+      "foreign_keys": [
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"},
+        {"columns": ["updated_by"], "references": "User.id", "on_delete": "set_null"}
+      ],
+      "soft_delete": true,
+      "versioning": "row_version"
+    },
+    "ModelConfiguration": {
+      "table": "model_configurations",
+      "domain": "providers",
+      "owner": "services/orchestrator",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "provider_id", "type": "uuid", "nullable": false, "references": "Provider.id"},
+        {"name": "model_name", "type": "text", "nullable": false},
+        {"name": "model_type", "type": "text", "nullable": false},
+        {"name": "configuration_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "is_default", "type": "boolean", "nullable": false, "default": false},
+        {"name": "status", "type": "provider_status", "nullable": false, "default": "disabled"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false},
+        {"name": "deleted_at", "type": "timestamptz", "nullable": true},
+        {"name": "row_version", "type": "integer", "nullable": false, "default": 1}
+      ],
+      "unique_constraints": [{"name": "uq_model_configurations_provider_model_active", "columns": ["provider_id", "model_name"], "where": "deleted_at IS NULL"}],
+      "indexes": [{"name": "idx_model_configurations_type_status", "columns": ["model_type", "status"]}],
+      "foreign_keys": [
+        {"columns": ["provider_id"], "references": "Provider.id", "on_delete": "restrict"},
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": true,
+      "versioning": "row_version"
+    },
+    "PromptVersion": {
+      "table": "prompt_versions",
+      "domain": "policy",
+      "owner": "services/orchestrator",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "name", "type": "text", "nullable": false},
+        {"name": "version", "type": "text", "nullable": false},
+        {"name": "prompt_hash", "type": "text", "nullable": false},
+        {"name": "prompt_body", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "status", "type": "text", "nullable": false, "default": "draft"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "approved_by", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_prompt_versions_name_version", "columns": ["name", "version"]}],
+      "indexes": [{"name": "idx_prompt_versions_status", "columns": ["status"]}],
+      "foreign_keys": [
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"},
+        {"columns": ["approved_by"], "references": "User.id", "on_delete": "set_null"}
+      ],
+      "soft_delete": false,
+      "versioning": "immutable_version"
+    },
+    "PolicyVersion": {
+      "table": "policy_versions",
+      "domain": "policy",
+      "owner": "services/orchestrator",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "policy_name", "type": "text", "nullable": false},
+        {"name": "version", "type": "text", "nullable": false},
+        {"name": "policy_hash", "type": "text", "nullable": false},
+        {"name": "policy_json", "type": "jsonb", "nullable": false},
+        {"name": "status", "type": "text", "nullable": false, "default": "draft"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "approved_by", "type": "uuid", "nullable": true, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_policy_versions_name_version", "columns": ["policy_name", "version"]}],
+      "indexes": [{"name": "idx_policy_versions_status", "columns": ["status"]}],
+      "foreign_keys": [
+        {"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"},
+        {"columns": ["approved_by"], "references": "User.id", "on_delete": "set_null"}
+      ],
+      "soft_delete": false,
+      "versioning": "immutable_version"
+    },
+    "EvaluationDataset": {
+      "table": "evaluation_datasets",
+      "domain": "evaluation",
+      "owner": "services/evaluation",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "name", "type": "text", "nullable": false},
+        {"name": "version", "type": "text", "nullable": false},
+        {"name": "license_status", "type": "license_status", "nullable": false, "default": "review_required"},
+        {"name": "manifest_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "status", "type": "evaluation_status", "nullable": false, "default": "draft"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "references": "User.id"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_evaluation_datasets_name_version", "columns": ["name", "version"]}],
+      "indexes": [{"name": "idx_evaluation_datasets_status", "columns": ["status"]}],
+      "foreign_keys": [{"columns": ["created_by"], "references": "User.id", "on_delete": "restrict"}],
+      "soft_delete": false,
+      "versioning": "immutable_dataset_version"
+    },
+    "EvaluationCase": {
+      "table": "evaluation_cases",
+      "domain": "evaluation",
+      "owner": "services/evaluation",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "dataset_id", "type": "uuid", "nullable": false, "references": "EvaluationDataset.id"},
+        {"name": "case_key", "type": "text", "nullable": false},
+        {"name": "question", "type": "text", "nullable": false, "sensitive": true},
+        {"name": "expected_citations", "type": "jsonb", "nullable": false, "default": "[]"},
+        {"name": "expected_behavior", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "risk_level", "type": "risk_level", "nullable": false, "default": "low"},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_evaluation_cases_dataset_case", "columns": ["dataset_id", "case_key"]}],
+      "indexes": [{"name": "idx_evaluation_cases_dataset", "columns": ["dataset_id"]}],
+      "foreign_keys": [{"columns": ["dataset_id"], "references": "EvaluationDataset.id", "on_delete": "cascade"}],
+      "soft_delete": false,
+      "versioning": "derived_from_dataset_version"
+    },
+    "EvaluationRun": {
+      "table": "evaluation_runs",
+      "domain": "evaluation",
+      "owner": "services/evaluation",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "dataset_id", "type": "uuid", "nullable": false, "references": "EvaluationDataset.id"},
+        {"name": "model_configuration_id", "type": "uuid", "nullable": false, "references": "ModelConfiguration.id"},
+        {"name": "prompt_version_id", "type": "uuid", "nullable": false, "references": "PromptVersion.id"},
+        {"name": "policy_version_id", "type": "uuid", "nullable": false, "references": "PolicyVersion.id"},
+        {"name": "status", "type": "evaluation_status", "nullable": false, "default": "running"},
+        {"name": "metrics_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "started_at", "type": "timestamptz", "nullable": false},
+        {"name": "finished_at", "type": "timestamptz", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [],
+      "indexes": [{"name": "idx_evaluation_runs_dataset_status", "columns": ["dataset_id", "status", "started_at"]}],
+      "foreign_keys": [
+        {"columns": ["dataset_id"], "references": "EvaluationDataset.id", "on_delete": "restrict"},
+        {"columns": ["model_configuration_id"], "references": "ModelConfiguration.id", "on_delete": "restrict"},
+        {"columns": ["prompt_version_id"], "references": "PromptVersion.id", "on_delete": "restrict"},
+        {"columns": ["policy_version_id"], "references": "PolicyVersion.id", "on_delete": "restrict"}
+      ],
+      "soft_delete": false,
+      "versioning": "append_only"
+    },
+    "EvaluationResult": {
+      "table": "evaluation_results",
+      "domain": "evaluation",
+      "owner": "services/evaluation",
+      "primary_key": ["id"],
+      "fields": [
+        {"name": "id", "type": "uuid", "nullable": false, "default": "gen_random_uuid()"},
+        {"name": "evaluation_run_id", "type": "uuid", "nullable": false, "references": "EvaluationRun.id"},
+        {"name": "evaluation_case_id", "type": "uuid", "nullable": false, "references": "EvaluationCase.id"},
+        {"name": "answer_id", "type": "uuid", "nullable": true, "references": "Answer.id"},
+        {"name": "passed", "type": "boolean", "nullable": false},
+        {"name": "scores_json", "type": "jsonb", "nullable": false, "default": "{}"},
+        {"name": "failure_reason", "type": "text", "nullable": true},
+        {"name": "created_at", "type": "timestamptz", "nullable": false},
+        {"name": "updated_at", "type": "timestamptz", "nullable": false}
+      ],
+      "unique_constraints": [{"name": "uq_evaluation_results_run_case", "columns": ["evaluation_run_id", "evaluation_case_id"]}],
+      "indexes": [{"name": "idx_evaluation_results_run_passed", "columns": ["evaluation_run_id", "passed"]}],
+      "foreign_keys": [
+        {"columns": ["evaluation_run_id"], "references": "EvaluationRun.id", "on_delete": "cascade"},
+        {"columns": ["evaluation_case_id"], "references": "EvaluationCase.id", "on_delete": "restrict"},
+        {"columns": ["answer_id"], "references": "Answer.id", "on_delete": "set_null"}
+      ],
+      "soft_delete": false,
+      "versioning": "append_only"
+    }
+  },
+  "join_tables": {
+    "UserRole": {
+      "table": "auth_user_roles",
+      "foreign_keys": [
+        {"columns": ["user_id"], "references": "User.id", "on_delete": "cascade"},
+        {"columns": ["role_id"], "references": "Role.id", "on_delete": "restrict"},
+        {"columns": ["granted_by"], "references": "User.id", "on_delete": "restrict"}
+      ],
+      "unique_constraints": [{"name": "uq_auth_user_roles_user_role", "columns": ["user_id", "role_id"]}],
+      "indexes": [{"name": "idx_auth_user_roles_role", "columns": ["role_id"]}],
+      "fields": ["user_id", "role_id", "granted_by", "created_at", "updated_at"]
+    },
+    "RolePermission": {
+      "table": "auth_role_permissions",
+      "foreign_keys": [
+        {"columns": ["role_id"], "references": "Role.id", "on_delete": "cascade"},
+        {"columns": ["permission_id"], "references": "Permission.id", "on_delete": "restrict"}
+      ],
+      "unique_constraints": [{"name": "uq_auth_role_permissions_role_permission", "columns": ["role_id", "permission_id"]}],
+      "indexes": [{"name": "idx_auth_role_permissions_permission", "columns": ["permission_id"]}],
+      "fields": ["role_id", "permission_id", "created_at", "updated_at"]
+    }
+  },
+  "relationships": [
+    "User 1--many Session",
+    "User many--many Role via UserRole",
+    "Role many--many Permission via RolePermission",
+    "Source 1--many SourceLicense",
+    "Source 1--many Document",
+    "SourceLicense 1--many Document",
+    "Document 1--many DocumentVersion",
+    "DocumentVersion 1--many DocumentPage",
+    "DocumentVersion 1--many DocumentChunk",
+    "DocumentVersion 1--many Citation",
+    "DocumentChunk 1--many EmbeddingRecord",
+    "DocumentChunk 1--many Citation",
+    "DocumentVersion 1--many ReviewTask",
+    "ReviewTask 1--many Review",
+    "ReviewTask 1--many ReviewComment",
+    "Review 1--one Approval",
+    "Conversation 1--many Message",
+    "Message 1--one Answer",
+    "RetrievalRun 1--many RetrievalResult",
+    "RetrievalResult many--one DocumentChunk",
+    "Answer many--one RetrievalRun",
+    "Feedback many--one Answer",
+    "Incident many--one Feedback",
+    "Provider 1--many ModelConfiguration",
+    "ModelConfiguration 1--many Answer",
+    "PromptVersion 1--many Answer",
+    "PolicyVersion 1--many Answer",
+    "EvaluationDataset 1--many EvaluationCase",
+    "EvaluationDataset 1--many EvaluationRun",
+    "EvaluationRun 1--many EvaluationResult"
+  ],
+  "primary_access_patterns": [
+    {"name": "review_queue", "entities": ["ReviewTask", "DocumentVersion", "Document", "SourceLicense"], "required_indexes": ["idx_review_tasks_queue", "idx_document_versions_document_status", "idx_documents_review_status", "idx_source_licenses_status"]},
+    {"name": "production_retrieval_full_text", "entities": ["DocumentChunk", "DocumentVersion", "Document", "SourceLicense"], "required_indexes": ["idx_document_chunks_fts", "idx_document_chunks_published_version", "idx_document_versions_document_status", "idx_source_licenses_status"]},
+    {"name": "production_retrieval_vector", "entities": ["EmbeddingRecord", "DocumentChunk", "DocumentVersion"], "required_indexes": ["idx_embedding_records_vector", "idx_embedding_records_model_active", "idx_document_chunks_published_version"]},
+    {"name": "citation_lookup", "entities": ["Citation", "DocumentChunk", "DocumentVersion"], "required_indexes": ["idx_citations_reference", "idx_citations_chunk"]},
+    {"name": "conversation_history", "entities": ["Conversation", "Message", "Answer"], "required_indexes": ["idx_conversations_user_updated", "idx_messages_conversation_created"]},
+    {"name": "audit_resource_trace", "entities": ["AuditLog"], "required_indexes": ["idx_audit_logs_resource", "idx_audit_logs_actor", "idx_audit_logs_trace"]},
+    {"name": "evaluation_run_results", "entities": ["EvaluationRun", "EvaluationResult", "EvaluationCase"], "required_indexes": ["idx_evaluation_runs_dataset_status", "idx_evaluation_results_run_passed", "idx_evaluation_cases_dataset"]}
+  ],
+  "security_and_privacy_risks": [
+    {"risk": "Conversation and message text may contain sensitive personal or religious questions.", "mitigation": "Mark body/query fields as sensitive, soft-delete user-facing records, audit access, and avoid default full-body logging."},
+    {"risk": "Provider secrets or API keys could be exposed through provider configuration.", "mitigation": "Store only secret_ref, never plaintext secret values; audit provider/model changes."},
+    {"risk": "License-expired or prohibited content could enter production retrieval.", "mitigation": "Separate SourceLicense records, fail-closed license status, and enforce published/valid-license invariants before indexing."},
+    {"risk": "Embeddings could outlive suspended documents or invalidated chunks.", "mitigation": "EmbeddingRecord has explicit active/invalidated status and references published DocumentVersion and DocumentChunk."},
+    {"risk": "Audit logs may accidentally store full sensitive content.", "mitigation": "AuditLog stores before/after summaries only and marks source context as metadata, not raw payload."},
+    {"risk": "Document state transitions could bypass human review.", "mitigation": "Published Document requires published_version_id, approvals are separate append-only records, and transitions must be server-validated and audited."}
+  ],
+  "migration_risks": [
+    "TASK-02-02 must convert this design into ordered migrations with deferrable references for Document.published_version_id.",
+    "Enums should be reviewed before first production migration because enum changes require careful rollout in PostgreSQL.",
+    "pgvector dimension is model-specific; migrations should choose vector dimensions per embedding model or separate embedding tables if needed.",
+    "citext and pgcrypto extensions are required for case-insensitive email and UUID generation."
+  ]
+}

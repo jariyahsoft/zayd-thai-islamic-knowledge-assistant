@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-06T08:30:00+00:00
+
+- Task: TASK-02-01 - Design Core Database Schema
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added a machine-readable and human-readable core domain database schema design covering identity, source/license governance, documents, versions, chunks, embeddings, reviews, conversations, retrieval, citations, feedback, incidents, providers, prompts, policies and evaluations. Added database architecture documentation and schema validation tests for SRS entity coverage, ERD references, indexes/access patterns, published embedding invariants, sensitive-field marking and security/migration risk documentation.
+- Changed files: `database/schemas/core-domain.schema.json`, `database/schemas/core-domain.md`, `docs/architecture/database.md`, `database/tests/test_core_domain_schema.py`, `tasks/02_database/02-01_design_core_database_schema.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `python3 -m json.tool database/schemas/core-domain.schema.json >/dev/null` passed; `uv run pytest database/tests/test_core_domain_schema.py` passed with 9 tests; `uv run pytest` passed with 23 tests during verification before reverting a global testpaths change to keep the commit focused; `uv run ruff check database/tests/test_core_domain_schema.py` passed; `uv run ruff format --check database/tests/test_core_domain_schema.py` passed; `uv run mypy database/tests/test_core_domain_schema.py` passed; `corepack pnpm test` passed across TypeScript workspaces; secret marker scan against TASK-02-01 files passed.
+- Self-review: The design matches SRS §23 and §24, keeps license metadata separate from content, documents retrieval and embedding fail-closed invariants, records audit/version/actor metadata, and introduces no executable migration logic or business logic in `database/`.
+- Telegram notification: sent
+- Remaining risks: Executable PostgreSQL migrations, cross-row trigger/service enforcement, runtime RBAC/audit hooks, and pgvector model dimensions are deferred to follow-up implementation tasks, primarily TASK-02-02 and TASK-02-03.
+
 ## 2026-07-06T07:42:00+00:00
 
 - Task: TASK-01-06 - Add Makefile and Developer Commands
