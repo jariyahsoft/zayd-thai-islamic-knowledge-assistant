@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv
+dist
+coverage
+tasks/.00_task_index.md.swp

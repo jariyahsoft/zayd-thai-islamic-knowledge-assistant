@@ -1,0 +1,63 @@
+name: Data source proposal
+description: Propose a dataset or source for ingestion or retrieval.
+labels: [data]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Data proposals must include source and license evidence.
+        Do not attach copyrighted corpora or private datasets without rights documentation.
+  - type: input
+    id: owner
+    attributes:
+      label: Owner / rightsholder
+      description: "Who controls the source?"
+    validations:
+      required: true
+  - type: input
+    id: source_url
+    attributes:
+      label: Source URL or reference
+      description: "Link to the source or repository."
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License
+      description: "License name and version."
+    validations:
+      required: true
+  - type: textarea
+    id: permission
+    attributes:
+      label: Permission evidence
+      description: "Describe the evidence that storage, indexing, embedding, and redistribution are allowed."
+    validations:
+      required: true
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: "Primary language of the source."
+    validations:
+      required: true
+  - type: input
+    id: madhhab
+    attributes:
+      label: Madhhab
+      description: "If applicable, note the madhhab or content class."
+  - type: input
+    id: content_type
+    attributes:
+      label: Content type
+      description: "Example: document, translation, metadata, sample set."
+    validations:
+      required: true
+  - type: input
+    id: checksum
+    attributes:
+      label: Checksum
+      description: "Provide a checksum or digest for the proposed source package."
+    validations:
+      required: true

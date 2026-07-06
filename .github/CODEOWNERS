@@ -1,0 +1,12 @@
+# Placeholder ownership until real owners are assigned by the project owner.
+
+* @zayd/maintainers
+.github/ @zayd/maintainers
+docs/ @zayd/docs-reviewers
+tasks/ @zayd/maintainers
+docs/06_islamic_governance/ @zayd/islamic-content-board
+docs/05_data/ @zayd/data-stewards
+SECURITY.md @zayd/security-maintainers
+CONTRIBUTING.md @zayd/maintainers
+GOVERNANCE.md @zayd/maintainers
+SUPPORT.md @zayd/maintainers

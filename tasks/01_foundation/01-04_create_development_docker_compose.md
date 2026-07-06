@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -94,14 +94,14 @@ services/*/Dockerfile
 
 ## Acceptance Criteria
 
-- [ ] `docker compose config` succeeds.
-- [ ] `docker compose up -d` starts all defined services.
-- [ ] All service health checks become healthy.
-- [ ] PostgreSQL confirms the vector extension is available.
-- [ ] MinIO object storage can create and read a private test object.
-- [ ] API can reach PostgreSQL, Redis and MinIO through internal networking.
-- [ ] No proprietary service or cloud key is required.
-- [ ] No infrastructure database is publicly exposed by default.
+- [x] `docker compose config` succeeds.
+- [x] `docker compose up -d` starts all defined services.
+- [x] All service health checks become healthy.
+- [x] PostgreSQL confirms the vector extension is available.
+- [x] MinIO object storage can create and read a private test object.
+- [x] API can reach PostgreSQL, Redis and MinIO through internal networking.
+- [x] No proprietary service or cloud key is required.
+- [x] No infrastructure database is publicly exposed by default.
 
 ## Required Tests
 
@@ -130,28 +130,66 @@ services/*/Dockerfile
 
 ### Files Changed
 
-- Pending
+- `.dockerignore`
+- `.env.example`
+- `docker-compose.yml`
+- `infra/compose/development.yml`
+- `infra/docker/postgres/Dockerfile`
+- `infra/scripts/minio-bootstrap.sh`
+- `services/api/Dockerfile`
+- `services/api/pyproject.toml`
+- `services/worker/Dockerfile`
+- `services/worker/src/zayd_service_worker/main.py`
+- `apps/web/Dockerfile`
+- `apps/reviewer/Dockerfile`
+- `apps/admin/Dockerfile`
+- `docs/development/docker.md`
+- `README.md`
+- `pyproject.toml`
+- `uv.lock`
+- `tasks/00_task_index.md`
+- `tasks/01_foundation/01-04_create_development_docker_compose.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `docker compose config`
+- `sh -n infra/scripts/minio-bootstrap.sh`
+- `docker compose up -d`
+- `docker compose up -d --build api worker`
+- `docker compose up -d web reviewer admin`
+- `docker compose ps`
+- `docker compose logs --no-color --tail=120 web reviewer admin`
+- `docker compose exec -T postgres psql -U zayd_dev -d zayd_dev -c "CREATE EXTENSION IF NOT EXISTS vector; SELECT extname FROM pg_extension WHERE extname = 'vector';"`
+- `docker compose exec -T redis redis-cli ping`
+- `docker run --rm --entrypoint /bin/sh --network zayd-thai-islamic-knowledge-assistant_internal -e MC_HOST_zayd=http://minioadmin:minioadmin@minio:9000 minio/mc:RELEASE.2025-08-13T08-35-41Z -lc "printf 'compose-check' >/tmp/check.txt && mc cp /tmp/check.txt zayd/zayd-private/task-01-04-check.txt >/dev/null && mc cat zayd/zayd-private/task-01-04-check.txt"`
+- `docker compose exec -T api python -c "import socket, urllib.request; socket.create_connection(('postgres', 5432), timeout=5).close(); socket.create_connection(('redis', 6379), timeout=5).close(); urllib.request.urlopen('http://minio:9000/minio/health/live', timeout=5).read(); print('api-dependencies-ok')"`
+- `curl --silent --show-error --fail http://localhost:8000/health`
+- `curl --silent --show-error --fail http://localhost:3100`
+- `curl --silent --show-error --fail http://localhost:3101`
+- `curl --silent --show-error --fail http://localhost:3102`
+- `docker inspect zayd-thai-islamic-knowledge-assistant-api-1 zayd-thai-islamic-knowledge-assistant-worker-1 zayd-thai-islamic-knowledge-assistant-web-1 zayd-thai-islamic-knowledge-assistant-reviewer-1 zayd-thai-islamic-knowledge-assistant-admin-1 --format '{{.Name}} user={{.Config.User}} privileged={{.HostConfig.Privileged}}'`
+- `docker inspect zayd-thai-islamic-knowledge-assistant-postgres-1 zayd-thai-islamic-knowledge-assistant-redis-1 zayd-thai-islamic-knowledge-assistant-minio-1 --format '{{.Name}} ports={{json .NetworkSettings.Ports}} privileged={{.HostConfig.Privileged}}'`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. The development stack starts from the root Compose entrypoint, all defined services reached healthy status, `pgvector` is enabled, MinIO private bucket round-trip succeeded, the API reached PostgreSQL/Redis/MinIO across the internal network, no proprietary credentials were required, and PostgreSQL/Redis/MinIO remained unexposed on host ports.
 
 ### Security and License Review
 
-- Pending
+- Reviewed for task scope. Development credentials remain placeholder-only, application containers run as non-root users where practical (`appuser` and `node`), no containers run privileged, Docker socket is not mounted, and no new third-party source code was vendored. Pinned image or tool versions were used instead of `latest`.
 
 ### Known Limitations
 
-- Pending
+- Frontend host ports default to `3100`-`3102` instead of `3000`-`3002` to avoid common local conflicts while preserving internal container ports.
+- The worker is a long-lived placeholder process for Compose health verification and does not yet execute real background jobs.
+- The stack is development-focused and intentionally omits production hardening, ingress, and observability components.
 
 ### Follow-up Tasks
 
-- Pending
+- `TASK-01-05` should validate environment configuration and document any required `.env` overrides for local operators.
+- Future infrastructure tasks can extend this baseline with self-host and production deployment profiles without changing the foundational service topology.
 
 ### Commit
 
-- Pending
+- Not created in this task attempt.

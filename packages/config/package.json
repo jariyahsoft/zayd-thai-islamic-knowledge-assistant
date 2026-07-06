@@ -1,0 +1,20 @@
+{
+  "name": "@zayd/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./env/public": "./src/env/public.ts",
+    "./env/server": "./src/env/server.ts"
+  },
+  "dependencies": {
+    "server-only": "0.0.1"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json --noEmit",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test": "vitest run"
+  }
+}

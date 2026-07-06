@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from zayd_common.database.models import Base
+from zayd_common.database.models import AuthPermission, Base, Role, RolePermission, UserRole
 from zayd_common.database.repositories import (
     AbstractDocumentRepository,
     AbstractIncidentRepository,
@@ -24,7 +24,11 @@ def get_sessionmaker(database_url: str) -> sessionmaker[Session]:
 
 
 __all__ = [
+    "AuthPermission",
     "Base",
+    "Role",
+    "RolePermission",
+    "UserRole",
     "AbstractUserRepository",
     "SQLAlchemyUserRepository",
     "AbstractSourceRepository",

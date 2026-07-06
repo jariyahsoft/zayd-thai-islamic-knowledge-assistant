@@ -1,0 +1,36 @@
+name: Translation issue
+description: Report an issue with a displayed translation.
+labels: [translation]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for translation issues only.
+        Do not include personal, family, or sensitive religious details unless they are required for the issue.
+  - type: textarea
+    id: original_text
+    attributes:
+      label: Original text
+      description: Provide the original source text or an excerpt.
+    validations:
+      required: true
+  - type: textarea
+    id: displayed_translation
+    attributes:
+      label: Displayed translation
+      description: Paste the translation shown in the UI.
+    validations:
+      required: true
+  - type: textarea
+    id: suggested_correction
+    attributes:
+      label: Suggested correction
+      description: What should be changed?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any sanitized notes that help review the translation.
+

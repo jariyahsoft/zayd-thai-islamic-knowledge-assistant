@@ -21,6 +21,7 @@ from zayd_common.database.models import (
     User,
 )
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+from zayd_common.rbac import ensure_registered_user_role
 
 PBKDF2_ALGORITHM = "pbkdf2_sha256"
 PBKDF2_ITERATIONS = 310_000
@@ -156,6 +157,7 @@ class AuthService:
             )
             self.uow.users.create(user)
             session.flush()
+            ensure_registered_user_role(session, user_id=user.id)
             tokens = self._create_session_tokens(
                 user=user,
                 now=now,

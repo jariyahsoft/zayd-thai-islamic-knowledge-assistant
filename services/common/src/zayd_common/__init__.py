@@ -51,6 +51,23 @@ from .guest import (
 )
 from .health import HealthStatus
 from .logging import get_logger
+from .mfa import (
+    PRIVILEGED_ROLE_NAMES,
+    MfaChallenge,
+    MfaEnrollment,
+    MfaError,
+    MfaResetChannel,
+    MfaService,
+    generate_totp,
+    verify_totp,
+)
+from .rbac import (
+    ROLE_PERMISSION_MATRIX,
+    Permission,
+    RbacError,
+    RbacService,
+    UserPrincipal,
+)
 from .retrievability import can_activate_embedding, is_document_retrievable
 from .settings import ServiceSettings
 from .state_machines import (
@@ -109,4 +126,17 @@ __all__ = [
     "GuestService",
     "GuestSessionInfo",
     "hash_guest_token",
+    "Permission",
+    "RbacError",
+    "RbacService",
+    "ROLE_PERMISSION_MATRIX",
+    "UserPrincipal",
+    "MfaChallenge",
+    "MfaEnrollment",
+    "MfaError",
+    "MfaResetChannel",
+    "MfaService",
+    "PRIVILEGED_ROLE_NAMES",
+    "generate_totp",
+    "verify_totp",
 ]

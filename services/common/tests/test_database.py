@@ -248,7 +248,9 @@ def test_incident_repository(sqlite_session_factory: Any) -> None:
     user = User(id=uuid4(), email="incident-owner@example.com", display_name="Admin")
     user_repo.create(user)
 
-    feedback = Feedback(id=uuid4(), status="open")
+    feedback = Feedback(
+        id=uuid4(), category="transliteration", body="Sample body", status="open"
+    )
     session.add(feedback)
     session.commit()
 

@@ -1,5 +1,31 @@
 # Tasks Update
 
+## 2026-07-06T13:26:23+00:00
+
+- Task: TASK-03-03 - Implement RBAC
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented server-side action-based RBAC with canonical permissions, system roles, role-permission bootstrap/seed data, registered-user default role assignment, FastAPI authorization dependencies, principal and role-management endpoints, document-approval separation-of-duties checks, and last-admin safeguards.
+- Changed files: `services/common/src/zayd_common/rbac.py`, `services/common/src/zayd_common/auth.py`, `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/database/__init__.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `database/migrations/0004_rbac_seed.up.sql`, `database/migrations/0004_rbac_seed.down.sql`, `database/migrations/README.md`, `services/common/tests/test_rbac.py`, `services/api/tests/test_rbac_api.py`, `services/api/tests/test_auth_api.py`, `docs/security/rbac.md`, `docs/api/authorization.md`, `tasks/03_auth/03-03_implement_rbac.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_rbac.py services/api/tests/test_rbac_api.py services/api/tests/test_auth_api.py` passed (12 tests); focused `ruff check`, `ruff format --check`, and `mypy` passed; auth/guest/RBAC regression suite passed (31 tests); full `uv run pytest` passed (99 tests); `MIGRATION_ACTION=up make migrate` applied `0004_rbac_seed`; focused secret-marker scan passed.
+- Self-review: RBAC checks are server-side and fail closed for unknown permissions, unknown roles, inactive users, missing bearer tokens, and missing permission assignments. New users receive only the least-privilege `user` role. Auditors remain read-only. Permission-denied, role grant/revoke, separation-of-duties, and last-admin decisions are audited with sanitized metadata only. No credentials, production data, restricted religious content, or third-party code were introduced.
+- Telegram notification: failed with sanitized reason `HTTP request failed` for both start and completion notifications; task execution and local recording continued.
+- Remaining risks: Initial admin provisioning remains delegated to the trusted seed/admin workflow; future domain endpoints must adopt the RBAC dependency/service as they are implemented; MFA and immutable audit hardening remain follow-up tasks (TASK-03-04 and TASK-03-05).
+
+## 2026-07-06T15:55:04+00:00
+
+- Task: TASK-03-04 - Implement MFA for Privileged Users
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented server-side TOTP MFA with secret, challenge, and recovery-code persistence, enrollment/confirmation/reset flows, server-side privileged-access enforcement, single-use recovery codes, audit instrumentation, and protected API routes for enrollment, challenge, recovery, reset, and rotation. Added migration `0005_mfa_privileged` and documentation.
+- Changed files: `services/common/src/zayd_common/mfa.py`, `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `database/migrations/0005_mfa_privileged.up.sql`, `database/migrations/0005_mfa_privileged.down.sql`, `database/migrations/README.md`, `services/common/tests/test_mfa.py`, `services/api/tests/test_mfa_api.py`, `services/api/tests/test_rbac_api.py`, `docs/security/mfa.md`, `docs/user/admin-mfa.md`, `tasks/03_auth/03-04_implement_mfa_for_privileged_users.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_mfa.py services/api/tests/test_mfa_api.py` passed (20 tests); RBAC and MFA regression suite passed (30 tests); focused `ruff check`, `ruff format --check`, and `mypy` passed; full `uv run pytest` passed (119 tests); `MIGRATION_ACTION=up make migrate` applied `0005_mfa_privileged`; focused secret-marker scan passed.
+- Self-review: TOTP follows RFC 6238 (SHA-1, 30s, 6 digits, 1-step window, 20-byte secret). Recovery codes are SHA-256 hashed, single-use, rotatable, and TTL-bound. Privileged endpoints (admin and reviewer/senior_scholar scopes) call `MfaService.assert_privileged_access` and return `MFA_PRIVILEGED_ACCESS_BLOCKED` until enrollment. Reset requires a recovery code or password reset token and writes sanitized audit entries. No third-party code, production secrets, production data, or restricted religious content were introduced.
+- Telegram notification: failed with sanitized reason `HTTP request failed` for both start and completion notifications; task execution and local recording continued.
+- Remaining risks: Admin-only MFA reset workflow remains deferred; email delivery of codes remains out of scope; future privileged endpoints must adopt `require_permission` to inherit the MFA enforcement.
+
 ## 2026-07-06T11:48:00+00:00
 
 - Task: TASK-03-02 - Implement Guest Sessions

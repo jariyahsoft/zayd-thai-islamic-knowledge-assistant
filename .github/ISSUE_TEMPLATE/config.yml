@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security reports
+    url: /SECURITY.md
+    about: Report vulnerabilities privately using the documented security process.
+  - name: Project support
+    url: /SUPPORT.md
+    about: Ask general project questions and review support boundaries.
+  - name: Contribution guidance
+    url: /CONTRIBUTING.md
+    about: Read setup, review, and template guidance before filing issues.
+

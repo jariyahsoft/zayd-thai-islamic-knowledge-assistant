@@ -1,0 +1,39 @@
+name: Religious content issue
+description: Report a problem with religious content or product positioning.
+labels: [religious-content]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for religious-content concerns only.
+        Do not post private family disputes, sensitive personal data, or restricted evidence publicly.
+        If the issue requires private handling, use the escalation path in `SECURITY.md` or project governance contacts.
+  - type: input
+    id: content_ref
+    attributes:
+      label: Content reference
+      description: Which answer, document, or policy does this concern affect?
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source or citation concern
+      description: What source or citation is relevant?
+    validations:
+      required: true
+  - type: input
+    id: madhhab
+    attributes:
+      label: Madhhab or content class
+      description: "Example: shafii, hanafi, comparative, general, unknown."
+    validations:
+      required: true
+  - type: textarea
+    id: review
+    attributes:
+      label: Content review notes
+      description: >
+        Explain the issue and include any review notes or private escalation instructions.
+    validations:
+      required: true

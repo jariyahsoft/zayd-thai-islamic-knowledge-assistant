@@ -86,4 +86,5 @@ security(repo): ignore local secret files
 - Private security issues: [SECURITY.md](SECURITY.md)
 - Support boundaries: [SUPPORT.md](SUPPORT.md)
 - Roadmap and release context: [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md)
+- GitHub issue and pull-request templates are in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) and [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md).
 - RFC drafts should live under [`docs/rfcs/`](docs/rfcs/)

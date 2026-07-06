@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -99,28 +99,56 @@ All files listed in scope.
 
 ### Files Changed
 
-- Pending
+- `.github/ISSUE_TEMPLATE/bug_report.yml`
+- `.github/ISSUE_TEMPLATE/feature_request.yml`
+- `.github/ISSUE_TEMPLATE/data_source_proposal.yml`
+- `.github/ISSUE_TEMPLATE/citation_error.yml`
+- `.github/ISSUE_TEMPLATE/translation_issue.yml`
+- `.github/ISSUE_TEMPLATE/religious_content_issue.yml`
+- `.github/ISSUE_TEMPLATE/config.yml`
+- `.github/PULL_REQUEST_TEMPLATE.md`
+- `.github/CODEOWNERS`
+- `CONTRIBUTING.md`
+- `tasks/00_open_source/00-04_configure_github_templates.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `sed -n '1,260p' tasks/00_open_source/00-04_configure_github_templates.md`
+- `rg --files .github .`
+- `sed -n '1,220p' CONTRIBUTING.md`
+- `sed -n '1,240p' SECURITY.md`
+- `sed -n '1,260p' GOVERNANCE.md`
+- `sed -n '1,220p' tasks/00_task_index.md`
+- `sed -n '1,220p' tasks-update.md`
+- `sed -n '1,220p' docs/09_development/ai_coding_agent_policy.md`
+- `test -f .github/ISSUE_TEMPLATE/bug_report.yml -a -f .github/ISSUE_TEMPLATE/feature_request.yml -a -f .github/ISSUE_TEMPLATE/data_source_proposal.yml -a -f .github/ISSUE_TEMPLATE/citation_error.yml -a -f .github/ISSUE_TEMPLATE/translation_issue.yml -a -f .github/ISSUE_TEMPLATE/religious_content_issue.yml -a -f .github/ISSUE_TEMPLATE/config.yml -a -f .github/PULL_REQUEST_TEMPLATE.md -a -f .github/CODEOWNERS`
+- `python - <<'PY' ... yaml.safe_load(...) ... PY`
+- `rg -n "blank_issues_enabled|security@zayd.example|Task ID|source URL|license|permission evidence|madhhab|content review|reproduction|sanitized logs|redact|docs/rfcs|CODEOWNERS" .github README.md CONTRIBUTING.md SECURITY.md GOVERNANCE.md SUPPORT.md`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed: all issue forms render as valid YAML.
+- Passed: pull-request template includes task ID and test evidence.
+- Passed: data and religious-content templates include source and license review fields.
+- Passed: security issues are redirected to the private process in `SECURITY.md`.
+- Passed: CODEOWNERS uses placeholder teams and repository-relative paths.
 
 ### Security and License Review
 
-- Pending
+- Public security issue submission is disabled through `.github/ISSUE_TEMPLATE/config.yml`.
+- Sensitive data redaction guidance is included in the templates and `SECURITY.md`.
+- No secrets or restricted datasets were introduced.
 
 ### Known Limitations
 
-- Pending
+- CODEOWNERS uses placeholder teams until the project owner assigns real owners.
 
 ### Follow-up Tasks
 
-- Pending
+- Replace placeholder CODEOWNERS teams with real project ownership when available.
 
 ### Commit
 
-- Pending
+- Pending focused commit creation

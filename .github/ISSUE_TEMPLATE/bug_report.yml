@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible problem with sanitized details.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for non-sensitive bugs only.
+        Do not include secrets, tokens, private conversations, or restricted datasets.
+        For security vulnerabilities, use the private process in `SECURITY.md`.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: App, service, or repository version affected.
+      placeholder: e.g. main commit hash, release tag, or build number
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the minimum steps needed to reproduce the issue.
+      placeholder: 1. ... 2. ... 3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Include redacted logs or screenshots only if needed.
+      placeholder: Remove secrets, personal data, and private conversations.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Anything else that helps triage.
+

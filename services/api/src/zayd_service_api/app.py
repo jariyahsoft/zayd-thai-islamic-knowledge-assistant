@@ -1,13 +1,23 @@
+import base64
+from collections.abc import Callable
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from zayd_common.auth import AuthError, AuthResult, AuthService
+from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
 from zayd_common.logging import get_logger
+from zayd_common.mfa import (
+    MfaEnrollment,
+    MfaError,
+    MfaResetChannel,
+    MfaService,
+)
+from zayd_common.rbac import Permission, RbacError, RbacService, UserPrincipal
 from zayd_common.settings import ServiceSettings
 
 logger = get_logger("zayd.api")
@@ -74,6 +84,70 @@ class GuestConversionRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=200)
 
 
+class PrincipalResponse(BaseModel):
+    id: str
+    email: str
+    roles: list[str]
+    permissions: list[str]
+
+
+class RoleAssignmentRequest(BaseModel):
+    user_id: UUID
+    role_name: str = Field(min_length=1, max_length=64)
+
+
+class RoleAssignmentResponse(BaseModel):
+    status: str
+    changed: bool
+
+
+class DocumentApprovalAuthorizationRequest(BaseModel):
+    document_created_by: UUID
+
+
+class AuthorizationCheckResponse(BaseModel):
+    status: str
+
+
+class MfaEnrollmentResponse(BaseModel):
+    provisioning_uri: str
+    secret: str
+    recovery_codes: list[str]
+
+
+class MfaConfirmRequest(BaseModel):
+    code: str = Field(min_length=6, max_length=12)
+
+
+class MfaChallengeStartResponse(BaseModel):
+    challenge_id: UUID
+    expires_at: str
+
+
+class MfaChallengeVerifyRequest(BaseModel):
+    challenge_id: UUID
+    code: str = Field(min_length=6, max_length=12)
+
+
+class MfaRecoveryCodeRequest(BaseModel):
+    challenge_id: UUID
+    recovery_code: str = Field(min_length=8, max_length=64)
+
+
+class MfaResetRequest(BaseModel):
+    channel: MfaResetChannel
+    proof: str = Field(min_length=8, max_length=128)
+
+
+class MfaRecoveryRotateResponse(BaseModel):
+    recovery_codes: list[str]
+
+
+class MfaStatusResponse(BaseModel):
+    enrolled: bool
+    privileged_role_required: bool
+
+
 def _auth_response(result: AuthResult) -> AuthResponse:
     user = result.user
     tokens = result.tokens
@@ -85,6 +159,24 @@ def _auth_response(result: AuthResult) -> AuthResponse:
             token_type=tokens.token_type,
             expires_in=tokens.expires_in,
         ),
+    )
+
+
+def _principal_response(principal: UserPrincipal) -> PrincipalResponse:
+    return PrincipalResponse(
+        id=str(principal.id),
+        email=principal.email,
+        roles=sorted(principal.roles),
+        permissions=sorted(principal.permissions),
+    )
+
+
+def _enrollment_response(enrollment: MfaEnrollment) -> MfaEnrollmentResponse:
+    secret_text = base64.b32encode(enrollment.secret).decode("ascii").rstrip("=")
+    return MfaEnrollmentResponse(
+        provisioning_uri=enrollment.provisioning_uri,
+        secret=secret_text,
+        recovery_codes=list(enrollment.recovery_codes),
     )
 
 
@@ -101,17 +193,86 @@ def create_app() -> FastAPI:
             signing_secret=settings.auth_jwt_secret.get_secret_value(),
         )
 
-    def get_current_user_id(
+    def rbac_service() -> RbacService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return RbacService(SQLAlchemyUnitOfWork(session_factory))
+
+    def mfa_service() -> MfaService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return MfaService(SQLAlchemyUnitOfWork(session_factory))
+
+    def get_current_claims(
         service: Annotated[AuthService, Depends(auth_service)],
         authorization: Annotated[str | None, Header()] = None,
-    ) -> str:
+    ) -> AccessTokenClaims:
         if not authorization or not authorization.startswith("Bearer "):
             raise AuthError("AUTH_UNAUTHENTICATED", "Authentication required.", status_code=401)
         token = authorization.removeprefix("Bearer ").strip()
-        return str(service.verify_access_token(token).user_id)
+        return service.verify_access_token(token)
+
+    def get_current_user_id(
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+    ) -> str:
+        return str(claims.user_id)
+
+    def require_permission(permission: Permission) -> Callable[..., UserPrincipal]:
+        def dependency(
+            request: Request,
+            claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+            service: Annotated[RbacService, Depends(rbac_service)],
+            mfa: Annotated[MfaService, Depends(mfa_service)],
+        ) -> UserPrincipal:
+            principal = service.require_permission(
+                user_id=claims.user_id,
+                permission=permission,
+                trace_id=request.headers.get("x-request-id"),
+            )
+            mfa.assert_privileged_access(
+                user_id=claims.user_id,
+                trace_id=request.headers.get("x-request-id"),
+            )
+            return principal
+
+        return dependency
+
+    def require_self_or_privileged() -> Callable[..., UserPrincipal]:
+        def dependency(
+            request: Request,
+            claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+            service: Annotated[RbacService, Depends(rbac_service)],
+            mfa: Annotated[MfaService, Depends(mfa_service)],
+        ) -> UserPrincipal:
+            principal = service.require_permission(
+                user_id=claims.user_id,
+                permission=Permission.USERS_READ_SELF,
+                trace_id=request.headers.get("x-request-id"),
+            )
+            mfa.assert_privileged_access(
+                user_id=claims.user_id,
+                trace_id=request.headers.get("x-request-id"),
+            )
+            return principal
+
+        return dependency
 
     @app.exception_handler(AuthError)
     async def auth_error_handler(request: Request, exc: AuthError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(RbacError)
+    async def rbac_error_handler(request: Request, exc: RbacError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(MfaError)
+    async def mfa_error_handler(request: Request, exc: MfaError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -212,15 +373,75 @@ def create_app() -> FastAPI:
     async def revoke_all_sessions(
         request: Request,
         current_user_id: Annotated[str, Depends(get_current_user_id)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.SESSIONS_REVOKE_OWN))],
         service: Annotated[AuthService, Depends(auth_service)],
     ) -> dict[str, int]:
-        from uuid import UUID
-
         revoked = service.revoke_all_sessions(
             user_id=UUID(current_user_id),
             trace_id=request.headers.get("x-request-id"),
         )
         return {"revoked_sessions": revoked}
+
+    @app.get("/auth/me", response_model=PrincipalResponse)
+    async def me(
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[RbacService, Depends(rbac_service)],
+    ) -> PrincipalResponse:
+        return _principal_response(service.get_principal(claims.user_id))
+
+    @app.post("/admin/rbac/bootstrap")
+    async def bootstrap_rbac(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.USERS_ROLES_MANAGE))],
+        service: Annotated[RbacService, Depends(rbac_service)],
+    ) -> dict[str, str]:
+        service.bootstrap_system_roles()
+        return {"status": "ok"}
+
+    @app.post("/admin/users/roles/grant", response_model=RoleAssignmentResponse)
+    async def grant_user_role(
+        payload: RoleAssignmentRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.USERS_ROLES_MANAGE))],
+        service: Annotated[RbacService, Depends(rbac_service)],
+    ) -> RoleAssignmentResponse:
+        changed = service.grant_role(
+            actor_user_id=claims.user_id,
+            target_user_id=payload.user_id,
+            role_name=payload.role_name,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return RoleAssignmentResponse(status="ok", changed=changed)
+
+    @app.post("/admin/users/roles/revoke", response_model=RoleAssignmentResponse)
+    async def revoke_user_role(
+        payload: RoleAssignmentRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.USERS_ROLES_MANAGE))],
+        service: Annotated[RbacService, Depends(rbac_service)],
+    ) -> RoleAssignmentResponse:
+        changed = service.revoke_role(
+            actor_user_id=claims.user_id,
+            target_user_id=payload.user_id,
+            role_name=payload.role_name,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return RoleAssignmentResponse(status="ok", changed=changed)
+
+    @app.post("/authorization/documents/approve", response_model=AuthorizationCheckResponse)
+    async def authorize_document_approval(
+        payload: DocumentApprovalAuthorizationRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[RbacService, Depends(rbac_service)],
+    ) -> AuthorizationCheckResponse:
+        service.assert_can_approve_document(
+            actor_user_id=claims.user_id,
+            document_created_by=payload.document_created_by,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return AuthorizationCheckResponse(status="ok")
 
     def guest_service() -> GuestService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
@@ -276,5 +497,113 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _auth_response(result)
+
+    @app.get("/auth/mfa/status", response_model=MfaStatusResponse)
+    async def mfa_status(
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> MfaStatusResponse:
+        return MfaStatusResponse(
+            enrolled=service.is_enrolled(user_id=claims.user_id),
+            privileged_role_required=service.has_privileged_role(user_id=claims.user_id),
+        )
+
+    @app.post("/auth/mfa/enroll", response_model=MfaEnrollmentResponse)
+    async def mfa_enroll(
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> MfaEnrollmentResponse:
+        enrollment = service.start_enrollment(
+            user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _enrollment_response(enrollment)
+
+    @app.post("/auth/mfa/confirm")
+    async def mfa_confirm(
+        payload: MfaConfirmRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> dict[str, str]:
+        service.confirm_enrollment(
+            user_id=claims.user_id,
+            code=payload.code,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return {"status": "ok"}
+
+    @app.post("/auth/mfa/challenge/start", response_model=MfaChallengeStartResponse)
+    async def mfa_challenge_start(
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> MfaChallengeStartResponse:
+        challenge = service.start_challenge(
+            user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return MfaChallengeStartResponse(
+            challenge_id=challenge.challenge_id,
+            expires_at=challenge.expires_at.isoformat(),
+        )
+
+    @app.post("/auth/mfa/challenge/verify")
+    async def mfa_challenge_verify(
+        payload: MfaChallengeVerifyRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> dict[str, str]:
+        service.verify_challenge(
+            user_id=claims.user_id,
+            challenge_id=payload.challenge_id,
+            code=payload.code,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return {"status": "ok"}
+
+    @app.post("/auth/mfa/challenge/recovery")
+    async def mfa_challenge_recovery(
+        payload: MfaRecoveryCodeRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> dict[str, str]:
+        service.consume_recovery_code(
+            user_id=claims.user_id,
+            challenge_id=payload.challenge_id,
+            recovery_code=payload.recovery_code,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return {"status": "ok"}
+
+    @app.post("/auth/mfa/reset", response_model=MfaEnrollmentResponse)
+    async def mfa_reset(
+        payload: MfaResetRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> MfaEnrollmentResponse:
+        enrollment = service.reset_mfa(
+            user_id=claims.user_id,
+            channel=payload.channel,
+            channel_proof=payload.proof,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _enrollment_response(enrollment)
+
+    @app.post("/auth/mfa/recovery/rotate", response_model=MfaRecoveryRotateResponse)
+    async def mfa_recovery_rotate(
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[MfaService, Depends(mfa_service)],
+    ) -> MfaRecoveryRotateResponse:
+        codes = service.rotate_recovery_codes(
+            user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return MfaRecoveryRotateResponse(recovery_codes=list(codes))
 
     return app

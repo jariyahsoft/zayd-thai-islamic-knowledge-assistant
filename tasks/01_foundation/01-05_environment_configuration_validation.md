@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -91,14 +91,14 @@ Logging
 
 ## Acceptance Criteria
 
-- [ ] `.env.example` includes all settings needed for local startup.
-- [ ] Local Docker profile starts from copied example configuration.
-- [ ] Missing required settings stop startup.
-- [ ] Invalid settings stop startup.
-- [ ] Secret values are masked in logs.
-- [ ] Production mode rejects insecure development defaults.
-- [ ] External providers can be disabled completely.
-- [ ] Frontend bundles do not expose server-only values.
+- [x] `.env.example` includes all settings needed for local startup.
+- [x] Local Docker profile starts from copied example configuration.
+- [x] Missing required settings stop startup.
+- [x] Invalid settings stop startup.
+- [x] Secret values are masked in logs.
+- [x] Production mode rejects insecure development defaults.
+- [x] External providers can be disabled completely.
+- [x] Frontend bundles do not expose server-only values.
 
 ## Required Tests
 
@@ -128,28 +128,73 @@ Logging
 
 ### Files Changed
 
-- Pending
+- `.env.example`
+- `apps/web/.env.example`
+- `apps/reviewer/.env.example`
+- `apps/admin/.env.example`
+- `apps/web/package.json`
+- `apps/reviewer/package.json`
+- `apps/admin/package.json`
+- `apps/web/app/env.client.test.ts`
+- `apps/reviewer/app/env.client.test.ts`
+- `apps/admin/app/env.client.test.ts`
+- `apps/reviewer/app/page.tsx`
+- `apps/admin/app/page.tsx`
+- `packages/config/src/env/public.ts`
+- `packages/config/src/env/public.test.ts`
+- `packages/config/src/env/shared.ts`
+- `packages/config/src/env/server.ts`
+- `packages/config/src/env/server-core.ts`
+- `packages/config/src/env/server-core.test.ts`
+- `services/common/src/zayd_common/settings.py`
+- `services/common/tests/test_settings.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/worker/src/zayd_service_worker/service.py`
+- `infra/compose/development.yml`
+- `docs/development/configuration.md`
+- `docs/development/docker.md`
+- `README.md`
+- `scripts/check-frontend-env-leaks.sh`
+- `tasks/01_foundation/01-05_environment_configuration_validation.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `corepack pnpm --filter @zayd/config test`
+- `corepack pnpm test`
+- `corepack pnpm typecheck`
+- `corepack pnpm build`
+- `~/.local/bin/uv run pytest services/common/tests/test_settings.py services/api/tests/test_api_imports.py services/worker/tests/test_worker_imports.py`
+- `bash scripts/check-frontend-env-leaks.sh dev-jwt-secret-change-me`
+- `docker compose config`
+- `docker compose up -d --build api worker web reviewer admin`
+- `docker compose ps`
+- `docker compose exec -T api python -c "from zayd_common.settings import ServiceSettings; settings = ServiceSettings.from_runtime_env(app_name='api'); print(settings.environment); print(settings.enable_external_providers); print(settings.default_language)"`
+- `docker compose exec -T worker python -c "from zayd_common.settings import ServiceSettings; settings = ServiceSettings.from_runtime_env(app_name='worker'); print(settings.environment); print(settings.enable_guest_mode)"`
+- `curl --silent --show-error --fail http://localhost:8000/health`
+- `NEXT_PUBLIC_API_BASE_URL='not-a-url' corepack pnpm --filter @zayd/web build`
+- `env -i PATH=\"$PATH\" HOME=\"$HOME\" PYTHONPATH=\"services/common/src:services/api/src:services/worker/src\" ~/.local/bin/uv run python -c "... ServiceSettings.from_runtime_env(app_name='api') ..."`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. The root example env now covers local startup, Compose consumes the shared variables, TypeScript and Python startup validation reject missing and invalid values, secret fields stay redacted, production mode blocks known development placeholders, local-only mode is enforced when external providers are disabled, and the frontend build artifacts were checked for leaked server-only secret markers.
 
 ### Security and License Review
 
-- Pending
+- Reviewed for task scope. No real secrets were added; example credentials remain clearly marked as development-only placeholders. Secret-bearing Python fields use `SecretStr`, validation errors name variables without printing their values, and frontend validation is isolated to `NEXT_PUBLIC_*` variables. No new third-party source code or license obligations were introduced.
 
 ### Known Limitations
 
-- Pending
+- The TypeScript server-side provider validation currently supports the built-in foundation providers and a future registration hook, but the plugin-backed provider registry itself is not implemented yet.
+- Frontend build scripts inject the documented example public API base URL when not otherwise provided, so workspace builds remain reproducible while runtime validation still fails on invalid explicit values.
+- Python placeholder services still share one common settings model; later service-specific tasks may split stricter per-service requirements.
 
 ### Follow-up Tasks
 
-- Pending
+- `TASK-01-06` should expose the new validation and leak-check commands through a stable developer command surface such as `make` targets.
+- Later provider/plugin tasks should connect runtime provider validation to the actual plugin registration source instead of the current built-in allowlists.
 
 ### Commit
 
-- Pending
+- Not created in this task attempt.

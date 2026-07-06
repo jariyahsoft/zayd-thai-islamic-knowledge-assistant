@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -110,28 +110,80 @@ pytest
 
 ### Files Changed
 
-- Pending
+- `.python-version`
+- `pyproject.toml`
+- `uv.lock`
+- `services/common/**`
+- `services/api/pyproject.toml`
+- `services/api/src/**`
+- `services/api/tests/**`
+- `services/orchestrator/pyproject.toml`
+- `services/orchestrator/src/**`
+- `services/orchestrator/tests/**`
+- `services/retrieval/pyproject.toml`
+- `services/retrieval/src/**`
+- `services/retrieval/tests/**`
+- `services/ingestion/pyproject.toml`
+- `services/ingestion/src/**`
+- `services/ingestion/tests/**`
+- `services/worker/pyproject.toml`
+- `services/worker/src/**`
+- `services/worker/tests/**`
+- `services/evaluation/pyproject.toml`
+- `services/evaluation/src/**`
+- `services/evaluation/tests/**`
+- `docs/development/python.md`
+- `README.md`
+- `tasks/01_foundation/01-03_initialize_python_services.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `sed -n '1,300p' tasks/01_foundation/01-03_initialize_python_services.md`
+- `sed -n '52,64p' tasks/00_task_index.md`
+- `git status --short`
+- `find services -maxdepth 2 -type f`
+- `python3 --version`
+- `python3 -m pip index versions ...`
+- `python3 -m pip install --user --break-system-packages uv==0.11.26`
+- `~/.local/bin/uv lock`
+- `~/.local/bin/uv sync`
+- `~/.local/bin/uv sync --frozen`
+- `~/.local/bin/uv run ruff check .`
+- `~/.local/bin/uv run ruff format --check .`
+- `~/.local/bin/uv run mypy .`
+- `~/.local/bin/uv run pytest`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed: Python environment installs from the chosen lock mechanism using `uv lock` and `uv sync --frozen`.
+- Passed: `ruff check .` passes.
+- Passed: `ruff format --check .` passes.
+- Passed: `mypy .` passes.
+- Passed: `pytest` passes.
+- Passed: each service package imports successfully through service-specific tests.
+- Passed: secret settings are redacted.
+- Passed: no internal service cross-imports violate the initialized architecture boundaries.
 
 ### Security and License Review
 
-- Pending
+- Typed settings use `SecretStr`, and secret values are redacted in representations.
+- No hard-coded provider tokens, database passwords, or production URLs were introduced.
+- Health placeholders return only service name and status.
+- No copied third-party application code was added.
 
 ### Known Limitations
 
-- Pending
+- `uv` had to be installed with `pip --user --break-system-packages` because the machine lacks `venv` support and uses a PEP 668 managed Python installation.
+- Service entry points are placeholders only; they do not implement business endpoints, provider adapters, or infrastructure integration yet.
+- The worktree still contains earlier uncommitted TypeScript and `.github` changes plus `tasks/.00_task_index.md.swp`, which were left untouched.
 
 ### Follow-up Tasks
 
-- Pending
+- `TASK-01-04` can now add Docker Compose for both TypeScript and Python workspaces.
+- Later service tasks should replace placeholder health and settings modules with domain-specific implementations.
 
 ### Commit
 
-- Pending
+- Pending focused commit creation

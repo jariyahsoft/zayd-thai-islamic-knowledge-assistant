@@ -1,0 +1,35 @@
+{
+  "name": "zayd-platform",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Zayd TypeScript workspace root.",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "corepack pnpm -r build",
+    "lint": "corepack pnpm -r lint",
+    "typecheck": "corepack pnpm -r typecheck",
+    "test": "corepack pnpm -r test",
+    "format:check": "prettier --check ."
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": "24.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.1.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "eslint": "10.6.0",
+    "eslint-config-next": "16.2.10",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "16.4.0",
+    "prettier": "3.9.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.62.1",
+    "vitest": "4.1.9"
+  }
+}

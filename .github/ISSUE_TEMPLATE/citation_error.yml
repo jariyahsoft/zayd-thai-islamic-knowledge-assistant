@@ -1,0 +1,42 @@
+name: Citation error
+description: Report a citation mismatch or broken reference.
+labels: [citation]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for citation problems only.
+        Keep the report sanitized and avoid private conversations or personal data.
+  - type: input
+    id: answer_ref
+    attributes:
+      label: Answer reference
+      description: "Where did you see the citation?"
+    validations:
+      required: true
+  - type: input
+    id: citation_shown
+    attributes:
+      label: Citation shown
+      description: "The citation identifier or reference that was displayed."
+    validations:
+      required: true
+  - type: input
+    id: expected_source
+    attributes:
+      label: Expected source
+      description: "What source should have been used?"
+    validations:
+      required: true
+  - type: input
+    id: category
+    attributes:
+      label: Problem category
+      description: "Example: broken link, mismatch, wrong page, missing citation."
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: "Add any sanitized context needed to reproduce the problem."

@@ -1,0 +1,108 @@
+[project]
+name = "zayd-platform-python"
+version = "0.0.0"
+description = "Zayd Python service workspace"
+requires-python = "==3.12.3"
+dependencies = [
+  "fastapi==0.139.0",
+  "pydantic==2.13.4",
+  "pydantic-settings==2.14.2",
+]
+
+[dependency-groups]
+dev = [
+  "coverage==7.15.0",
+  "mypy==2.1.0",
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.0",
+  "ruff==0.15.20",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+  "services/common",
+  "services/api",
+  "services/orchestrator",
+  "services/retrieval",
+  "services/ingestion",
+  "services/worker",
+  "services/evaluation",
+]
+
+[tool.uv.sources]
+zayd-common = { workspace = true }
+zayd-service-api = { workspace = true }
+zayd-service-orchestrator = { workspace = true }
+zayd-service-retrieval = { workspace = true }
+zayd-service-ingestion = { workspace = true }
+zayd-service-worker = { workspace = true }
+zayd-service-evaluation = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["services"]
+pythonpath = [
+  "services/common/src",
+  "services/api/src",
+  "services/orchestrator/src",
+  "services/retrieval/src",
+  "services/ingestion/src",
+  "services/worker/src",
+  "services/evaluation/src",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+branch = true
+source = ["services"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+explicit_package_bases = true
+mypy_path = [
+  "services/common/src",
+  "services/api/src",
+  "services/orchestrator/src",
+  "services/retrieval/src",
+  "services/ingestion/src",
+  "services/worker/src",
+  "services/evaluation/src",
+]
+packages = [
+  "zayd_common",
+  "zayd_service_api",
+  "zayd_service_orchestrator",
+  "zayd_service_retrieval",
+  "zayd_service_ingestion",
+  "zayd_service_worker",
+  "zayd_service_evaluation",
+]
+
+[[tool.mypy.overrides]]
+module = [
+  "services.common.tests.*",
+  "services.api.tests.*",
+  "services.orchestrator.tests.*",
+  "services.retrieval.tests.*",
+  "services.ingestion.tests.*",
+  "services.worker.tests.*",
+  "services.evaluation.tests.*",
+]
+disallow_untyped_defs = false
