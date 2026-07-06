@@ -71,6 +71,12 @@ from .rbac import (
 )
 from .retrievability import can_activate_embedding, is_document_retrievable
 from .settings import ServiceSettings
+from .sources import (
+    SourceError,
+    SourcePublic,
+    SourceSearchQuery,
+    SourceService,
+)
 from .state_machines import (
     DocumentStateMachine,
     IncidentStateMachine,
@@ -143,4 +149,8 @@ __all__ = [
     "PRIVILEGED_ROLE_NAMES",
     "generate_totp",
     "verify_totp",
+    "SourceError",
+    "SourcePublic",
+    "SourceSearchQuery",
+    "SourceService",
 ]

@@ -21,6 +21,12 @@ from zayd_common.mfa import (
 )
 from zayd_common.rbac import Permission, RbacError, RbacService, UserPrincipal
 from zayd_common.settings import ServiceSettings
+from zayd_common.sources import (
+    SourceError,
+    SourcePublic,
+    SourceSearchQuery,
+    SourceService,
+)
 
 logger = get_logger("zayd.api")
 
@@ -173,6 +179,47 @@ class MfaStatusResponse(BaseModel):
     privileged_role_required: bool
 
 
+class SourceCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=500)
+    source_type: str = Field(min_length=1, max_length=100)
+    owner: str | None = Field(default=None, max_length=500)
+    website: str | None = Field(default=None, max_length=1000)
+    language: str = Field(min_length=2, max_length=10)
+    country: str | None = Field(default=None, max_length=100)
+    reliability_level: int = Field(ge=1, le=5)
+    is_active: bool = True
+
+
+class SourceUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=500)
+    source_type: str | None = Field(default=None, min_length=1, max_length=100)
+    owner: str | None = None
+    website: str | None = None
+    language: str | None = Field(default=None, min_length=2, max_length=10)
+    country: str | None = None
+    reliability_level: int | None = Field(default=None, ge=1, le=5)
+
+
+class SourceResponse(BaseModel):
+    id: str
+    name: str
+    source_type: str
+    owner: str | None
+    website: str | None
+    language: str
+    country: str | None
+    reliability_level: int
+    is_active: bool
+    created_by: str
+    updated_by: str | None
+    created_at: str
+    updated_at: str
+
+
+class SourceListResponse(BaseModel):
+    sources: list[SourceResponse]
+
+
 def _auth_response(result: AuthResult) -> AuthResponse:
     user = result.user
     tokens = result.tokens
@@ -221,6 +268,24 @@ def _audit_outcome(value: str | None) -> AuditOutcome | None:
     return None
 
 
+def _source_response(source: SourcePublic) -> SourceResponse:
+    return SourceResponse(
+        id=str(source.id),
+        name=source.name,
+        source_type=source.source_type,
+        owner=source.owner,
+        website=source.website,
+        language=source.language,
+        country=source.country,
+        reliability_level=source.reliability_level,
+        is_active=source.is_active,
+        created_by=str(source.created_by),
+        updated_by=str(source.updated_by) if source.updated_by else None,
+        created_at=source.created_at.isoformat(),
+        updated_at=source.updated_at.isoformat(),
+    )
+
+
 def create_app() -> FastAPI:
     settings = ServiceSettings.from_runtime_env(app_name="api")
     app = FastAPI(title=f"Zayd {settings.app_name} service")
@@ -248,6 +313,11 @@ def create_app() -> FastAPI:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
         return AuditService(SQLAlchemyUnitOfWork(session_factory))
+
+    def source_service() -> SourceService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return SourceService(SQLAlchemyUnitOfWork(session_factory))
 
     def get_current_claims(
         service: Annotated[AuthService, Depends(auth_service)],
@@ -319,6 +389,13 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(MfaError)
     async def mfa_error_handler(request: Request, exc: MfaError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(SourceError)
+    async def source_error_handler(request: Request, exc: SourceError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -715,5 +792,102 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return MfaRecoveryRotateResponse(recovery_codes=list(codes))
+
+    @app.post("/admin/sources", response_model=SourceResponse, status_code=201)
+    async def create_source(
+        payload: SourceCreateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_MANAGE))],
+        service: Annotated[SourceService, Depends(source_service)],
+    ) -> SourceResponse:
+        source = service.create(
+            name=payload.name,
+            source_type=payload.source_type,
+            language=payload.language,
+            reliability_level=payload.reliability_level,
+            owner=payload.owner,
+            website=payload.website,
+            country=payload.country,
+            is_active=payload.is_active,
+            created_by=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _source_response(source)
+
+    @app.get("/admin/sources/{source_id}", response_model=SourceResponse)
+    async def get_source(
+        source_id: UUID,
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_READ))],
+        service: Annotated[SourceService, Depends(source_service)],
+    ) -> SourceResponse:
+        source = service.get_by_id(source_id=source_id)
+        return _source_response(source)
+
+    @app.patch("/admin/sources/{source_id}", response_model=SourceResponse)
+    async def update_source(
+        source_id: UUID,
+        payload: SourceUpdateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_MANAGE))],
+        service: Annotated[SourceService, Depends(source_service)],
+    ) -> SourceResponse:
+        source = service.update(
+            source_id=source_id,
+            name=payload.name,
+            source_type=payload.source_type,
+            owner=payload.owner,
+            website=payload.website,
+            language=payload.language,
+            country=payload.country,
+            reliability_level=payload.reliability_level,
+            updated_by=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _source_response(source)
+
+    @app.post("/admin/sources/{source_id}/suspend", response_model=SourceResponse)
+    async def suspend_source(
+        source_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_MANAGE))],
+        service: Annotated[SourceService, Depends(source_service)],
+    ) -> SourceResponse:
+        source = service.suspend(
+            source_id=source_id,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _source_response(source)
+
+    @app.get("/admin/sources", response_model=SourceListResponse)
+    async def search_sources(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_READ))],
+        service: Annotated[SourceService, Depends(source_service)],
+        name: str | None = None,
+        source_type: str | None = None,
+        language: str | None = None,
+        country: str | None = None,
+        is_active: bool | None = None,
+        reliability_level_min: int | None = None,
+        reliability_level_max: int | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> SourceListResponse:
+        query = SourceSearchQuery(
+            name=name,
+            source_type=source_type,
+            language=language,
+            country=country,
+            is_active=is_active,
+            reliability_level_min=reliability_level_min,
+            reliability_level_max=reliability_level_max,
+            limit=limit,
+            offset=offset,
+        )
+        sources = service.search(query)
+        return SourceListResponse(sources=[_source_response(source) for source in sources])
 
     return app

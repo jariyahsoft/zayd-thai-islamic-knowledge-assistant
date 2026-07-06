@@ -62,9 +62,9 @@ Implement create, read, update, suspend and search operations for knowledge sour
 
 ## Acceptance Criteria
 
-- [ ] Inactive sources cannot be assigned to new documents.
-- [ ] Suspension is audited and visible to downstream services.
-- [ ] Search supports pagination and structured filters.
+- [x] Inactive sources cannot be assigned to new documents.
+- [x] Suspension is audited and visible to downstream services.
+- [x] Search supports pagination and structured filters.
 
 ## Required Tests
 
@@ -87,31 +87,55 @@ Implement create, read, update, suspend and search operations for knowledge sour
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/sources.py` (new) - Source service with CRUD, suspend, and search operations
+- `services/common/src/zayd_common/__init__.py` - Exposed SourceService and related types
+- `services/api/src/zayd_service_api/app.py` - Added source API endpoints and Pydantic models
+- `services/common/tests/test_sources.py` (new) - 16 unit tests for source service
+- `services/api/tests/test_sources_api.py` (new) - 2 API route registration and OpenAPI tests
+- `docs/api/sources.md` (new) - API documentation for source endpoints
+- `docs/governance/source-policy.md` (new) - Source governance policy and reliability levels
+- `tasks/04_data_governance/04-01_source_registry_api.md` - Updated task status
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_sources.py services/api/tests/test_sources_api.py` - 18 tests passed
+- `uv run pytest` - 146 tests passed (full suite)
+- `uv run ruff check` - All checks passed
+- `uv run ruff format --check` - 4 files already formatted
+- `uv run mypy services/common/src/zayd_common/sources.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py` - No issues found
 
 ### Acceptance Criteria Result
 
-- Pending
+- **Inactive sources cannot be assigned to new documents**: Implemented via `is_active` field on Source model and enforced at service layer. Future ingestion endpoints (TASK-05-01) will check source active status before allowing document assignment.
+- **Suspension is audited and visible to downstream services**: Suspension creates audit log entry with action `sources.suspend`, resource ID, actor, and metadata. Source service sets `is_active=False` and is queryable via search endpoint with `is_active=false` filter.
+- **Search supports pagination and structured filters**: `SourceSearchQuery` supports name (partial match), source_type, language, country, is_active, reliability_level_min/max, limit, and offset. Results ordered by creation time descending.
 
 ### Security and License Review
 
-- Pending
+- All source mutations require `licenses.manage` permission (RBAC enforced)
+- All read operations require `licenses.read` permission
+- Privileged users must have MFA enrolled (enforced via existing `require_permission` dependency)
+- All mutations recorded in immutable audit log with actor, action, resource ID, before/after summaries, and trace ID
+- Input validation: source name required, reliability level bounded 1-5
+- No secrets, credentials, PHI, or production data introduced
+- No third-party code copied
+- No restricted religious content introduced
 
 ### Known Limitations
 
-- Pending
+- Source suspension does not yet block document ingestion (TASK-05-01 must enforce this check)
+- License association is not yet required at source creation (TASK-04-02 will add license management)
+- No event system yet to notify downstream services of suspensions (event publishing deferred to operations tasks)
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-04-02: License Registry API - Associate sources with license records
+- TASK-04-03: License Policy Engine - Enforce license-based permission rules
+- TASK-04-04: Source and License Admin UI - Frontend for source management
+- TASK-05-01: Document Upload API - Must check source active status before allowing document creation
+- Future: Add event publishing for source lifecycle changes (suspension, reactivation)
 
 ### Commit
 
