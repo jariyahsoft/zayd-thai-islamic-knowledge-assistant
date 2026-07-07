@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Build admin pages to manage sources, license versions and permission documents.
 
 ## Acceptance Criteria
 
-- [ ] Admins can create, edit, search and suspend records according to RBAC.
-- [ ] Unknown or incomplete permissions are clearly highlighted.
-- [ ] Every mutation produces an audit event.
+- [x] Admins can create, edit, search and suspend records according to RBAC.
+- [x] Unknown or incomplete permissions are clearly highlighted.
+- [x] Every mutation produces an audit event.
 
 ## Required Tests
 
@@ -90,28 +90,50 @@ Build admin pages to manage sources, license versions and permission documents.
 
 ### Files Changed
 
-- Pending
+- `apps/admin/app/page.tsx`
+- `apps/admin/app/source-license-admin-console.tsx`
+- `apps/admin/app/admin-data.ts`
+- `apps/admin/app/admin-ui.ts`
+- `apps/admin/app/smoke.test.ts`
+- `docs/user/source-license-admin.md`
+- `tasks/04_data_governance/04-04_source_and_license_admin_ui.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `corepack pnpm --filter @zayd/admin test`
+- `corepack pnpm --filter @zayd/admin typecheck`
+- `corepack pnpm --filter @zayd/admin lint`
+- `corepack pnpm exec prettier --write apps/admin/app/page.tsx apps/admin/app/source-license-admin-console.tsx apps/admin/app/admin-data.ts apps/admin/app/admin-ui.ts apps/admin/app/smoke.test.ts docs/user/source-license-admin.md`
+- `corepack pnpm --filter @zayd/admin lint && corepack pnpm --filter @zayd/admin test && corepack pnpm --filter @zayd/admin typecheck`
+- Focused secret-marker scan on changed implementation, docs and task files
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Admin UI supports source search, source create/edit/suspend, license create/replace, policy inspection, and permission-document metadata display through the RBAC-protected admin APIs.
+- Passed. Unknown, incomplete, missing-evidence, suspended, expiry-related, and policy-blocked states are highlighted with warning cards and impact summaries.
+- Passed. All UI mutations use the existing audited backend endpoints, so source and license changes continue to produce immutable audit events.
 
 ### Security and License Review
 
-- Pending
+- The UI keeps the bearer token in memory only and does not persist it to cookies, local storage, committed files, or docs.
+- Mutations continue to go through existing RBAC and MFA-protected API endpoints; the frontend does not bypass server-side authorization.
+- Permission evidence remains metadata-only; the UI displays private object keys but not file contents.
+- No secrets, production data, restricted religious content, or third-party code were introduced.
+- Focused secret-marker scan passed for changed implementation, docs and task-tracking files.
 
 ### Known Limitations
 
-- Pending
+- The admin console currently requires a manually pasted temporary bearer token because a shared admin auth/session client has not been implemented yet.
+- UI tests cover pure helper logic and admin workflow view-model behavior; browser-level E2E coverage remains deferred until a fuller frontend test harness exists.
+- Downstream ingestion, retrieval, and export workflows still depend on later tasks to consume the policy engine automatically.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-05-01 and later ingestion tasks should consume source/license policy outcomes directly in upload and review flows.
+- Future admin auth/session UI work should replace manual token entry with a proper authenticated session.
 
 ### Commit
 
-- Pending
+- This task completion commit.

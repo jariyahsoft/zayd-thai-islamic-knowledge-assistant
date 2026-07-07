@@ -73,7 +73,7 @@
 | TASK-04-01 | Source Registry API | A | DONE | EPIC-03 complete | `04_data_governance/04-01_source_registry_api.md` |
 | TASK-04-02 | License Registry API | S | DONE | TASK-04-01 | `04_data_governance/04-02_license_registry_api.md` |
 | TASK-04-03 | License Policy Engine | S | DONE | TASK-04-02 | `04_data_governance/04-03_license_policy_engine.md` |
-| TASK-04-04 | Source and License Admin UI | A | READY | TASK-04-03 | `04_data_governance/04-04_source_and_license_admin_ui.md` |
+| TASK-04-04 | Source and License Admin UI | A | DONE | TASK-04-03 | `04_data_governance/04-04_source_and_license_admin_ui.md` |
 | TASK-05-01 | Document Upload API | A | TODO | EPIC-04 complete | `05_ingestion/05-01_document_upload_api.md` |
 | TASK-05-02 | Object Storage Integration | A | TODO | TASK-05-01 | `05_ingestion/05-02_object_storage_integration.md` |
 | TASK-05-03 | Malware Scan Pipeline | A | TODO | TASK-05-02 | `05_ingestion/05-03_malware_scan_pipeline.md` |

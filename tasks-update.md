@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-07T06:49:15+00:00
+
+- Task: TASK-04-04 - Source and License Admin UI
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Built the first real admin governance console for sources and licenses in the Next admin app. Added source search, create, edit, and suspend flows; license create and replacement flows; workflow policy inspection; permission-document metadata visibility; warning cards for unknown or incomplete permissions; and downstream-impact summaries ahead of risky changes.
+- Changed files: `apps/admin/app/page.tsx`, `apps/admin/app/source-license-admin-console.tsx`, `apps/admin/app/admin-data.ts`, `apps/admin/app/admin-ui.ts`, `apps/admin/app/smoke.test.ts`, `docs/user/source-license-admin.md`, `tasks/04_data_governance/04-04_source_and_license_admin_ui.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `corepack pnpm --filter @zayd/admin test` passed (4 tests); `corepack pnpm --filter @zayd/admin typecheck` passed; `corepack pnpm --filter @zayd/admin lint` passed; focused prettier write/check completed on changed admin/docs files; focused secret-marker scan passed.
+- Self-review: The UI remains within current repo scope by keeping the bearer token in browser memory only and pushing every mutation through existing RBAC/MFA-protected backend APIs. Unknown, incomplete, missing-evidence, suspended, and policy-blocked states are visually highlighted before mutation. Permission-document content is not exposed. No secrets, production data, restricted religious content, or third-party code were introduced.
+- Telegram notification: sent
+- Remaining risks: The console currently depends on a manually pasted temporary bearer token because shared admin auth UI is not implemented yet; browser-level E2E coverage is still deferred; later ingestion/retrieval/export tasks must consume the policy engine directly.
+
 ## 2026-07-07T06:00:47+00:00
 
 - Task: TASK-04-03 - License Policy Engine
