@@ -10,6 +10,13 @@ from pydantic import BaseModel, Field
 from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
+from zayd_common.documents import (
+    DocumentUploadDuplicate,
+    DocumentUploadError,
+    DocumentUploadRequest,
+    DocumentUploadResult,
+    DocumentUploadService,
+)
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
 from zayd_common.licenses import (
@@ -309,6 +316,44 @@ class LicensePolicyDecisionResponse(BaseModel):
     actions: list[LicensePolicyActionResponse]
 
 
+class DocumentUploadRequestModel(BaseModel):
+    source_id: UUID
+    source_license_id: UUID
+    canonical_id: str = Field(min_length=1, max_length=255)
+    document_type: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=500)
+    language: str = Field(min_length=1, max_length=32)
+    filename: str = Field(min_length=1, max_length=500)
+    content_type: str = Field(min_length=1, max_length=255)
+    file_base64: str = Field(min_length=1)
+    author: str | None = Field(default=None, max_length=255)
+    translator: str | None = Field(default=None, max_length=255)
+    publisher: str | None = Field(default=None, max_length=255)
+    edition: str | None = Field(default=None, max_length=255)
+    madhhab: str = Field(default="unknown", min_length=1, max_length=100)
+
+
+class DocumentUploadDuplicateResponse(BaseModel):
+    document_id: str
+    document_version_id: str
+    canonical_id: str
+    title: str
+    content_hash: str
+
+
+class DocumentUploadResponse(BaseModel):
+    document_id: str
+    document_version_id: str
+    content_hash: str
+    filename: str
+    content_type: str
+    byte_size: int
+    duplicate: DocumentUploadDuplicateResponse | None
+    upload_status: str
+    original_file_key: str
+    policy_version: str
+
+
 def _auth_response(result: AuthResult) -> AuthResponse:
     user = result.user
     tokens = result.tokens
@@ -470,6 +515,62 @@ def _license_policy_decision_response(
     )
 
 
+def _document_upload_request(payload: DocumentUploadRequestModel) -> DocumentUploadRequest:
+    try:
+        file_bytes = base64.b64decode(payload.file_base64, validate=True)
+    except ValueError as exc:
+        raise DocumentUploadError(
+            "DOCUMENT_INVALID_FILE_PAYLOAD",
+            "File payload is not valid base64.",
+            status_code=400,
+        ) from exc
+    return DocumentUploadRequest(
+        source_id=payload.source_id,
+        source_license_id=payload.source_license_id,
+        canonical_id=payload.canonical_id,
+        document_type=payload.document_type,
+        title=payload.title,
+        language=payload.language,
+        filename=payload.filename,
+        content_type=payload.content_type,
+        file_bytes=file_bytes,
+        author=payload.author,
+        translator=payload.translator,
+        publisher=payload.publisher,
+        edition=payload.edition,
+        madhhab=payload.madhhab,
+    )
+
+
+def _document_upload_duplicate_response(
+    duplicate: DocumentUploadDuplicate,
+) -> DocumentUploadDuplicateResponse:
+    return DocumentUploadDuplicateResponse(
+        document_id=str(duplicate.document_id),
+        document_version_id=str(duplicate.document_version_id),
+        canonical_id=duplicate.canonical_id,
+        title=duplicate.title,
+        content_hash=duplicate.content_hash,
+    )
+
+
+def _document_upload_response(result: DocumentUploadResult) -> DocumentUploadResponse:
+    return DocumentUploadResponse(
+        document_id=str(result.document_id),
+        document_version_id=str(result.document_version_id),
+        content_hash=result.content_hash,
+        filename=result.filename,
+        content_type=result.content_type,
+        byte_size=result.byte_size,
+        duplicate=_document_upload_duplicate_response(result.duplicate)
+        if result.duplicate
+        else None,
+        upload_status=result.upload_status,
+        original_file_key=result.original_file_key,
+        policy_version=result.policy_version,
+    )
+
+
 def create_app() -> FastAPI:
     settings = ServiceSettings.from_runtime_env(app_name="api")
     app = FastAPI(title=f"Zayd {settings.app_name} service")
@@ -507,6 +608,11 @@ def create_app() -> FastAPI:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
         return LicenseService(SQLAlchemyUnitOfWork(session_factory))
+
+    def document_upload_service() -> DocumentUploadService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return DocumentUploadService(SQLAlchemyUnitOfWork(session_factory))
 
     def get_current_claims(
         service: Annotated[AuthService, Depends(auth_service)],
@@ -592,6 +698,15 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(LicenseError)
     async def license_error_handler(request: Request, exc: LicenseError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(DocumentUploadError)
+    async def document_upload_error_handler(
+        request: Request, exc: DocumentUploadError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -988,6 +1103,21 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return MfaRecoveryRotateResponse(recovery_codes=list(codes))
+
+    @app.post("/documents", response_model=DocumentUploadResponse, status_code=201)
+    async def register_document_upload(
+        payload: DocumentUploadRequestModel,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_UPLOAD))],
+        service: Annotated[DocumentUploadService, Depends(document_upload_service)],
+    ) -> DocumentUploadResponse:
+        result = service.register_upload(
+            data=_document_upload_request(payload),
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _document_upload_response(result)
 
     @app.post("/admin/sources", response_model=SourceResponse, status_code=201)
     async def create_source(

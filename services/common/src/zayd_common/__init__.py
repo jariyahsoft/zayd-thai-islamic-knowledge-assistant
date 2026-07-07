@@ -27,6 +27,13 @@ from .database import (
     get_sessionmaker,
     seed_demo_data,
 )
+from .documents import (
+    DocumentUploadDuplicate,
+    DocumentUploadError,
+    DocumentUploadRequest,
+    DocumentUploadResult,
+    DocumentUploadService,
+)
 from .enums import (
     DocumentStatus,
     EvidenceStatus,
@@ -139,6 +146,11 @@ __all__ = [
     "AuthService",
     "AuthTokens",
     "UserPublic",
+    "DocumentUploadDuplicate",
+    "DocumentUploadError",
+    "DocumentUploadRequest",
+    "DocumentUploadResult",
+    "DocumentUploadService",
     "hash_password",
     "hash_token",
     "verify_password",

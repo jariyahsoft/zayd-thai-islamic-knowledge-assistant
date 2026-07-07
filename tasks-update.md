@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-07T07:34:08+00:00
+
+- Task: TASK-05-01 - Document Upload API
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented the first ingestion registration endpoint on `POST /documents` with JSON upload payload decoding, supported file-type and size validation, SHA-256 hashing, duplicate detection, source/license eligibility checks through the deterministic license policy engine, and immutable audit events for accepted and duplicate paths.
+- Changed files: `services/common/src/zayd_common/documents.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/common/tests/test_documents.py`, `services/api/tests/test_documents_api.py`, `docs/api/document-upload.md`, `tasks/05_ingestion/05-01_document_upload_api.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_documents.py services/api/tests/test_documents_api.py` passed (13 tests); source/license/policy regression suite passed (41 tests); focused `ruff check`, `ruff format --check`, and `mypy` passed; focused secret-marker scan passed.
+- Self-review: The endpoint fails closed for unsupported or mismatched file types, malformed payloads, oversized uploads, inactive sources, missing/mismatched licenses, and license-policy denials. Duplicate content returns a safe structured result instead of creating another document/version row. The API requires `documents.upload`, inherits privileged MFA enforcement, and records only sanitized metadata in audit logs. Placeholder quarantine object keys are returned without exposing signed URLs or file contents. No secrets, production data, restricted religious content, or third-party code were introduced.
+- Telegram notification: failed with sanitized reason `HTTP request failed`
+- Remaining risks: Upload registration currently uses JSON `file_base64` payloads rather than multipart or real object-storage flows; malware scanning, parsing, and extraction remain deferred to TASK-05-02 through TASK-05-07; duplicate detection is repository-scan based and should be indexed in later storage work.
+
 ## 2026-07-07T06:49:15+00:00
 
 - Task: TASK-04-04 - Source and License Admin UI
