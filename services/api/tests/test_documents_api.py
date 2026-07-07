@@ -6,6 +6,7 @@ import json
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI
@@ -17,11 +18,50 @@ from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.licenses import LicenseCreate, LicenseService
 from zayd_common.mfa import MfaService, generate_totp
 from zayd_common.sources import SourceService
+from zayd_common.storage import SignedUrl
 from zayd_service_api import create_app
+
+
+@dataclass
+class FakeStorage:
+    uploaded: dict[str, bytes]
+
+    def put_private_bytes(
+        self,
+        *,
+        key: str,
+        content: bytes,
+        content_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> object:
+        self.uploaded[key] = content
+        return object()
+
+    def delete_object(self, *, key: str) -> None:
+        self.uploaded.pop(key, None)
+
+    def create_signed_get_url(
+        self,
+        *,
+        key: str,
+        filename: str,
+        content_type: str,
+        expires_in_seconds: int = 300,
+    ) -> SignedUrl:
+        return SignedUrl(
+            method="GET",
+            url=f"https://example.local/{key}",
+            expires_at=1_700_000_000,
+            expires_in_seconds=expires_in_seconds,
+        )
 
 
 def test_document_routes_are_registered(monkeypatch) -> None:
     monkeypatch.setattr("zayd_service_api.app.get_sessionmaker", lambda database_url: object())
+    monkeypatch.setattr(
+        "zayd_service_api.app.S3ObjectStorage",
+        lambda settings: FakeStorage(uploaded={}),
+    )
     app = create_app()
 
     route_paths = {route.path for route in app.routes if hasattr(route, "path")}
@@ -30,12 +70,17 @@ def test_document_routes_are_registered(monkeypatch) -> None:
 
 def test_document_openapi_documents_contract(monkeypatch) -> None:
     monkeypatch.setattr("zayd_service_api.app.get_sessionmaker", lambda database_url: object())
+    monkeypatch.setattr(
+        "zayd_service_api.app.S3ObjectStorage",
+        lambda settings: FakeStorage(uploaded={}),
+    )
     schema = create_app().openapi()
 
     assert schema["paths"]["/documents"]["post"]["responses"]["201"]
     assert schema["components"]["schemas"]["DocumentUploadRequestModel"]
     assert schema["components"]["schemas"]["DocumentUploadResponse"]
     assert schema["components"]["schemas"]["DocumentUploadDuplicateResponse"]
+    assert schema["components"]["schemas"]["SignedUrlResponse"]
 
 
 def test_document_upload_requires_permission(monkeypatch) -> None:
@@ -161,6 +206,10 @@ def _app(monkeypatch) -> tuple[FastAPI, sessionmaker[Session]]:
     session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     monkeypatch.setenv("DATABASE_URL", "postgresql://zayd_dev:zayd_dev@postgres:5432/zayd_dev")
     monkeypatch.setenv("AUTH_JWT_SECRET", "test-secret")
+    monkeypatch.setattr(
+        "zayd_service_api.app.S3ObjectStorage",
+        lambda settings: FakeStorage(uploaded={}),
+    )
     monkeypatch.setattr(
         "zayd_service_api.app.get_sessionmaker",
         lambda database_url: session_factory,

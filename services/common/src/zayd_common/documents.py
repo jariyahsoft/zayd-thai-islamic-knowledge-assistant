@@ -10,6 +10,12 @@ from uuid import UUID, uuid4
 from zayd_common.database.models import AuditLog, Document, DocumentVersion, SourceLicense
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.license_policy import LicensePolicyInput, evaluate_license_policy
+from zayd_common.storage import (
+    DEFAULT_SIGNED_URL_TTL_SECONDS,
+    ObjectStorage,
+    SignedUrl,
+    StorageError,
+)
 
 DocumentUploadErrorCode = Literal[
     "DOCUMENT_SOURCE_NOT_FOUND",
@@ -18,6 +24,7 @@ DocumentUploadErrorCode = Literal[
     "DOCUMENT_LICENSE_SOURCE_MISMATCH",
     "DOCUMENT_LICENSE_INELIGIBLE",
     "DOCUMENT_FILENAME_REQUIRED",
+    "DOCUMENT_INVALID_FILENAME",
     "DOCUMENT_UNSUPPORTED_FILE_TYPE",
     "DOCUMENT_INVALID_FILE_PAYLOAD",
     "DOCUMENT_FILE_TOO_LARGE",
@@ -91,12 +98,14 @@ class DocumentUploadResult:
     duplicate: DocumentUploadDuplicate | None
     upload_status: Literal["accepted", "duplicate"]
     original_file_key: str
+    download_url: SignedUrl
     policy_version: str
 
 
 class DocumentUploadService:
-    def __init__(self, uow: SQLAlchemyUnitOfWork) -> None:
+    def __init__(self, uow: SQLAlchemyUnitOfWork, storage: ObjectStorage) -> None:
         self.uow = uow
+        self.storage = storage
 
     def register_upload(
         self,
@@ -164,6 +173,11 @@ class DocumentUploadService:
                     },
                     trace_id=trace_id,
                 )
+                signed_url = self.storage.create_signed_get_url(
+                    key=self._duplicate_object_key(duplicate, normalized.filename),
+                    filename=normalized.filename,
+                    content_type=normalized.content_type,
+                )
                 self.uow.commit()
                 return DocumentUploadResult(
                     document_id=duplicate.document_id,
@@ -174,7 +188,8 @@ class DocumentUploadService:
                     byte_size=file_size,
                     duplicate=duplicate,
                     upload_status="duplicate",
-                    original_file_key=f"uploads/quarantine/{duplicate.document_version_id}/{normalized.filename}",
+                    original_file_key=self._duplicate_object_key(duplicate, normalized.filename),
+                    download_url=signed_url,
                     policy_version=DOCUMENT_UPLOAD_POLICY_VERSION,
                 )
 
@@ -197,13 +212,36 @@ class DocumentUploadService:
             )
             self.uow.documents.create(document)
 
+            object_key = self._object_key(document.id, normalized.filename)
+            uploaded = False
+            try:
+                self.storage.put_private_bytes(
+                    key=object_key,
+                    content=normalized.file_bytes,
+                    content_type=normalized.content_type,
+                    metadata={
+                        "document_id": str(document.id),
+                        "canonical_id": normalized.canonical_id,
+                        "content_hash": content_hash,
+                    },
+                )
+                uploaded = True
+            except StorageError:
+                raise
+            except Exception as exc:  # pragma: no cover - defensive conversion
+                raise StorageError(
+                    "STORAGE_UPLOAD_FAILED",
+                    "Object storage upload failed.",
+                    operation="put",
+                ) from exc
+
             version = DocumentVersion(
                 id=uuid4(),
                 document_id=document.id,
                 version_number=1,
                 status="uploaded",
                 content_hash=content_hash,
-                original_file_key=f"uploads/quarantine/{document.id}/{normalized.filename}",
+                original_file_key=object_key,
                 extracted_text=None,
                 metadata_json={
                     "filename": normalized.filename,
@@ -235,7 +273,18 @@ class DocumentUploadService:
                 },
                 trace_id=trace_id,
             )
-            self.uow.commit()
+            try:
+                self.uow.commit()
+            except Exception:
+                if uploaded:
+                    self.storage.delete_object(key=object_key)
+                raise
+            signed_url = self.storage.create_signed_get_url(
+                key=object_key,
+                filename=normalized.filename,
+                content_type=normalized.content_type,
+                expires_in_seconds=DEFAULT_SIGNED_URL_TTL_SECONDS,
+            )
             return DocumentUploadResult(
                 document_id=document.id,
                 document_version_id=version.id,
@@ -246,6 +295,7 @@ class DocumentUploadService:
                 duplicate=None,
                 upload_status="accepted",
                 original_file_key=version.original_file_key or "",
+                download_url=signed_url,
                 policy_version=DOCUMENT_UPLOAD_POLICY_VERSION,
             )
 
@@ -255,6 +305,12 @@ class DocumentUploadService:
             raise DocumentUploadError(
                 "DOCUMENT_FILENAME_REQUIRED",
                 "Filename is required.",
+                status_code=400,
+            )
+        if "/" in filename or "\\" in filename or filename in {".", ".."}:
+            raise DocumentUploadError(
+                "DOCUMENT_INVALID_FILENAME",
+                "Filename contains an invalid path segment.",
                 status_code=400,
             )
         content_type = data.content_type.strip().lower()
@@ -301,6 +357,12 @@ class DocumentUploadService:
             edition=data.edition.strip() if data.edition else None,
             madhhab=data.madhhab.strip() if data.madhhab else "unknown",
         )
+
+    def _object_key(self, document_id: UUID, filename: str) -> str:
+        return f"uploads/quarantine/{document_id}/{filename}"
+
+    def _duplicate_object_key(self, duplicate: DocumentUploadDuplicate, filename: str) -> str:
+        return f"uploads/quarantine/{duplicate.document_version_id}/{filename}"
 
     def _find_duplicate(self, content_hash: str) -> DocumentUploadDuplicate | None:
         for document in self.uow.documents.get_documents():

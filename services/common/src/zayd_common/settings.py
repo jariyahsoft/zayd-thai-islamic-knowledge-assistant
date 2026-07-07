@@ -12,6 +12,7 @@ Madhhab = Literal["hanafi", "hanbali", "maliki", "shafii"]
 LogLevel = Literal["DEBUG", "ERROR", "INFO", "WARNING"]
 LlmProvider = Literal["local", "ollama", "openai_compatible", "vllm"]
 EmbeddingProvider = Literal["local", "openai_compatible"]
+S3AddressingStyle = Literal["auto", "path", "virtual"]
 
 LOCAL_ONLY_HOSTS = {"127.0.0.1", "::1", "localhost", "ollama", "vllm"}
 PRODUCTION_UNSAFE_SECRETS = {
@@ -56,6 +57,9 @@ class ServiceSettings(BaseSettings):
     s3_access_key: SecretStr = SecretStr("minioadmin")
     s3_secret_key: SecretStr = SecretStr("minioadmin")
     s3_bucket: str = "zayd-private"
+    s3_addressing_style: S3AddressingStyle = "auto"
+    s3_max_attempts: int = 3
+    s3_signed_url_ttl_seconds: int = 300
     llm_provider: LlmProvider = "openai_compatible"
     llm_base_url: str = "http://ollama:11434"
     llm_api_key: SecretStr | None = None
@@ -93,6 +97,20 @@ class ServiceSettings(BaseSettings):
     def validate_s3_endpoint(cls, value: str) -> str:
         return _parse_url(value, "S3_ENDPOINT")
 
+    @field_validator("s3_max_attempts", "s3_signed_url_ttl_seconds")
+    @classmethod
+    def validate_positive_s3_ints(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("value must be greater than or equal to 1")
+        return value
+
+    @field_validator("s3_signed_url_ttl_seconds")
+    @classmethod
+    def validate_signed_url_ttl(cls, value: int) -> int:
+        if value > 900:
+            raise ValueError("S3_SIGNED_URL_TTL_SECONDS must be less than or equal to 900")
+        return value
+
     @field_validator("llm_base_url")
     @classmethod
     def validate_llm_base_url(cls, value: str) -> str:
@@ -109,7 +127,8 @@ class ServiceSettings(BaseSettings):
             llm_host = urlparse(self.llm_base_url).hostname
             if self.llm_provider == "openai_compatible" and llm_host not in LOCAL_ONLY_HOSTS:
                 raise ValueError(
-                    "LLM_BASE_URL must point to a local endpoint when ENABLE_EXTERNAL_PROVIDERS=false",
+                    "LLM_BASE_URL must point to a local endpoint when "
+                    "ENABLE_EXTERNAL_PROVIDERS=false",
                 )
 
         if self.environment == "production":
@@ -144,6 +163,9 @@ class ServiceSettings(BaseSettings):
                 s3_access_key=SecretStr(_get_env("S3_ACCESS_KEY", "minioadmin")),
                 s3_secret_key=SecretStr(_get_env("S3_SECRET_KEY", "minioadmin")),
                 s3_bucket=_get_env("S3_BUCKET", "zayd-private"),
+                s3_addressing_style=_get_env("S3_ADDRESSING_STYLE", "auto"),
+                s3_max_attempts=int(_get_env("S3_MAX_ATTEMPTS", "3")),
+                s3_signed_url_ttl_seconds=int(_get_env("S3_SIGNED_URL_TTL_SECONDS", "300")),
                 llm_provider=_get_env("LLM_PROVIDER", "openai_compatible"),
                 llm_base_url=_get_env("LLM_BASE_URL", "http://ollama:11434"),
                 llm_api_key=_optional_secret("LLM_API_KEY"),

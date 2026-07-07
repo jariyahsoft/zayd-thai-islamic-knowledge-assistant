@@ -43,6 +43,7 @@ from zayd_common.sources import (
     SourceSearchQuery,
     SourceService,
 )
+from zayd_common.storage import S3ObjectStorage, S3StorageSettings, SignedUrl
 
 logger = get_logger("zayd.api")
 
@@ -341,6 +342,13 @@ class DocumentUploadDuplicateResponse(BaseModel):
     content_hash: str
 
 
+class SignedUrlResponse(BaseModel):
+    method: str
+    url: str
+    expires_at: int
+    expires_in_seconds: int
+
+
 class DocumentUploadResponse(BaseModel):
     document_id: str
     document_version_id: str
@@ -351,6 +359,7 @@ class DocumentUploadResponse(BaseModel):
     duplicate: DocumentUploadDuplicateResponse | None
     upload_status: str
     original_file_key: str
+    download_url: SignedUrlResponse
     policy_version: str
 
 
@@ -567,7 +576,17 @@ def _document_upload_response(result: DocumentUploadResult) -> DocumentUploadRes
         else None,
         upload_status=result.upload_status,
         original_file_key=result.original_file_key,
+        download_url=_signed_url_response(result.download_url),
         policy_version=result.policy_version,
+    )
+
+
+def _signed_url_response(signed_url: SignedUrl) -> SignedUrlResponse:
+    return SignedUrlResponse(
+        method=signed_url.method,
+        url=signed_url.url,
+        expires_at=signed_url.expires_at,
+        expires_in_seconds=signed_url.expires_in_seconds,
     )
 
 
@@ -612,7 +631,21 @@ def create_app() -> FastAPI:
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
-        return DocumentUploadService(SQLAlchemyUnitOfWork(session_factory))
+        return DocumentUploadService(
+            SQLAlchemyUnitOfWork(session_factory),
+            S3ObjectStorage(
+                S3StorageSettings(
+                    endpoint=settings.s3_endpoint,
+                    region=settings.s3_region,
+                    access_key=settings.s3_access_key.get_secret_value(),
+                    secret_key=settings.s3_secret_key.get_secret_value(),
+                    bucket=settings.s3_bucket,
+                    addressing_style=settings.s3_addressing_style,
+                    max_attempts=settings.s3_max_attempts,
+                    signed_url_ttl_seconds=settings.s3_signed_url_ttl_seconds,
+                )
+            ),
+        )
 
     def get_current_claims(
         service: Annotated[AuthService, Depends(auth_service)],
