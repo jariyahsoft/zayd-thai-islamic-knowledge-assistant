@@ -1,6 +1,6 @@
 import base64
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -12,6 +12,14 @@ from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthServi
 from zayd_common.database import get_sessionmaker
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
+from zayd_common.licenses import (
+    LicenseCreate,
+    LicenseError,
+    LicensePublic,
+    LicenseService,
+    PermissionDocumentAccess,
+    PublicationAuthorization,
+)
 from zayd_common.logging import get_logger
 from zayd_common.mfa import (
     MfaEnrollment,
@@ -220,6 +228,63 @@ class SourceListResponse(BaseModel):
     sources: list[SourceResponse]
 
 
+class LicenseCreateRequest(BaseModel):
+    license_name: str = Field(min_length=1, max_length=500)
+    license_version: str | None = Field(default=None, max_length=100)
+    status: str = Field(min_length=1, max_length=100)
+    storage_permission: str = Field(min_length=1, max_length=100)
+    embedding_permission: str = Field(min_length=1, max_length=100)
+    commercial_use: str = Field(min_length=1, max_length=100)
+    redistribution: str = Field(min_length=1, max_length=100)
+    attribution_required: bool = True
+    attribution_template: str | None = None
+    permission_document_key: str | None = Field(default=None, max_length=1000)
+    valid_from: date | None = None
+    valid_until: date | None = None
+    notes: str | None = None
+
+
+class LicenseResponse(BaseModel):
+    id: str
+    source_id: str
+    license_name: str
+    license_version: str | None
+    status: str
+    storage_permission: str
+    embedding_permission: str
+    commercial_use: str
+    redistribution: str
+    attribution_required: bool
+    attribution_template: str | None
+    permission_document_key: str | None
+    valid_from: str | None
+    valid_until: str | None
+    notes: str | None
+    created_by: str
+    updated_by: str | None
+    created_at: str
+    updated_at: str
+    row_version: int
+
+
+class LicenseListResponse(BaseModel):
+    licenses: list[LicenseResponse]
+
+
+class PermissionDocumentResponse(BaseModel):
+    license_id: str
+    permission_document_key: str
+    access: str
+    audited: bool
+
+
+class PublicationAuthorizationResponse(BaseModel):
+    license_id: str
+    authorized: bool
+    policy_version: str
+    reason: str
+
+
 def _auth_response(result: AuthResult) -> AuthResponse:
     user = result.user
     tokens = result.tokens
@@ -286,6 +351,73 @@ def _source_response(source: SourcePublic) -> SourceResponse:
     )
 
 
+def _license_create(payload: LicenseCreateRequest) -> LicenseCreate:
+    return LicenseCreate(
+        license_name=payload.license_name,
+        license_version=payload.license_version,
+        status=payload.status,
+        storage_permission=payload.storage_permission,
+        embedding_permission=payload.embedding_permission,
+        commercial_use=payload.commercial_use,
+        redistribution=payload.redistribution,
+        attribution_required=payload.attribution_required,
+        attribution_template=payload.attribution_template,
+        permission_document_key=payload.permission_document_key,
+        valid_from=payload.valid_from,
+        valid_until=payload.valid_until,
+        notes=payload.notes,
+    )
+
+
+def _license_response(license_record: LicensePublic) -> LicenseResponse:
+    return LicenseResponse(
+        id=str(license_record.id),
+        source_id=str(license_record.source_id),
+        license_name=license_record.license_name,
+        license_version=license_record.license_version,
+        status=license_record.status,
+        storage_permission=license_record.storage_permission,
+        embedding_permission=license_record.embedding_permission,
+        commercial_use=license_record.commercial_use,
+        redistribution=license_record.redistribution,
+        attribution_required=license_record.attribution_required,
+        attribution_template=license_record.attribution_template,
+        permission_document_key=license_record.permission_document_key,
+        valid_from=license_record.valid_from.isoformat()
+        if license_record.valid_from is not None
+        else None,
+        valid_until=license_record.valid_until.isoformat()
+        if license_record.valid_until is not None
+        else None,
+        notes=license_record.notes,
+        created_by=str(license_record.created_by),
+        updated_by=str(license_record.updated_by) if license_record.updated_by else None,
+        created_at=license_record.created_at.isoformat(),
+        updated_at=license_record.updated_at.isoformat(),
+        row_version=license_record.row_version,
+    )
+
+
+def _permission_document_response(access: PermissionDocumentAccess) -> PermissionDocumentResponse:
+    return PermissionDocumentResponse(
+        license_id=str(access.license_id),
+        permission_document_key=access.permission_document_key,
+        access=access.access,
+        audited=access.audited,
+    )
+
+
+def _publication_authorization_response(
+    authorization: PublicationAuthorization,
+) -> PublicationAuthorizationResponse:
+    return PublicationAuthorizationResponse(
+        license_id=str(authorization.license_id),
+        authorized=authorization.authorized,
+        policy_version=authorization.policy_version,
+        reason=authorization.reason,
+    )
+
+
 def create_app() -> FastAPI:
     settings = ServiceSettings.from_runtime_env(app_name="api")
     app = FastAPI(title=f"Zayd {settings.app_name} service")
@@ -318,6 +450,11 @@ def create_app() -> FastAPI:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
         return SourceService(SQLAlchemyUnitOfWork(session_factory))
+
+    def license_service() -> LicenseService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return LicenseService(SQLAlchemyUnitOfWork(session_factory))
 
     def get_current_claims(
         service: Annotated[AuthService, Depends(auth_service)],
@@ -396,6 +533,13 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(SourceError)
     async def source_error_handler(request: Request, exc: SourceError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(LicenseError)
+    async def license_error_handler(request: Request, exc: LicenseError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -889,5 +1033,101 @@ def create_app() -> FastAPI:
         )
         sources = service.search(query)
         return SourceListResponse(sources=[_source_response(source) for source in sources])
+
+    @app.post(
+        "/admin/sources/{source_id}/licenses",
+        response_model=LicenseResponse,
+        status_code=201,
+    )
+    async def create_license(
+        source_id: UUID,
+        payload: LicenseCreateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_MANAGE))],
+        service: Annotated[LicenseService, Depends(license_service)],
+    ) -> LicenseResponse:
+        license_record = service.create(
+            source_id=source_id,
+            data=_license_create(payload),
+            created_by=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _license_response(license_record)
+
+    @app.get("/admin/sources/{source_id}/licenses", response_model=LicenseListResponse)
+    async def list_source_licenses(
+        source_id: UUID,
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_READ))],
+        service: Annotated[LicenseService, Depends(license_service)],
+    ) -> LicenseListResponse:
+        licenses = service.list_by_source(source_id=source_id)
+        return LicenseListResponse(licenses=[_license_response(record) for record in licenses])
+
+    @app.get("/admin/licenses/{license_id}", response_model=LicenseResponse)
+    async def get_license(
+        license_id: UUID,
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_READ))],
+        service: Annotated[LicenseService, Depends(license_service)],
+    ) -> LicenseResponse:
+        license_record = service.get_by_id(license_id=license_id)
+        return _license_response(license_record)
+
+    @app.post(
+        "/admin/licenses/{license_id}/replace",
+        response_model=LicenseResponse,
+        status_code=201,
+    )
+    async def replace_license(
+        license_id: UUID,
+        payload: LicenseCreateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_MANAGE))],
+        service: Annotated[LicenseService, Depends(license_service)],
+    ) -> LicenseResponse:
+        replacement = service.replace(
+            license_id=license_id,
+            data=_license_create(payload),
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _license_response(replacement)
+
+    @app.get(
+        "/admin/licenses/{license_id}/permission-document",
+        response_model=PermissionDocumentResponse,
+    )
+    async def get_license_permission_document(
+        license_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_READ))],
+        service: Annotated[LicenseService, Depends(license_service)],
+    ) -> PermissionDocumentResponse:
+        access = service.get_permission_document(
+            license_id=license_id,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _permission_document_response(access)
+
+    @app.post(
+        "/admin/licenses/{license_id}/publication-authorization",
+        response_model=PublicationAuthorizationResponse,
+    )
+    async def check_license_publication_authorization(
+        license_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_READ))],
+        service: Annotated[LicenseService, Depends(license_service)],
+    ) -> PublicationAuthorizationResponse:
+        authorization = service.check_publication_authorization(
+            license_id=license_id,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _publication_authorization_response(authorization)
 
     return app

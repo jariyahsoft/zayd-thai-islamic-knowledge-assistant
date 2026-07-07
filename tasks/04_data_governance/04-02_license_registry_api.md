@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Implement license records covering storage, embedding, commercial use, redistrib
 
 ## Acceptance Criteria
 
-- [ ] UNKNOWN, PROHIBITED and EXPIRED licenses cannot authorize publication.
-- [ ] Expiry and replacement of license versions are represented without overwriting history.
-- [ ] Permission files are access controlled and audited.
+- [x] UNKNOWN, PROHIBITED and EXPIRED licenses cannot authorize publication.
+- [x] Expiry and replacement of license versions are represented without overwriting history.
+- [x] Permission files are access controlled and audited.
 
 ## Required Tests
 
@@ -91,28 +91,53 @@ Implement license records covering storage, embedding, commercial use, redistrib
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/licenses.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/common/tests/test_licenses.py`
+- `services/api/tests/test_licenses_api.py`
+- `docs/api/licenses.md`
+- `docs/governance/data-licenses.md`
+- `tasks/04_data_governance/04-02_license_registry_api.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py`
+- `uv run pytest services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py services/common/tests/test_sources.py services/api/tests/test_sources_api.py`
+- `uv run ruff check services/common/src/zayd_common/licenses.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py`
+- `uv run ruff format --check services/common/src/zayd_common/licenses.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py`
+- `uv run mypy services/common/src/zayd_common/licenses.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py`
+- `uv run pytest`
+- Focused secret-marker scan on changed implementation, docs and task files
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. `unknown`, `prohibited`, `expired`, and date-expired licenses fail closed for publication authorization.
+- Passed. License replacement creates a new `source_licenses` row and preserves the original row for history.
+- Passed. Permission document access is RBAC-protected at the API layer, returns metadata only, and writes immutable audit records for success and missing-document denial.
 
 ### Security and License Review
 
-- Pending
+- RBAC enforced through existing `licenses.read` and `licenses.manage` dependencies; privileged access inherits existing MFA enforcement.
+- Permission evidence is represented by private object keys only; no file contents, signed URLs, production data, restricted datasets, or secrets were added.
+- Stable service errors were added for invalid status, invalid permission, invalid date range, missing source/license, missing permission document, and blocked publication.
+- Publication checks use deterministic `license-registry-v1` policy logic and fail closed for missing or ambiguous permission states.
+- Focused secret-marker scan passed for changed implementation, docs and task-tracking files.
 
 ### Known Limitations
 
-- Pending
+- This task stores private object keys and gates metadata access; actual object-storage upload/download and signed URL generation are deferred to storage integration tasks.
+- Downstream ingestion, review, publishing and retrieval services must call the registry authorization checks in their respective later tasks.
+- No database migration was required because the `source_licenses` table and ORM model already existed from the core schema tasks.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-04-03 — License Policy Engine should centralize and expand deterministic policy decisions for downstream workflows.
+- TASK-04-04 — Admin UI should expose source license versions and permission evidence metadata.
+- TASK-05-01 and later ingestion/retrieval tasks must enforce source active state and valid license gates before accepting or publishing content.
 
 ### Commit
 
-- Pending
+- This task completion commit.

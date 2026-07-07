@@ -1,5 +1,31 @@
 # Tasks Update
 
+## 2026-07-07T05:34:32+00:00
+
+- Task: TASK-04-02 - License Registry API
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented a license registry service and admin API for source license records covering storage, embedding, commercial use, redistribution, attribution, validity dates and permission evidence. Added deterministic `license-registry-v1` publication authorization, stable service/API errors, append-oriented replacement that preserves historical rows, and audited permission-document metadata access.
+- Changed files: `services/common/src/zayd_common/licenses.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/common/tests/test_licenses.py`, `services/api/tests/test_licenses_api.py`, `docs/api/licenses.md`, `docs/governance/data-licenses.md`, `tasks/04_data_governance/04-02_license_registry_api.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py` passed (8 tests); source/license regression suite passed (26 tests); focused `ruff check`, `ruff format --check`, and `mypy` passed; full `uv run pytest` passed (154 tests); focused secret-marker scan passed.
+- Self-review: RBAC uses existing `licenses.read` and `licenses.manage` dependencies with inherited MFA enforcement for privileged users. Permission evidence remains private object-key metadata only and is not exposed as content or signed URLs. Publication checks fail closed for unknown, prohibited, expired, date-expired, unsupported, or insufficient permission states. Mutations, permission-document access, and publication authorization checks write sanitized immutable audit records. No secrets, PHI, production data, restricted religious content, or third-party code were introduced.
+- Telegram notification: sent
+- Remaining risks: Actual object storage upload/download is deferred; downstream ingestion, review, publishing, and retrieval services must call the registry checks in later tasks; TASK-04-03 should consolidate broader license policy engine behavior.
+
+## 2026-07-06T18:30:00+00:00
+
+- Task: TASK-04-01 - Source Registry API
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented create, read, update, suspend, and search operations for knowledge sources. Added SourceService with full CRUD lifecycle, RBAC enforcement (licenses.manage for writes, licenses.read for reads), MFA enforcement for privileged users, immutable audit logging with sanitized metadata, and structured search with pagination. Captures ownership, language, country, source type, reliability level (1-5), and active status. Inactive sources are flagged at service layer for future ingestion blocking.
+- Changed files: `services/common/src/zayd_common/sources.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/common/tests/test_sources.py`, `services/api/tests/test_sources_api.py`, `docs/api/sources.md`, `docs/governance/source-policy.md`, `tasks/04_data_governance/04-01_source_registry_api.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_sources.py services/api/tests/test_sources_api.py` passed (18 tests); full `uv run pytest` passed (146 tests); `uv run ruff check` passed; `uv run ruff format --check` passed; `uv run mypy services/common/src/zayd_common/sources.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py` passed.
+- Self-review: RBAC enforced server-side; privileged operations require MFA enrollment; all mutations audited with actor/action/resource/trace metadata; input validation (name required, reliability 1-5); soft-delete preserved via existing `deleted_at` field; no secrets, PHI, production data, or restricted religious content introduced. Inactive sources flagged but ingestion enforcement deferred to TASK-05-01.
+- Telegram notification: sent
+- Remaining risks: Source suspension does not yet block document ingestion (TASK-05-01 must enforce this); license association not yet required at source creation (TASK-04-02); no event publishing for downstream notification (deferred to operations tasks).
+
 ## 2026-07-06T13:26:23+00:00
 
 - Task: TASK-03-03 - Implement RBAC

@@ -51,6 +51,14 @@ from .guest import (
     hash_guest_token,
 )
 from .health import HealthStatus
+from .licenses import (
+    LicenseCreate,
+    LicenseError,
+    LicensePublic,
+    LicenseService,
+    PermissionDocumentAccess,
+    PublicationAuthorization,
+)
 from .logging import get_logger
 from .mfa import (
     PRIVILEGED_ROLE_NAMES,
@@ -136,6 +144,12 @@ __all__ = [
     "GuestService",
     "GuestSessionInfo",
     "hash_guest_token",
+    "LicenseCreate",
+    "LicenseError",
+    "LicensePublic",
+    "LicenseService",
+    "PermissionDocumentAccess",
+    "PublicationAuthorization",
     "Permission",
     "RbacError",
     "RbacService",

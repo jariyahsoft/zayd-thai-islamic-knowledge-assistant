@@ -70,9 +70,9 @@
 | TASK-03-03 | Implement RBAC | S | DONE | TASK-03-01 | `03_auth/03-03_implement_rbac.md` |
 | TASK-03-04 | Implement MFA for Privileged Users | A | DONE | TASK-03-03 | `03_auth/03-04_implement_mfa_for_privileged_users.md` |
 | TASK-03-05 | Implement Immutable Audit Log | S | DONE | TASK-03-03 | `03_auth/03-05_implement_immutable_audit_log.md` |
-| TASK-04-01 | Source Registry API | A | READY | EPIC-03 complete | `04_data_governance/04-01_source_registry_api.md` |
-| TASK-04-02 | License Registry API | S | TODO | TASK-04-01 | `04_data_governance/04-02_license_registry_api.md` |
-| TASK-04-03 | License Policy Engine | S | TODO | TASK-04-02 | `04_data_governance/04-03_license_policy_engine.md` |
+| TASK-04-01 | Source Registry API | A | DONE | EPIC-03 complete | `04_data_governance/04-01_source_registry_api.md` |
+| TASK-04-02 | License Registry API | S | DONE | TASK-04-01 | `04_data_governance/04-02_license_registry_api.md` |
+| TASK-04-03 | License Policy Engine | S | READY | TASK-04-02 | `04_data_governance/04-03_license_policy_engine.md` |
 | TASK-04-04 | Source and License Admin UI | A | TODO | TASK-04-03 | `04_data_governance/04-04_source_and_license_admin_ui.md` |
 | TASK-05-01 | Document Upload API | A | TODO | EPIC-04 complete | `05_ingestion/05-01_document_upload_api.md` |
 | TASK-05-02 | Object Storage Integration | A | TODO | TASK-05-01 | `05_ingestion/05-02_object_storage_integration.md` |
