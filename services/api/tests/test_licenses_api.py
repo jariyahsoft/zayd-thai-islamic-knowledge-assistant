@@ -13,6 +13,7 @@ def test_license_routes_are_registered(monkeypatch) -> None:
     assert "/admin/licenses/{license_id}/replace" in route_paths
     assert "/admin/licenses/{license_id}/permission-document" in route_paths
     assert "/admin/licenses/{license_id}/publication-authorization" in route_paths
+    assert "/admin/licenses/{license_id}/policy-decision" in route_paths
 
 
 def test_license_openapi_documents_contract(monkeypatch) -> None:
@@ -29,8 +30,13 @@ def test_license_openapi_documents_contract(monkeypatch) -> None:
     assert schema["paths"]["/admin/licenses/{license_id}/publication-authorization"]["post"][
         "responses"
     ]["200"]
+    assert schema["paths"]["/admin/licenses/{license_id}/policy-decision"]["get"]["responses"][
+        "200"
+    ]
     assert schema["components"]["schemas"]["LicenseCreateRequest"]
     assert schema["components"]["schemas"]["LicenseResponse"]
     assert schema["components"]["schemas"]["LicenseListResponse"]
     assert schema["components"]["schemas"]["PermissionDocumentResponse"]
     assert schema["components"]["schemas"]["PublicationAuthorizationResponse"]
+    assert schema["components"]["schemas"]["LicensePolicyActionResponse"]
+    assert schema["components"]["schemas"]["LicensePolicyDecisionResponse"]

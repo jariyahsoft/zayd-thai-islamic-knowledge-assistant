@@ -1,5 +1,18 @@
 # Tasks Update
 
+## 2026-07-07T06:00:47+00:00
+
+- Task: TASK-04-03 - License Policy Engine
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented deterministic `license-policy-engine-v1` decisions for ingestion, retrieval and export workflows across persistent storage, cache TTL, embedding, commercial use, redistribution and attribution. Added workflow/action reason codes, source license version propagation, non-overridable LLM flagging, audited service integration, and a policy decision API for downstream workflows.
+- Changed files: `services/common/src/zayd_common/license_policy.py`, `services/common/src/zayd_common/licenses.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_license_policy.py`, `services/common/tests/test_licenses.py`, `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_licenses_api.py`, `docs/architecture/license-policy-engine.md`, `tasks/04_data_governance/04-03_license_policy_engine.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_license_policy.py services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py` passed (23 tests); source/license regression suite passed (41 tests); focused `ruff check`, `ruff format --check`, and `mypy` passed; full `uv run pytest` passed (169 tests); focused secret-marker scan passed.
+- Self-review: Policy decisions are pure deterministic code and always return `llm_override_allowed: false`. Unsupported workflows, unknown/prohibited/expired status, date-expired or not-yet-valid licenses, missing attribution templates, cache-only content, private export attempts, and denied permission combinations fail closed with stable reason codes. The API requires `licenses.read`, inherits privileged MFA enforcement, and writes immutable audit records with sanitized metadata only. No secrets, production data, restricted religious content, permission-document contents, or third-party code were introduced.
+- Telegram notification: sent
+- Remaining risks: Downstream ingestion, retrieval and export services must call the policy engine in later tasks; cache TTLs are code constants tied to `license-policy-engine-v1`; publication authorization compatibility endpoint now surfaces reason codes instead of prose reasons.
+
 ## 2026-07-07T05:34:32+00:00
 
 - Task: TASK-04-02 - License Registry API

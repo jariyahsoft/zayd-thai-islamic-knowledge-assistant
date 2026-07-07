@@ -54,6 +54,8 @@ from .health import HealthStatus
 from .licenses import (
     LicenseCreate,
     LicenseError,
+    LicensePolicyActionPublic,
+    LicensePolicyDecisionPublic,
     LicensePublic,
     LicenseService,
     PermissionDocumentAccess,
@@ -146,6 +148,8 @@ __all__ = [
     "hash_guest_token",
     "LicenseCreate",
     "LicenseError",
+    "LicensePolicyActionPublic",
+    "LicensePolicyDecisionPublic",
     "LicensePublic",
     "LicenseService",
     "PermissionDocumentAccess",

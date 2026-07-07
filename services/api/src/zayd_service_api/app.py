@@ -15,6 +15,7 @@ from zayd_common.health import HealthStatus
 from zayd_common.licenses import (
     LicenseCreate,
     LicenseError,
+    LicensePolicyDecisionPublic,
     LicensePublic,
     LicenseService,
     PermissionDocumentAccess,
@@ -285,6 +286,29 @@ class PublicationAuthorizationResponse(BaseModel):
     reason: str
 
 
+class LicensePolicyActionResponse(BaseModel):
+    action: str
+    allowed: bool
+    reason_codes: list[str]
+    source_license_version: str | None
+    max_cache_ttl_seconds: int | None = None
+    attribution_required: bool | None = None
+    attribution_template: str | None = None
+
+
+class LicensePolicyDecisionResponse(BaseModel):
+    license_id: str
+    source_id: str
+    workflow: str
+    policy_version: str
+    evaluated_on: str
+    source_license_version: str | None
+    workflow_allowed: bool
+    llm_override_allowed: bool
+    reason_codes: list[str]
+    actions: list[LicensePolicyActionResponse]
+
+
 def _auth_response(result: AuthResult) -> AuthResponse:
     user = result.user
     tokens = result.tokens
@@ -415,6 +439,34 @@ def _publication_authorization_response(
         authorized=authorization.authorized,
         policy_version=authorization.policy_version,
         reason=authorization.reason,
+    )
+
+
+def _license_policy_decision_response(
+    decision: LicensePolicyDecisionPublic,
+) -> LicensePolicyDecisionResponse:
+    return LicensePolicyDecisionResponse(
+        license_id=str(decision.license_id),
+        source_id=str(decision.source_id),
+        workflow=decision.workflow,
+        policy_version=decision.policy_version,
+        evaluated_on=decision.evaluated_on.isoformat(),
+        source_license_version=decision.source_license_version,
+        workflow_allowed=decision.workflow_allowed,
+        llm_override_allowed=decision.llm_override_allowed,
+        reason_codes=list(decision.reason_codes),
+        actions=[
+            LicensePolicyActionResponse(
+                action=action.action,
+                allowed=action.allowed,
+                reason_codes=list(action.reason_codes),
+                source_license_version=action.source_license_version,
+                max_cache_ttl_seconds=action.max_cache_ttl_seconds,
+                attribution_required=action.attribution_required,
+                attribution_template=action.attribution_template,
+            )
+            for action in decision.actions
+        ],
     )
 
 
@@ -1129,5 +1181,25 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _publication_authorization_response(authorization)
+
+    @app.get(
+        "/admin/licenses/{license_id}/policy-decision",
+        response_model=LicensePolicyDecisionResponse,
+    )
+    async def get_license_policy_decision(
+        license_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.LICENSES_READ))],
+        service: Annotated[LicenseService, Depends(license_service)],
+        workflow: str = "retrieval",
+    ) -> LicensePolicyDecisionResponse:
+        decision = service.decide_policy(
+            license_id=license_id,
+            workflow=workflow,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _license_policy_decision_response(decision)
 
     return app

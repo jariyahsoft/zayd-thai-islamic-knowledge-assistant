@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -63,9 +63,9 @@ Implement deterministic decisions for persistent storage, caching TTL, embedding
 
 ## Acceptance Criteria
 
-- [ ] LLMs cannot override license decisions.
-- [ ] Every decision includes reason codes and source license version.
-- [ ] Boundary cases for expiry, unknown rights and cache-only content are covered.
+- [x] LLMs cannot override license decisions.
+- [x] Every decision includes reason codes and source license version.
+- [x] Boundary cases for expiry, unknown rights and cache-only content are covered.
 
 ## Required Tests
 
@@ -91,28 +91,53 @@ Implement deterministic decisions for persistent storage, caching TTL, embedding
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/license_policy.py`
+- `services/common/src/zayd_common/licenses.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/tests/test_license_policy.py`
+- `services/common/tests/test_licenses.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_licenses_api.py`
+- `docs/architecture/license-policy-engine.md`
+- `tasks/04_data_governance/04-03_license_policy_engine.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_license_policy.py services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py`
+- `uv run pytest services/common/tests/test_license_policy.py services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py services/common/tests/test_sources.py services/api/tests/test_sources_api.py`
+- `uv run ruff check services/common/src/zayd_common/license_policy.py services/common/src/zayd_common/licenses.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py services/common/tests/test_license_policy.py services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py`
+- `uv run ruff format --check services/common/src/zayd_common/license_policy.py services/common/src/zayd_common/licenses.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py services/common/tests/test_license_policy.py services/common/tests/test_licenses.py services/api/tests/test_licenses_api.py`
+- `uv run mypy services/common/src/zayd_common/license_policy.py services/common/src/zayd_common/licenses.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py`
+- `uv run pytest`
+- Focused secret-marker scan on changed implementation, docs and task files
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Policy decisions are pure deterministic code, always return `llm_override_allowed: false`, and do not consume prompt or LLM output.
+- Passed. Every workflow and action decision includes stable reason codes, policy version and source license version.
+- Passed. Tests cover expiry, not-yet-valid dates, unknown/prohibited/expired statuses, cache-only content, private-vs-redistributable export boundaries, missing attribution templates, invalid workflows and forbidden permission combinations.
 
 ### Security and License Review
 
-- Pending
+- Policy engine fails closed for unsupported workflows, unknown rights, prohibited/expired statuses, date-expired licenses and missing required attribution.
+- New API endpoint requires `licenses.read`, inherits privileged MFA enforcement, and audits every decision through immutable audit logs.
+- Permission evidence remains private; the engine uses registry metadata only and never returns permission file contents.
+- No secrets, production data, restricted religious content, or third-party code were introduced.
+- Focused secret-marker scan passed for changed implementation, docs and task-tracking files.
 
 ### Known Limitations
 
-- Pending
+- Cache TTL constants are fixed in code for this policy version; future operational tuning should introduce explicit configuration/versioning.
+- Downstream ingestion, retrieval and export services still need to call the policy decision API/service in their later tasks.
+- The compatibility publication-authorization endpoint now returns reason codes from `license-policy-engine-v1` rather than prose messages.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-04-04 — Source and License Admin UI should display workflow decisions and reason codes.
+- TASK-05-01 and later ingestion/retrieval/export tasks must enforce policy decisions before storing, indexing, publishing or exporting content.
 
 ### Commit
 
-- Pending
+- This task completion commit.

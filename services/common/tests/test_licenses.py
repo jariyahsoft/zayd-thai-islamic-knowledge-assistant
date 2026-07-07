@@ -107,7 +107,7 @@ def test_unknown_prohibited_and_expired_license_statuses_block_publication(
         )
 
         assert authorization.authorized is False
-        assert status in authorization.reason
+        assert f"LICENSE_STATUS_{status.upper()}" in authorization.reason
 
 
 def test_date_expiry_blocks_publication(
@@ -129,7 +129,7 @@ def test_date_expiry_blocks_publication(
     )
 
     assert authorization.authorized is False
-    assert authorization.reason == "License is expired."
+    assert "LICENSE_DATE_EXPIRED" in authorization.reason
     with pytest.raises(LicenseError) as exc_info:
         license_service.assert_publication_authorized(
             license_id=license_record.id,
@@ -233,3 +233,70 @@ def test_missing_permission_document_access_fails_closed_and_is_audited(
         log.action == "licenses.permission_document.access" and log.outcome == "denied"
         for log in logs
     )
+
+
+def test_policy_decision_includes_reason_codes_and_is_audited(
+    services: tuple[SourceService, LicenseService, sessionmaker],
+    actor_user_id,
+) -> None:
+    source_service, license_service, session_factory = services
+    source = _source(source_service, actor_user_id)
+    license_record = license_service.create(
+        source_id=source.id,
+        data=_license_data(license_version="2026-policy"),
+        created_by=actor_user_id,
+    )
+
+    decision = license_service.decide_policy(
+        license_id=license_record.id,
+        workflow="export",
+        actor_user_id=actor_user_id,
+        trace_id="trace-policy-decision",
+        today=date(2026, 7, 1),
+    )
+
+    assert decision.workflow_allowed is True
+    assert decision.llm_override_allowed is False
+    assert decision.source_license_version == "2026-policy"
+    assert "WORKFLOW_ALLOWED" in decision.reason_codes
+    assert all(action.reason_codes for action in decision.actions)
+    with session_factory() as session:
+        logs = session.execute(select(AuditLog)).scalars().all()
+    assert any(
+        log.action == "licenses.policy_decision.evaluate"
+        and log.outcome == "success"
+        and log.after_summary
+        and log.after_summary["source_license_version"] == "2026-policy"
+        for log in logs
+    )
+
+
+def test_policy_decision_fails_closed_for_cache_only_license(
+    services: tuple[SourceService, LicenseService, sessionmaker],
+    actor_user_id,
+) -> None:
+    source_service, license_service, _session_factory = services
+    source = _source(source_service, actor_user_id)
+    license_record = license_service.create(
+        source_id=source.id,
+        data=_license_data(
+            status="ephemeral_cache_only",
+            storage_permission="prohibited",
+            embedding_permission="prohibited",
+            redistribution="prohibited",
+        ),
+        created_by=actor_user_id,
+    )
+
+    decision = license_service.decide_policy(
+        license_id=license_record.id,
+        workflow="retrieval",
+        actor_user_id=actor_user_id,
+        today=date(2026, 7, 1),
+    )
+
+    actions = {action.action: action for action in decision.actions}
+    assert decision.workflow_allowed is False
+    assert actions["cache"].allowed is True
+    assert actions["persistent_storage"].allowed is False
+    assert "WORKFLOW_RETRIEVAL_DENIED" in decision.reason_codes

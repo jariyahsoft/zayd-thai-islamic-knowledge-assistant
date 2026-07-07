@@ -11,6 +11,13 @@ from sqlalchemy import select
 
 from zayd_common.database.models import AuditLog, SourceLicense
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+from zayd_common.license_policy import (
+    LICENSE_POLICY_ENGINE_VERSION,
+    LicenseActionDecision,
+    LicensePolicyDecision,
+    LicensePolicyInput,
+    evaluate_license_policy,
+)
 
 LicenseStatus = Literal[
     "unknown",
@@ -112,6 +119,31 @@ class PublicationAuthorization:
     authorized: bool
     policy_version: str
     reason: str
+
+
+@dataclass(frozen=True)
+class LicensePolicyActionPublic:
+    action: str
+    allowed: bool
+    reason_codes: tuple[str, ...]
+    source_license_version: str | None
+    max_cache_ttl_seconds: int | None = None
+    attribution_required: bool | None = None
+    attribution_template: str | None = None
+
+
+@dataclass(frozen=True)
+class LicensePolicyDecisionPublic:
+    license_id: UUID
+    source_id: UUID
+    workflow: str
+    policy_version: str
+    evaluated_on: date
+    source_license_version: str | None
+    workflow_allowed: bool
+    llm_override_allowed: bool
+    reason_codes: tuple[str, ...]
+    actions: tuple[LicensePolicyActionPublic, ...]
 
 
 class LicenseService:
@@ -302,7 +334,13 @@ class LicenseService:
             license_record = self.uow.sources.get_license_by_id(license_id)
             if license_record is None:
                 raise LicenseError("LICENSE_NOT_FOUND", "License not found.", status_code=404)
-            authorized, reason = self._evaluate_publication(license_record, evaluation_date)
+            decision = evaluate_license_policy(
+                _policy_input(license_record),
+                workflow="retrieval",
+                today=evaluation_date,
+            )
+            authorized = decision.workflow_allowed
+            reason = ",".join(decision.reason_codes)
             self._audit(
                 action="licenses.publication_authorization.check",
                 outcome="success" if authorized else "denied",
@@ -311,12 +349,13 @@ class LicenseService:
                 reason=reason,
                 after_summary={
                     "authorized": authorized,
-                    "policy_version": LICENSE_REGISTRY_POLICY_VERSION,
+                    "policy_version": LICENSE_POLICY_ENGINE_VERSION,
                     "status": license_record.status,
                     "storage_permission": license_record.storage_permission,
                     "embedding_permission": license_record.embedding_permission,
                     "redistribution": license_record.redistribution,
                     "evaluation_date": evaluation_date.isoformat(),
+                    "reason_codes": list(decision.reason_codes),
                 },
                 trace_id=trace_id,
             )
@@ -324,7 +363,7 @@ class LicenseService:
             return PublicationAuthorization(
                 license_id=license_record.id,
                 authorized=authorized,
-                policy_version=LICENSE_REGISTRY_POLICY_VERSION,
+                policy_version=LICENSE_POLICY_ENGINE_VERSION,
                 reason=reason,
             )
 
@@ -349,6 +388,45 @@ class LicenseService:
                 status_code=409,
             )
         return authorization
+
+    def decide_policy(
+        self,
+        *,
+        license_id: UUID,
+        workflow: str,
+        actor_user_id: UUID | None = None,
+        trace_id: str | None = None,
+        today: date | None = None,
+    ) -> LicensePolicyDecisionPublic:
+        evaluation_date = today or datetime.now(UTC).date()
+        with self.uow:
+            license_record = self.uow.sources.get_license_by_id(license_id)
+            if license_record is None:
+                raise LicenseError("LICENSE_NOT_FOUND", "License not found.", status_code=404)
+            decision = evaluate_license_policy(
+                _policy_input(license_record),
+                workflow=workflow.strip().lower(),
+                today=evaluation_date,
+            )
+            self._audit(
+                action="licenses.policy_decision.evaluate",
+                outcome="success" if decision.workflow_allowed else "denied",
+                actor_user_id=actor_user_id,
+                resource_id=license_record.id,
+                reason=",".join(decision.reason_codes),
+                after_summary={
+                    "workflow": decision.workflow,
+                    "workflow_allowed": decision.workflow_allowed,
+                    "policy_version": decision.policy_version,
+                    "source_license_version": decision.source_license_version,
+                    "reason_codes": list(decision.reason_codes),
+                    "llm_override_allowed": decision.llm_override_allowed,
+                    "evaluated_on": evaluation_date.isoformat(),
+                },
+                trace_id=trace_id,
+            )
+            self.uow.commit()
+            return _public_policy_decision(decision)
 
     def _normalize_create(self, data: LicenseCreate) -> LicenseCreate:
         license_name = data.license_name.strip()
@@ -408,26 +486,6 @@ class LicenseService:
                 status_code=400,
             )
         return permission
-
-    def _evaluate_publication(
-        self,
-        license_record: SourceLicense,
-        evaluation_date: date,
-    ) -> tuple[bool, str]:
-        if license_record.status in BLOCKING_STATUSES:
-            return False, f"License status {license_record.status} blocks publication."
-        if license_record.valid_until is not None and license_record.valid_until < evaluation_date:
-            return False, "License is expired."
-        if license_record.status not in PUBLICATION_ALLOWED_STATUSES:
-            return False, f"License status {license_record.status} does not authorize publication."
-        if license_record.storage_permission not in ALLOWING_PERMISSION_STATES:
-            return False, "Storage permission does not authorize publication."
-        if license_record.embedding_permission not in ALLOWING_PERMISSION_STATES:
-            return False, "Embedding permission does not authorize publication."
-        if license_record.status == "persistent_redistributable":
-            if license_record.redistribution not in ALLOWING_PERMISSION_STATES:
-                return False, "Redistribution permission does not authorize publication."
-        return True, "License authorizes publication under policy."
 
     def _audit_summary(self, license_record: SourceLicense) -> dict[str, Any]:
         return {
@@ -505,4 +563,48 @@ def _public_license(license_record: SourceLicense) -> LicensePublic:
         created_at=license_record.created_at,
         updated_at=license_record.updated_at,
         row_version=license_record.row_version,
+    )
+
+
+def _policy_input(license_record: SourceLicense) -> LicensePolicyInput:
+    return LicensePolicyInput(
+        license_id=license_record.id,
+        source_id=license_record.source_id,
+        license_version=license_record.license_version,
+        status=license_record.status,
+        storage_permission=license_record.storage_permission,
+        embedding_permission=license_record.embedding_permission,
+        commercial_use=license_record.commercial_use,
+        redistribution=license_record.redistribution,
+        attribution_required=license_record.attribution_required,
+        attribution_template=license_record.attribution_template,
+        valid_from=license_record.valid_from,
+        valid_until=license_record.valid_until,
+    )
+
+
+def _public_policy_action(action: LicenseActionDecision) -> LicensePolicyActionPublic:
+    return LicensePolicyActionPublic(
+        action=action.action,
+        allowed=action.allowed,
+        reason_codes=action.reason_codes,
+        source_license_version=action.source_license_version,
+        max_cache_ttl_seconds=action.max_cache_ttl_seconds,
+        attribution_required=action.attribution_required,
+        attribution_template=action.attribution_template,
+    )
+
+
+def _public_policy_decision(decision: LicensePolicyDecision) -> LicensePolicyDecisionPublic:
+    return LicensePolicyDecisionPublic(
+        license_id=decision.license_id,
+        source_id=decision.source_id,
+        workflow=decision.workflow,
+        policy_version=decision.policy_version,
+        evaluated_on=decision.evaluated_on,
+        source_license_version=decision.source_license_version,
+        workflow_allowed=decision.workflow_allowed,
+        llm_override_allowed=decision.llm_override_allowed,
+        reason_codes=decision.reason_codes,
+        actions=tuple(_public_policy_action(action) for action in decision.actions),
     )
