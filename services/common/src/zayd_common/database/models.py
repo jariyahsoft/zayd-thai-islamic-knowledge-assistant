@@ -66,6 +66,26 @@ class BaseJSONB(TypeDecorator[dict[str, Any]]):
         return dialect.type_descriptor(JSONB())
 
 
+class BaseVector(TypeDecorator[list[float]]):
+    """pgvector-compatible storage with JSON fallback for SQLite tests."""
+
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Any) -> Any:
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(String())
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value: Any, dialect: Any) -> Any:
+        if value is None:
+            return value
+        vector = [float(item) for item in value]
+        if dialect.name == "postgresql":
+            return "[" + ",".join(str(item) for item in vector) + "]"
+        return vector
+
+
 class User(Base):
     __tablename__ = "auth_users"
 
@@ -551,6 +571,68 @@ class SourceLicense(Base):
     row_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class Provider(Base):
+    __tablename__ = "providers"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    provider_type: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="disabled", nullable=False)
+    base_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    secret_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    terms_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_policy_json: Mapped[dict[str, Any]] = mapped_column(
+        BaseJSONB, default=dict, nullable=False
+    )
+    created_by: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    updated_by: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    row_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+class ModelConfiguration(Base):
+    __tablename__ = "model_configurations"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    provider_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("providers.id", ondelete="RESTRICT"), nullable=False
+    )
+    model_name: Mapped[str] = mapped_column(String, nullable=False)
+    model_type: Mapped[str] = mapped_column(String, nullable=False)
+    configuration_json: Mapped[dict[str, Any]] = mapped_column(
+        BaseJSONB, default=dict, nullable=False
+    )
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="disabled", nullable=False)
+    created_by: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    row_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -795,6 +877,44 @@ class DocumentChunk(Base):
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     chunking_strategy_version: Mapped[str] = mapped_column(String, nullable=False)
     content_hash: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class EmbeddingRecord(Base):
+    __tablename__ = "embedding_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "chunk_id",
+            "model_configuration_id",
+            name="uq_embedding_records_chunk_model",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    document_version_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_chunks.id", ondelete="CASCADE"), nullable=False
+    )
+    model_configuration_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("model_configurations.id", ondelete="RESTRICT"), nullable=False
+    )
+    provider_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("providers.id", ondelete="RESTRICT"), nullable=False
+    )
+    embedding: Mapped[list[float]] = mapped_column(BaseVector, nullable=False)
+    embedding_hash: Mapped[str] = mapped_column(String, nullable=False)
+    dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="staged", nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

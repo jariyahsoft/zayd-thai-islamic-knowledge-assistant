@@ -89,8 +89,8 @@
 | TASK-07-01 | Chunking Framework | S | DONE | EPIC-06 complete | `07_retrieval/07-01_chunking_framework.md` |
 | TASK-07-02 | Embedding Provider Interface | A | DONE | TASK-07-01 | `07_retrieval/07-02_embedding_provider_interface.md` |
 | TASK-07-03 | Full-text Search | A | DONE | TASK-07-01 | `07_retrieval/07-03_full_text_search.md` |
-| TASK-07-04 | Vector Search with pgvector | S | TODO | TASK-07-02 | `07_retrieval/07-04_vector_search_with_pgvector.md` |
-| TASK-07-05 | Hybrid Search | S | TODO | TASK-07-03, TASK-07-04 | `07_retrieval/07-05_hybrid_search.md` |
+| TASK-07-04 | Vector Search with pgvector | S | DONE | TASK-07-02 | `07_retrieval/07-04_vector_search_with_pgvector.md` |
+| TASK-07-05 | Hybrid Search | S | READY | TASK-07-03, TASK-07-04 | `07_retrieval/07-05_hybrid_search.md` |
 | TASK-07-06 | Multilingual Query Expansion | S | TODO | TASK-07-05 | `07_retrieval/07-06_multilingual_query_expansion.md` |
 | TASK-07-07 | Reranker Interface | A | TODO | TASK-07-05 | `07_retrieval/07-07_reranker_interface.md` |
 | TASK-07-08 | Evidence Sufficiency Engine | S | TODO | TASK-07-06, TASK-07-07 | `07_retrieval/07-08_evidence_sufficiency_engine.md` |

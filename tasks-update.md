@@ -1,3 +1,17 @@
+## 2026-07-09T06:04:44+07:00
+
+- Task: TASK-07-04 - Vector Search with pgvector
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added a filtered vector retrieval service with embedding-space isolation by model configuration, provider and dimension; PostgreSQL pgvector statement timeout support; SQLite behavioral tests; pgvector HNSW/filter-support migration; and architecture documentation for index choice and maintenance. TASK-07-05 is now READY.
+- Changed files: `services/retrieval/src/zayd_service_retrieval/vector_search.py` (new), `services/retrieval/src/zayd_service_retrieval/__init__.py`, `services/retrieval/tests/test_vector_search.py` (new), `services/common/src/zayd_common/database/models.py`, `database/migrations/0011_pgvector_search.up.sql` (new), `database/migrations/0011_pgvector_search.down.sql` (new), `database/migrations/README.md`, `docs/architecture/pgvector-search.md` (new), `tasks/07_retrieval/07-04_vector_search_with_pgvector.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: vector/retrieval import tests passed with 7 passed; retrieval regression tests passed with 12 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Search candidates are constrained inside SQL by active embedding, exact model configuration, provider, dimension, published document/version/chunk state, active source, and eligible license/embedding permission. Provider/model status checks fail closed before search. No secrets, production data, restricted datasets, PHI, or third-party code were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: SQLite coverage verifies behavior but not PostgreSQL query plans; production performance still depends on applying migration `0011_pgvector_search` and monitoring HNSW index health. Retrieval run persistence is deferred to TASK-07-05.
+- Commit: focused commit `feat(retrieval): add pgvector search service`.
+
 ## 2026-07-09T01:40:00+07:00
 
 - Task: TASK-07-03 - Full-text Search
