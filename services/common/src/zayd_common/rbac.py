@@ -122,6 +122,7 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.DOCUMENTS_REVIEW,
         Permission.DOCUMENTS_APPROVE,
         Permission.DOCUMENTS_PUBLISH,
+        Permission.DOCUMENTS_ARCHIVE,
         Permission.ANSWERS_REVIEW,
         Permission.ANSWERS_INVALIDATE,
         Permission.LICENSES_READ,

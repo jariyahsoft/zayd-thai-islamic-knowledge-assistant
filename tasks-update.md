@@ -1,3 +1,17 @@
+## 2026-07-09T00:12:58+07:00
+
+- Task: TASK-06-05 - Suspend and Rollback Published Documents
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented published document lifecycle controls for suspension, archival and rollback. Added retrieval visibility hiding for affected chunks, affected citation invalidation, historical answer invalidation warnings, optimistic row-version checks, lifecycle audit records, API routes, senior-scholar archive permission, and operations documentation. EPIC-06 is now complete and TASK-07-01 is READY.
+- Changed files: `services/common/src/zayd_common/document_lifecycle.py` (new), `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/rbac.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_document_lifecycle.py` (new), `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_document_review_api.py`, `docs/operations/content-suspension.md` (new), `tasks/06_review/06-05_suspend_and_rollback_published_documents.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: lifecycle unit tests passed with 5 passed; lifecycle/API/RBAC focused tests passed with 24 passed; focused Ruff lint passed; focused mypy passed; review/lifecycle/publishing regression suite passed with 65 passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Suspension and archival hide published chunks immediately, rollback restores only an existing approved chunked version, and affected answers receive explicit invalidation warnings without deleting history. Audit records are sanitized and append-only. No secrets, production data, signed URLs, answer bodies, document text, PHI, or restricted datasets were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: Citation registry and answer invalidation UX remain later tasks; rollback currently requires the target version to already have retrieval chunks.
+- Commit: focused commit `feat(review): add published document lifecycle controls`.
+
 ## 2026-07-08T17:29:02+07:00
 
 - Task: TASK-06-04 - Document Publishing Service

@@ -11,6 +11,12 @@ from pydantic import BaseModel, Field
 from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
+from zayd_common.document_lifecycle import (
+    AffectedAnswerPublic,
+    DocumentLifecycleError,
+    DocumentLifecycleResult,
+    DocumentLifecycleService,
+)
 from zayd_common.document_publishing import (
     DocumentPublishingError,
     DocumentPublishingService,
@@ -638,6 +644,34 @@ class DocumentPublishResponse(BaseModel):
     citation_pipeline_version: str
     published_at: str
     idempotent: bool
+
+
+class DocumentLifecycleRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=10000)
+    base_row_version: int | None = Field(default=None, ge=1)
+
+
+class DocumentRollbackRequest(DocumentLifecycleRequest):
+    target_document_version_id: UUID
+
+
+class AffectedAnswerResponse(BaseModel):
+    id: str
+    invalidated_at: str
+    warning: str
+
+
+class DocumentLifecycleResponse(BaseModel):
+    document_id: str
+    previous_published_version_id: str | None
+    current_published_version_id: str | None
+    document_status: str
+    affected_chunk_count: int
+    affected_citation_count: int
+    affected_answer_count: int
+    affected_answers: list[AffectedAnswerResponse]
+    policy_version: str
+    changed_at: str
 
 
 def _auth_response(result: AuthResult) -> AuthResponse:
@@ -1822,6 +1856,11 @@ def create_app() -> FastAPI:
 
         return DocumentPublishingService(SQLAlchemyUnitOfWork(session_factory))
 
+    def document_lifecycle_service() -> DocumentLifecycleService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return DocumentLifecycleService(SQLAlchemyUnitOfWork(session_factory))
+
     @app.exception_handler(ReviewQueueError)
     async def review_queue_error_handler(
         request: Request, exc: ReviewQueueError
@@ -1852,6 +1891,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(DocumentPublishingError)
     async def document_publishing_error_handler(
         request: Request, exc: DocumentPublishingError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(DocumentLifecycleError)
+    async def document_lifecycle_error_handler(
+        request: Request, exc: DocumentLifecycleError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -2016,6 +2064,35 @@ def create_app() -> FastAPI:
             citation_pipeline_version=result.citation_pipeline_version,
             published_at=result.published_at.isoformat(),
             idempotent=result.idempotent,
+        )
+
+    def _affected_answer_response(answer: AffectedAnswerPublic) -> AffectedAnswerResponse:
+        return AffectedAnswerResponse(
+            id=str(answer.id),
+            invalidated_at=answer.invalidated_at.isoformat(),
+            warning=answer.warning,
+        )
+
+    def _document_lifecycle_response(
+        result: DocumentLifecycleResult,
+    ) -> DocumentLifecycleResponse:
+        return DocumentLifecycleResponse(
+            document_id=str(result.document_id),
+            previous_published_version_id=str(result.previous_published_version_id)
+            if result.previous_published_version_id
+            else None,
+            current_published_version_id=str(result.current_published_version_id)
+            if result.current_published_version_id
+            else None,
+            document_status=result.document_status,
+            affected_chunk_count=result.affected_chunk_count,
+            affected_citation_count=result.affected_citation_count,
+            affected_answer_count=result.affected_answer_count,
+            affected_answers=[
+                _affected_answer_response(answer) for answer in result.affected_answers
+            ],
+            policy_version=result.policy_version,
+            changed_at=result.changed_at.isoformat(),
         )
 
     @app.get("/reviews/queue", response_model=ReviewQueueListResponse)
@@ -2230,6 +2307,76 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _document_publish_response(result)
+
+    @app.post(
+        "/documents/{document_id}/suspend",
+        response_model=DocumentLifecycleResponse,
+    )
+    async def suspend_published_document(
+        document_id: UUID,
+        payload: DocumentLifecycleRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_ARCHIVE))
+        ],
+        service: Annotated[DocumentLifecycleService, Depends(document_lifecycle_service)],
+    ) -> DocumentLifecycleResponse:
+        result = service.suspend_document(
+            document_id=document_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            reason=payload.reason,
+            base_row_version=payload.base_row_version,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _document_lifecycle_response(result)
+
+    @app.post(
+        "/documents/{document_id}/archive",
+        response_model=DocumentLifecycleResponse,
+    )
+    async def archive_published_document(
+        document_id: UUID,
+        payload: DocumentLifecycleRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_ARCHIVE))
+        ],
+        service: Annotated[DocumentLifecycleService, Depends(document_lifecycle_service)],
+    ) -> DocumentLifecycleResponse:
+        result = service.archive_document(
+            document_id=document_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            reason=payload.reason,
+            base_row_version=payload.base_row_version,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _document_lifecycle_response(result)
+
+    @app.post(
+        "/documents/{document_id}/rollback",
+        response_model=DocumentLifecycleResponse,
+    )
+    async def rollback_published_document(
+        document_id: UUID,
+        payload: DocumentRollbackRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_ARCHIVE))
+        ],
+        service: Annotated[DocumentLifecycleService, Depends(document_lifecycle_service)],
+    ) -> DocumentLifecycleResponse:
+        result = service.rollback_document(
+            document_id=document_id,
+            target_document_version_id=payload.target_document_version_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            reason=payload.reason,
+            base_row_version=payload.base_row_version,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _document_lifecycle_response(result)
 
     @app.post(
         "/review-approvals/{approval_id}/revoke",

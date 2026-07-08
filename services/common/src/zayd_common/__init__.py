@@ -27,6 +27,13 @@ from .database import (
     get_sessionmaker,
     seed_demo_data,
 )
+from .document_lifecycle import (
+    DOCUMENT_LIFECYCLE_POLICY_VERSION,
+    AffectedAnswerPublic,
+    DocumentLifecycleError,
+    DocumentLifecycleResult,
+    DocumentLifecycleService,
+)
 from .document_publishing import (
     CHUNKING_STRATEGY_VERSION,
     CITATION_PIPELINE_VERSION,
@@ -268,6 +275,11 @@ __all__ = [
     "DocumentPublishingService",
     "DocumentPublishResult",
     "PublishedChunkPublic",
+    "DOCUMENT_LIFECYCLE_POLICY_VERSION",
+    "AffectedAnswerPublic",
+    "DocumentLifecycleError",
+    "DocumentLifecycleResult",
+    "DocumentLifecycleService",
     "hash_password",
     "hash_token",
     "verify_password",

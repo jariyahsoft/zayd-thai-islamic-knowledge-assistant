@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -794,6 +795,129 @@ class DocumentChunk(Base):
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     chunking_strategy_version: Mapped[str] = mapped_column(String, nullable=False)
     content_hash: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class Citation(Base):
+    __tablename__ = "citations"
+    __table_args__ = (
+        UniqueConstraint(
+            "canonical_reference",
+            "document_version_id",
+            name="uq_citations_canonical_version",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    canonical_reference: Mapped[str] = mapped_column(Text, nullable=False)
+    document_version_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    chunk_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_chunks.id", ondelete="RESTRICT"), nullable=False
+    )
+    citation_type: Mapped[str] = mapped_column(String, nullable=False)
+    display_title: Mapped[str] = mapped_column(Text, nullable=False)
+    arabic_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    thai_translation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hadith_grade: Mapped[str | None] = mapped_column(String, nullable=True)
+    volume: Mapped[str | None] = mapped_column(String, nullable=True)
+    page: Mapped[str | None] = mapped_column(String, nullable=True)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class RetrievalRun(Base):
+    __tablename__ = "retrieval_runs"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    request_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    trace_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    query_original: Mapped[str] = mapped_column(Text, nullable=False)
+    query_normalized: Mapped[str] = mapped_column(Text, nullable=False)
+    query_expansions: Mapped[dict[str, Any]] = mapped_column(
+        BaseJSONB, default=dict, nullable=False
+    )
+    filters: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    retriever_version: Mapped[str] = mapped_column(String, nullable=False)
+    evidence_sufficient: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class RetrievalResult(Base):
+    __tablename__ = "retrieval_results"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    retrieval_run_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("retrieval_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    document_version_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_versions.id", ondelete="RESTRICT"), nullable=False
+    )
+    chunk_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_chunks.id", ondelete="RESTRICT"), nullable=False
+    )
+    citation_id: Mapped[UUID | None] = mapped_column(BaseUUID, nullable=True)
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    score_exact: Mapped[float | None] = mapped_column(Float, nullable=True)
+    score_full_text: Mapped[float | None] = mapped_column(Float, nullable=True)
+    score_vector: Mapped[float | None] = mapped_column(Float, nullable=True)
+    score_reranker: Mapped[float | None] = mapped_column(Float, nullable=True)
+    score_final: Mapped[float] = mapped_column(Float, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class Answer(Base):
+    __tablename__ = "answers"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    message_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False, unique=True)
+    retrieval_run_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("retrieval_runs.id", ondelete="RESTRICT"), nullable=False
+    )
+    model_configuration_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False)
+    prompt_version_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False)
+    policy_version_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String, nullable=False)
+    madhhab: Mapped[str] = mapped_column(String, nullable=False)
+    answer_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    confidence_level: Mapped[str] = mapped_column(String, nullable=False)
+    evidence_sufficient: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

@@ -24,11 +24,15 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from zayd_common.auth import AuthService
 from zayd_common.database.models import (
+    Answer,
     AuditLog,
     Base,
+    Citation,
     Document,
     DocumentChunk,
     DocumentVersion,
+    RetrievalResult,
+    RetrievalRun,
     ReviewApproval,
     ReviewTask,
     Role,
@@ -61,6 +65,9 @@ def test_scholar_approval_routes_are_registered(monkeypatch) -> None:
     assert "/documents/{document_version_id}/approval-requirements" in route_paths
     assert "/review-approvals/{approval_id}/revoke" in route_paths
     assert "/documents/{document_version_id}/publish" in route_paths
+    assert "/documents/{document_id}/suspend" in route_paths
+    assert "/documents/{document_id}/archive" in route_paths
+    assert "/documents/{document_id}/rollback" in route_paths
 
 
 def test_scholar_approval_openapi_contract(monkeypatch) -> None:
@@ -74,11 +81,15 @@ def test_scholar_approval_openapi_contract(monkeypatch) -> None:
     ]
     assert paths["/review-approvals/{approval_id}/revoke"]["post"]["responses"]["200"]
     assert paths["/documents/{document_version_id}/publish"]["post"]["responses"]["200"]
+    assert paths["/documents/{document_id}/suspend"]["post"]["responses"]["200"]
+    assert paths["/documents/{document_id}/archive"]["post"]["responses"]["200"]
+    assert paths["/documents/{document_id}/rollback"]["post"]["responses"]["200"]
     assert schema["components"]["schemas"]["ScholarApprovalRequest"]
     assert schema["components"]["schemas"]["ApprovalRequirementResponse"]
     assert schema["components"]["schemas"]["ScholarApprovalActionResponse"]
     assert schema["components"]["schemas"]["DocumentPublishRequest"]
     assert schema["components"]["schemas"]["DocumentPublishResponse"]
+    assert schema["components"]["schemas"]["DocumentLifecycleResponse"]
 
 
 def test_get_review_draft_requires_permission(monkeypatch) -> None:
@@ -657,6 +668,168 @@ def test_document_publish_api_license_failure_leaves_chunks_hidden(monkeypatch) 
     assert chunks == []
 
 
+def test_document_suspend_api_hides_chunks_and_invalidates_answer(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    scholar = auth_service.register(
+        email="lifecycle-api-scholar@example.com",
+        password="very-strong-password",
+        display_name="Scholar",
+    )
+    _grant_role_directly(session_factory, scholar.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, scholar.user.id)
+    _set_user_preferences(session_factory, scholar.user.id)
+    task_id, version_id = _seed_draft_task(
+        session_factory,
+        created_by=scholar.user.id,
+        assigned_to=scholar.user.id,
+        review_level="initial",
+        document_status="scholar_approved",
+        version_status="scholar_approved",
+    )
+    _seed_api_approval(
+        session_factory,
+        task_id=task_id,
+        version_id=version_id,
+        approver_id=scholar.user.id,
+        level="initial",
+        content_risk="routine",
+    )
+    published = _request(
+        app,
+        "POST",
+        f"/documents/{version_id}/publish",
+        json_body={"content_risk": "routine", "reason": "Publish for lifecycle test."},
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+    assert published["status"] == 200
+    document_id = UUID(published["json"]["document_id"])
+    answer_id = _seed_api_answer_for_version(session_factory, version_id=version_id)
+
+    response = _request(
+        app,
+        "POST",
+        f"/documents/{document_id}/suspend",
+        json_body={"reason": "Post-publication issue.", "base_row_version": 2},
+        headers={
+            "authorization": f"Bearer {scholar.tokens.access_token}",
+            "x-request-id": "trace-suspend-api",
+        },
+    )
+
+    assert response["status"] == 200
+    assert response["json"]["document_status"] == "suspended"
+    assert response["json"]["current_published_version_id"] == str(version_id)
+    assert response["json"]["affected_chunk_count"] == 1
+    assert response["json"]["affected_answer_count"] == 1
+    with session_factory() as session:
+        chunk = session.execute(
+            select(DocumentChunk).where(DocumentChunk.document_version_id == version_id)
+        ).scalar_one()
+        answer = session.get(Answer, answer_id)
+        logs = session.execute(
+            select(AuditLog).where(AuditLog.action == "documents.suspend")
+        ).scalars().all()
+    assert chunk.is_published is False
+    assert answer is not None
+    assert answer.invalidated_at is not None
+    assert "suspended" in answer.answer_json["invalidation_warning"]
+    assert any(log.trace_id == "trace-suspend-api" for log in logs)
+
+
+def test_document_suspend_api_requires_archive_permission(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    reviewer = auth_service.register(
+        email="lifecycle-api-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    _grant_role_directly(session_factory, reviewer.user.id, "reviewer")
+    _enroll_mfa(session_factory, reviewer.user.id)
+    _set_user_preferences(session_factory, reviewer.user.id)
+
+    response = _request(
+        app,
+        "POST",
+        f"/documents/{uuid4()}/suspend",
+        json_body={"reason": "Not allowed."},
+        headers={"authorization": f"Bearer {reviewer.tokens.access_token}"},
+    )
+
+    assert response["status"] == 403
+    assert response["json"]["error"]["code"] == "RBAC_FORBIDDEN"
+
+
+def test_document_rollback_api_restores_previous_version(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    scholar = auth_service.register(
+        email="lifecycle-api-rollback@example.com",
+        password="very-strong-password",
+        display_name="Scholar",
+    )
+    _grant_role_directly(session_factory, scholar.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, scholar.user.id)
+    _set_user_preferences(session_factory, scholar.user.id)
+    task_id, current_version_id = _seed_draft_task(
+        session_factory,
+        created_by=scholar.user.id,
+        assigned_to=scholar.user.id,
+        review_level="initial",
+        document_status="scholar_approved",
+        version_status="scholar_approved",
+    )
+    _seed_api_approval(
+        session_factory,
+        task_id=task_id,
+        version_id=current_version_id,
+        approver_id=scholar.user.id,
+        level="initial",
+        content_risk="routine",
+    )
+    old_version_id = _seed_api_previous_version_chunk(
+        session_factory,
+        current_version_id=current_version_id,
+        actor_id=scholar.user.id,
+    )
+    published = _request(
+        app,
+        "POST",
+        f"/documents/{current_version_id}/publish",
+        json_body={"content_risk": "routine", "reason": "Publish for rollback."},
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+    assert published["status"] == 200
+    document_id = UUID(published["json"]["document_id"])
+
+    response = _request(
+        app,
+        "POST",
+        f"/documents/{document_id}/rollback",
+        json_body={
+            "target_document_version_id": str(old_version_id),
+            "reason": "Rollback after review.",
+            "base_row_version": 2,
+        },
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+
+    assert response["status"] == 200
+    assert response["json"]["document_status"] == "published"
+    assert response["json"]["previous_published_version_id"] == str(current_version_id)
+    assert response["json"]["current_published_version_id"] == str(old_version_id)
+    with session_factory() as session:
+        old_chunk = session.execute(
+            select(DocumentChunk).where(DocumentChunk.document_version_id == old_version_id)
+        ).scalar_one()
+        current_chunk = session.execute(
+            select(DocumentChunk).where(DocumentChunk.document_version_id == current_version_id)
+        ).scalar_one()
+    assert old_chunk.is_published is True
+    assert current_chunk.is_published is False
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -777,6 +950,113 @@ def _seed_api_approval(
             )
         )
         session.commit()
+
+
+def _seed_api_answer_for_version(
+    session_factory: sessionmaker[Session],
+    *,
+    version_id: UUID,
+) -> UUID:
+    with session_factory() as session:
+        chunk = session.execute(
+            select(DocumentChunk).where(DocumentChunk.document_version_id == version_id)
+        ).scalar_one()
+        citation_id = uuid4()
+        session.add(
+            Citation(
+                id=citation_id,
+                canonical_reference=chunk.reference or f"chunk-{chunk.id}",
+                document_version_id=version_id,
+                chunk_id=chunk.id,
+                citation_type="book",
+                display_title="API Test Doc Title",
+                verified=True,
+            )
+        )
+        run_id = uuid4()
+        session.add(
+            RetrievalRun(
+                id=run_id,
+                request_id=f"request-{uuid4().hex}",
+                query_original="question",
+                query_normalized="question",
+                query_expansions={},
+                filters={},
+                retriever_version="test-retriever-v1",
+                evidence_sufficient=True,
+            )
+        )
+        session.add(
+            RetrievalResult(
+                id=uuid4(),
+                retrieval_run_id=run_id,
+                document_version_id=version_id,
+                chunk_id=chunk.id,
+                citation_id=citation_id,
+                rank=1,
+                score_final=1.0,
+                metadata_json={},
+            )
+        )
+        answer_id = uuid4()
+        session.add(
+            Answer(
+                id=answer_id,
+                message_id=uuid4(),
+                retrieval_run_id=run_id,
+                model_configuration_id=uuid4(),
+                prompt_version_id=uuid4(),
+                policy_version_id=uuid4(),
+                risk_level="low",
+                madhhab="shafii",
+                answer_json={"text": "synthetic test answer"},
+                confidence_level="high",
+                evidence_sufficient=True,
+            )
+        )
+        session.commit()
+        return answer_id
+
+
+def _seed_api_previous_version_chunk(
+    session_factory: sessionmaker[Session],
+    *,
+    current_version_id: UUID,
+    actor_id: UUID,
+) -> UUID:
+    with session_factory() as session:
+        current = session.get(DocumentVersion, current_version_id)
+        assert current is not None
+        old_version_id = uuid4()
+        session.add(
+            DocumentVersion(
+                id=old_version_id,
+                document_id=current.document_id,
+                version_number=0,
+                status="scholar_approved",
+                content_hash=f"old-{uuid4().hex}",
+                extracted_text="Previous reviewed content",
+                metadata_json={"review": {"status": "approved"}},
+                created_by=actor_id,
+            )
+        )
+        session.add(
+            DocumentChunk(
+                id=uuid4(),
+                document_version_id=old_version_id,
+                chunk_index=0,
+                content="Previous reviewed content",
+                content_normalized="Previous reviewed content",
+                token_count=3,
+                reference="old-version:chunk-1",
+                metadata_json={"publishing_policy_version": "document-publish-v1"},
+                is_published=False,
+                chunking_strategy_version="publish-chunker-v1",
+                content_hash=f"chunk-{uuid4().hex}",
+            )
+        )
+        session.commit()
+        return old_version_id
 
 
 def _set_user_preferences(

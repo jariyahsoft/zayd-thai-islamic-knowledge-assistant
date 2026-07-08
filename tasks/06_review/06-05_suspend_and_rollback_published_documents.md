@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -63,9 +63,9 @@ Allow authorized suspension, archival and rollback to a previously approved vers
 
 ## Acceptance Criteria
 
-- [ ] Suspended content disappears from new retrieval immediately.
-- [ ] Historical answers show an invalidation warning where applicable.
-- [ ] Rollback preserves full audit history and does not overwrite versions.
+- [x] Suspended content disappears from new retrieval immediately.
+- [x] Historical answers show an invalidation warning where applicable.
+- [x] Rollback preserves full audit history and does not overwrite versions.
 
 ## Required Tests
 
@@ -91,28 +91,50 @@ Allow authorized suspension, archival and rollback to a previously approved vers
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/document_lifecycle.py`
+- `services/common/src/zayd_common/database/models.py`
+- `services/common/src/zayd_common/rbac.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/tests/test_document_lifecycle.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_document_review_api.py`
+- `docs/operations/content-suspension.md`
+- `tasks/06_review/06-05_suspend_and_rollback_published_documents.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_document_lifecycle.py -v`
+- `uv run pytest services/api/tests/test_document_review_api.py services/common/tests/test_rbac.py -v`
+- `uv run ruff check services/common/src/zayd_common/document_lifecycle.py services/common/src/zayd_common/database/models.py services/common/src/zayd_common/__init__.py services/common/src/zayd_common/rbac.py services/common/tests/test_document_lifecycle.py services/api/src/zayd_service_api/app.py services/api/tests/test_document_review_api.py`
+- `uv run mypy services/common/src/zayd_common/document_lifecycle.py services/common/src/zayd_common/database/models.py services/common/src/zayd_common/rbac.py services/api/src/zayd_service_api/app.py --ignore-missing-imports`
+- `uv run pytest services/common/tests/test_document_lifecycle.py services/common/tests/test_document_publishing.py services/common/tests/test_scholar_approval.py services/common/tests/test_document_review.py services/common/tests/test_rbac.py services/api/tests/test_document_review_api.py services/api/tests/test_review_queue_api.py -v`
+- `python3 -m py_compile services/common/src/zayd_common/document_lifecycle.py services/common/src/zayd_common/database/models.py services/common/src/zayd_common/__init__.py services/common/src/zayd_common/rbac.py services/api/src/zayd_service_api/app.py services/common/tests/test_document_lifecycle.py services/api/tests/test_document_review_api.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Suspension and archival set affected published chunks to `is_published=false`; rollback hides the superseded version and restores the selected approved version's chunks.
+- Passed. Affected historical answers are discovered from retrieval results and receive `invalidated_at`, `answer_json["invalidation_warning"]`, and a structured warning entry.
+- Passed. Rollback points the document to a prior version without overwriting version rows and records an immutable `documents.rollback` audit record.
 
 ### Security and License Review
 
-- Pending
+- API routes enforce `documents.archive`; the service also restricts lifecycle changes to `senior_scholar` or `admin` and supports optimistic `base_row_version` checks.
+- Lifecycle audit summaries include IDs, status, counts, reasons and policy versions only. They do not include document text, answer bodies, user messages, credentials, signed URLs, production payloads or restricted religious content.
+- Senior scholars now receive `documents.archive` so they can execute urgent content safety suspension and rollback while still passing service-side role checks.
 
 ### Known Limitations
 
-- Pending
+- Citation and answer invalidation uses local SQLAlchemy models for existing schema tables; full citation registry workflows and answer invalidation UI remain later tasks.
+- Rollback requires the target approved version to already have retrieval chunks.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-07-01 — Chunking Framework.
+- TASK-08-07 — Citation Registry.
+- TASK-11-04 — Answer Invalidation.
 
 ### Commit
 
-- Pending
+- Focused commit: `feat(review): add published document lifecycle controls`.
