@@ -11,15 +11,6 @@ from pydantic import BaseModel, Field
 from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
-from zayd_common.documents import (
-    DocumentMalwareScanResult,
-    DocumentProcessingError,
-    DocumentUploadDuplicate,
-    DocumentUploadError,
-    DocumentUploadRequest,
-    DocumentUploadResult,
-    DocumentUploadService,
-)
 from zayd_common.document_review import (
     DocumentReviewError,
     DocumentReviewService,
@@ -28,6 +19,15 @@ from zayd_common.document_review import (
     ReviewDraft,
     ReviewEditResult,
     ReviewRevisionPublic,
+)
+from zayd_common.documents import (
+    DocumentMalwareScanResult,
+    DocumentProcessingError,
+    DocumentUploadDuplicate,
+    DocumentUploadError,
+    DocumentUploadRequest,
+    DocumentUploadResult,
+    DocumentUploadService,
 )
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
