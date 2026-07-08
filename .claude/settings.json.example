@@ -1,0 +1,12 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-347a4cd1be99e672-xxxxxxxxxx",
+    "ANTHROPIC_BASE_URL": "https://9router.beariot.com/v1",
+    "ANTHROPIC_MODEL": "ja/tier-a",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "ja/tier-s",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "ja/tier-a",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "ja/tier-b",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_EFFORT_LEVEL": "max"
+  }
+}

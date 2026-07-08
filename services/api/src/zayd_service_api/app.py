@@ -20,6 +20,15 @@ from zayd_common.documents import (
     DocumentUploadResult,
     DocumentUploadService,
 )
+from zayd_common.document_review import (
+    DocumentReviewError,
+    DocumentReviewService,
+    ReviewCommentPublic,
+    ReviewDecisionPublic,
+    ReviewDraft,
+    ReviewEditResult,
+    ReviewRevisionPublic,
+)
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
 from zayd_common.licenses import (
@@ -468,6 +477,84 @@ class ReviewTaskAssignRequest(BaseModel):
 class ReviewTaskActionResponse(BaseModel):
     status: str
     task: ReviewTaskSummaryResponse
+
+
+class ReviewCommentResponse(BaseModel):
+    id: str
+    review_task_id: str
+    author_id: str
+    body: str
+    anchor: dict[str, object]
+    created_at: str
+
+
+class ReviewDraftResponse(BaseModel):
+    review_task_id: str
+    document_version_id: str
+    task_status: str
+    task_row_version: int
+    document_review_status: str
+    original_file_key: str | None
+    editable_text: str | None
+    editable_metadata: dict[str, object]
+    latest_revision_number: int
+    comments: list[ReviewCommentResponse]
+
+
+class ReviewEditRequest(BaseModel):
+    base_task_row_version: int = Field(ge=1)
+    text: str | None = None
+    metadata_updates: dict[str, object] | None = None
+
+
+class ReviewRevisionResponse(BaseModel):
+    id: str
+    review_task_id: str
+    document_version_id: str
+    actor_user_id: str
+    revision_number: int
+    base_task_row_version: int
+    text_changed: bool
+    metadata_changed_fields: list[str]
+    diff_text: str
+    created_at: str
+
+
+class ReviewEditResponse(BaseModel):
+    status: str
+    task_row_version: int
+    revision: ReviewRevisionResponse
+    editable_text: str | None
+    editable_metadata: dict[str, object]
+
+
+class ReviewCommentRequest(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+    anchor: dict[str, object] | None = None
+
+
+class ReviewDecisionRequest(BaseModel):
+    decision: str = Field(pattern="^(approve|request_changes|reject)$")
+    reason: str = Field(min_length=1, max_length=10000)
+    base_task_row_version: int = Field(ge=1)
+
+
+class ReviewDecisionResponse(BaseModel):
+    id: str
+    review_task_id: str
+    document_version_id: str
+    actor_user_id: str
+    decision: str
+    reason: str
+    resulting_task_status: str
+    resulting_document_status: str
+    created_at: str
+
+
+class ReviewDecisionActionResponse(BaseModel):
+    status: str
+    task_row_version: int
+    decision: ReviewDecisionResponse
 
 
 def _auth_response(result: AuthResult) -> AuthResponse:
@@ -1637,9 +1724,23 @@ def create_app() -> FastAPI:
 
         return ReviewQueueService(SQLAlchemyUnitOfWork(session_factory))
 
+    def document_review_service() -> DocumentReviewService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return DocumentReviewService(SQLAlchemyUnitOfWork(session_factory))
+
     @app.exception_handler(ReviewQueueError)
     async def review_queue_error_handler(
         request: Request, exc: ReviewQueueError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(DocumentReviewError)
+    async def document_review_error_handler(
+        request: Request, exc: DocumentReviewError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -1687,6 +1788,66 @@ def create_app() -> FastAPI:
             extracted_text_preview=detail.extracted_text_preview,
             filename=detail.filename,
             content_type=detail.content_type,
+        )
+
+    def _review_comment_response(comment: ReviewCommentPublic) -> ReviewCommentResponse:
+        return ReviewCommentResponse(
+            id=str(comment.id),
+            review_task_id=str(comment.review_task_id),
+            author_id=str(comment.author_id),
+            body=comment.body,
+            anchor=dict(comment.anchor),
+            created_at=comment.created_at.isoformat(),
+        )
+
+    def _review_draft_response(draft: ReviewDraft) -> ReviewDraftResponse:
+        return ReviewDraftResponse(
+            review_task_id=str(draft.review_task_id),
+            document_version_id=str(draft.document_version_id),
+            task_status=draft.task_status,
+            task_row_version=draft.task_row_version,
+            document_review_status=draft.document_review_status,
+            original_file_key=draft.original_file_key,
+            editable_text=draft.editable_text,
+            editable_metadata=dict(draft.editable_metadata),
+            latest_revision_number=draft.latest_revision_number,
+            comments=[_review_comment_response(comment) for comment in draft.comments],
+        )
+
+    def _review_revision_response(revision: ReviewRevisionPublic) -> ReviewRevisionResponse:
+        return ReviewRevisionResponse(
+            id=str(revision.id),
+            review_task_id=str(revision.review_task_id),
+            document_version_id=str(revision.document_version_id),
+            actor_user_id=str(revision.actor_user_id),
+            revision_number=revision.revision_number,
+            base_task_row_version=revision.base_task_row_version,
+            text_changed=revision.text_changed,
+            metadata_changed_fields=list(revision.metadata_changed_fields),
+            diff_text=revision.diff_text,
+            created_at=revision.created_at.isoformat(),
+        )
+
+    def _review_edit_response(result: ReviewEditResult) -> ReviewEditResponse:
+        return ReviewEditResponse(
+            status="ok",
+            task_row_version=result.task_row_version,
+            revision=_review_revision_response(result.revision),
+            editable_text=result.editable_text,
+            editable_metadata=dict(result.editable_metadata),
+        )
+
+    def _review_decision_response(decision: ReviewDecisionPublic) -> ReviewDecisionResponse:
+        return ReviewDecisionResponse(
+            id=str(decision.id),
+            review_task_id=str(decision.review_task_id),
+            document_version_id=str(decision.document_version_id),
+            actor_user_id=str(decision.actor_user_id),
+            decision=decision.decision,
+            reason=decision.reason,
+            resulting_task_status=decision.resulting_task_status,
+            resulting_document_status=decision.resulting_document_status,
+            created_at=decision.created_at.isoformat(),
         )
 
     @app.get("/reviews/queue", response_model=ReviewQueueListResponse)
@@ -1748,6 +1909,90 @@ def create_app() -> FastAPI:
             principal_roles=principal.roles,
         )
         return _review_task_detail_response(detail)
+
+    @app.get("/reviews/{review_task_id}/draft", response_model=ReviewDraftResponse)
+    async def get_review_draft(
+        review_task_id: UUID,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[DocumentReviewService, Depends(document_review_service)],
+    ) -> ReviewDraftResponse:
+        draft = service.get_draft(
+            review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+        )
+        return _review_draft_response(draft)
+
+    @app.patch("/reviews/{review_task_id}/draft", response_model=ReviewEditResponse)
+    async def update_review_draft(
+        review_task_id: UUID,
+        payload: ReviewEditRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[DocumentReviewService, Depends(document_review_service)],
+    ) -> ReviewEditResponse:
+        result = service.apply_edit(
+            review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            base_task_row_version=payload.base_task_row_version,
+            text=payload.text,
+            metadata_updates=payload.metadata_updates,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _review_edit_response(result)
+
+    @app.post("/reviews/{review_task_id}/comments", response_model=ReviewCommentResponse)
+    async def add_review_comment(
+        review_task_id: UUID,
+        payload: ReviewCommentRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[DocumentReviewService, Depends(document_review_service)],
+    ) -> ReviewCommentResponse:
+        comment = service.add_comment(
+            review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            body=payload.body,
+            anchor=payload.anchor,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _review_comment_response(comment)
+
+    @app.post(
+        "/reviews/{review_task_id}/decision",
+        response_model=ReviewDecisionActionResponse,
+    )
+    async def decide_review_task(
+        review_task_id: UUID,
+        payload: ReviewDecisionRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[DocumentReviewService, Depends(document_review_service)],
+    ) -> ReviewDecisionActionResponse:
+        result = service.decide(
+            review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            decision=payload.decision,
+            reason=payload.reason,
+            base_task_row_version=payload.base_task_row_version,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ReviewDecisionActionResponse(
+            status="ok",
+            task_row_version=result.task_row_version,
+            decision=_review_decision_response(result.decision),
+        )
 
     @app.post(
         "/reviews/{review_task_id}/claim",

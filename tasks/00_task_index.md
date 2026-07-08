@@ -82,8 +82,8 @@
 | TASK-05-06 | Metadata Extraction Service | A | DONE | TASK-05-05 | `05_ingestion/05-06_metadata_extraction_service.md` |
 | TASK-05-07 | Create Review Task Automatically | A | DONE | TASK-05-06 | `05_ingestion/05-07_create_review_task_automatically.md` |
 | TASK-06-01 | Review Queue API | A | DONE | EPIC-05 complete | `06_review/06-01_review_queue_api.md` |
-| TASK-06-02 | Document Review API | S | READY | TASK-06-01 | `06_review/06-02_document_review_api.md` |
-| TASK-06-03 | Scholar Approval Workflow | S | TODO | TASK-06-02 | `06_review/06-03_scholar_approval_workflow.md` |
+| TASK-06-02 | Document Review API | S | DONE | TASK-06-01 | `06_review/06-02_document_review_api.md` |
+| TASK-06-03 | Scholar Approval Workflow | S | READY | TASK-06-02 | `06_review/06-03_scholar_approval_workflow.md` |
 | TASK-06-04 | Document Publishing Service | S | TODO | TASK-06-03 | `06_review/06-04_document_publishing_service.md` |
 | TASK-06-05 | Suspend and Rollback Published Documents | S | TODO | TASK-06-04 | `06_review/06-05_suspend_and_rollback_published_documents.md` |
 | TASK-07-01 | Chunking Framework | S | TODO | EPIC-06 complete | `07_retrieval/07-01_chunking_framework.md` |

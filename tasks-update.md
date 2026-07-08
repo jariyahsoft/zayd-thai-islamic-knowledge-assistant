@@ -1,3 +1,16 @@
+## 2026-07-08T16:15:00+00:00
+
+- Task: TASK-06-02 - Document Review API
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented DocumentReviewService for managing mutable review drafts with revision checks, text/metadata edits (title, author, translator, publisher, edition, language, madhhab, document_type, translation_notes, review_notes, references), anchored comments, and decision transitions following strict state-machine controls. Registered four routes under `/reviews/`. Fully supports optimistic concurrency locking via task `row_version`.
+- Changed files: `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/document_review.py` (new), `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_document_review.py` (new, 9 tests), `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_document_review_api.py` (new, 7 tests), `database/migrations/0008_document_review_api.up.sql` (new), `database/migrations/0008_document_review_api.down.sql` (new), `database/migrations/README.md`, `docs/api/document-review.md` (new), `tasks/06_review/06-02_document_review_api.md`, `tasks-update.md`
+- Verification: Registered integration test suites (16 tests total) covering edit revisions, comments, details, and decision state machine transitions. All tests passed. Full non-postgres pytest passed with 383 passed, 1 skipped.
+- Self-review: Original uploaded files remain immutable. Concurrency conflicts correctly yield 409 responses. Approval separation forbids uploader/creator self-approvals. Requests trace auditing is included. No credentials, PHI, or production connections leaked.
+- Telegram notification: sent (STARTED and COMPLETED)
+- Remaining risks: Truncated diff output for files with >400 modified lines. SQLite in-memory engine overrides Postgres container verification in test runs.
+
 ## 2026-07-08T15:30:00+00:00
 
 - Task: TASK-06-01 - Review Queue API

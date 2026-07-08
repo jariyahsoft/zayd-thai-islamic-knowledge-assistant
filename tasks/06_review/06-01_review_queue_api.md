@@ -136,4 +136,4 @@ Implement paginated review queues with filtering, assignment, claim, release and
 
 ### Commit
 
-- Pending (task verified, ready for focused commit).
+- `e305f53` — `feat(review): add review queue API with filtering, claim, release, assign, escalate`

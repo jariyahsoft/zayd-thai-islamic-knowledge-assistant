@@ -642,6 +642,7 @@ class ReviewTask(Base):
     language: Mapped[str | None] = mapped_column(String, nullable=True)
     madhhab: Mapped[str | None] = mapped_column(String, nullable=True)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    row_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     created_by: Mapped[UUID] = mapped_column(
         BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
     )
@@ -654,6 +655,78 @@ class ReviewTask(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
+
+
+class ReviewRevision(Base):
+    __tablename__ = "review_revisions"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    review_task_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("review_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    document_version_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_task_row_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    text_before: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_after: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_before: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    metadata_after: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    diff_summary: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class ReviewDecisionRecord(Base):
+    __tablename__ = "review_decisions"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    review_task_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("review_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    document_version_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    decision: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    base_task_row_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    resulting_task_status: Mapped[str] = mapped_column(String, nullable=False)
+    resulting_document_status: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class ReviewComment(Base):
+    __tablename__ = "review_comments"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    review_task_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("review_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    author_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    anchor_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DocumentChunk(Base):

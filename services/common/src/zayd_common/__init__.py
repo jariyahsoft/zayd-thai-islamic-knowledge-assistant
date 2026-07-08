@@ -36,6 +36,17 @@ from .documents import (
     DocumentUploadResult,
     DocumentUploadService,
 )
+from .document_review import (
+    DOCUMENT_REVIEW_POLICY_VERSION,
+    DocumentReviewError,
+    DocumentReviewService,
+    ReviewCommentPublic,
+    ReviewDecisionPublic,
+    ReviewDecisionResult,
+    ReviewDraft,
+    ReviewEditResult,
+    ReviewRevisionPublic,
+)
 from .enums import (
     DocumentStatus,
     EvidenceStatus,
@@ -223,6 +234,15 @@ __all__ = [
     "DocumentUploadRequest",
     "DocumentUploadResult",
     "DocumentUploadService",
+    "DOCUMENT_REVIEW_POLICY_VERSION",
+    "DocumentReviewError",
+    "DocumentReviewService",
+    "ReviewCommentPublic",
+    "ReviewDecisionPublic",
+    "ReviewDecisionResult",
+    "ReviewDraft",
+    "ReviewEditResult",
+    "ReviewRevisionPublic",
     "hash_password",
     "hash_token",
     "verify_password",
