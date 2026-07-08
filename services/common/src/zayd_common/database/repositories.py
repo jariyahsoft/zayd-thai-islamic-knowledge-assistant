@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -10,6 +11,7 @@ from zayd_common.database.models import (
     DocumentChunk,
     DocumentVersion,
     Incident,
+    ReviewTask,
     Source,
     SourceLicense,
     User,
@@ -266,3 +268,50 @@ class SQLAlchemyIncidentRepository(AbstractIncidentRepository):
     def get_incidents(self) -> Sequence[Incident]:
         stmt = select(Incident)
         return self.session.execute(stmt).scalars().all()
+
+
+class AbstractReviewTaskRepository(ABC):
+    """Repository interface for ReviewTask persistence."""
+
+    @abstractmethod
+    def get_by_id(self, review_task_id: UUID) -> Any: ...
+
+    @abstractmethod
+    def create(self, review_task: Any) -> Any: ...
+
+    @abstractmethod
+    def update(self, review_task: Any) -> Any: ...
+
+    @abstractmethod
+    def find_active_for_version(
+        self, document_version_id: UUID, review_level: str
+    ) -> Any | None: ...
+
+
+class SQLAlchemyReviewTaskRepository(AbstractReviewTaskRepository):
+    """SQLAlchemy implementation of the ReviewTask repository."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_id(self, review_task_id: UUID) -> ReviewTask | None:
+        return self.session.get(ReviewTask, review_task_id)
+
+    def create(self, review_task: ReviewTask) -> ReviewTask:
+        self.session.add(review_task)
+        return review_task
+
+    def update(self, review_task: ReviewTask) -> ReviewTask:
+        self.session.flush()
+        return review_task
+
+    def find_active_for_version(
+        self, document_version_id: UUID, review_level: str
+    ) -> ReviewTask | None:
+        stmt = (
+            select(ReviewTask)
+            .where(ReviewTask.document_version_id == document_version_id)
+            .where(ReviewTask.review_level == review_level)
+            .where(ReviewTask.status.in_(["open", "in_progress"]))
+        )
+        return self.session.execute(stmt).scalar_one_or_none()

@@ -129,6 +129,13 @@ from .rbac import (
     UserPrincipal,
 )
 from .retrievability import can_activate_embedding, is_document_retrievable
+from .review_tasks import (
+    REVIEW_TASK_POLICY_VERSION,
+    ReviewTaskCreationError,
+    ReviewTaskService,
+    resolve_due_at,
+    resolve_priority,
+)
 from .settings import ServiceSettings
 from .sources import (
     SourceError,
@@ -283,4 +290,9 @@ __all__ = [
     "validate_confidence",
     "validate_extracted_document_type",
     "validate_extracted_madhhab",
+    "REVIEW_TASK_POLICY_VERSION",
+    "ReviewTaskCreationError",
+    "ReviewTaskService",
+    "resolve_due_at",
+    "resolve_priority",
 ]

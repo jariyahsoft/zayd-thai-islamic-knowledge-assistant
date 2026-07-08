@@ -12,10 +12,12 @@ from zayd_common.database.models import (
 from zayd_common.database.repositories import (
     AbstractDocumentRepository,
     AbstractIncidentRepository,
+    AbstractReviewTaskRepository,
     AbstractSourceRepository,
     AbstractUserRepository,
     SQLAlchemyDocumentRepository,
     SQLAlchemyIncidentRepository,
+    SQLAlchemyReviewTaskRepository,
     SQLAlchemySourceRepository,
     SQLAlchemyUserRepository,
 )
@@ -45,6 +47,8 @@ __all__ = [
     "SQLAlchemyDocumentRepository",
     "AbstractIncidentRepository",
     "SQLAlchemyIncidentRepository",
+    "AbstractReviewTaskRepository",
+    "SQLAlchemyReviewTaskRepository",
     "AbstractUnitOfWork",
     "SQLAlchemyUnitOfWork",
     "get_sessionmaker",

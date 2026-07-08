@@ -80,8 +80,8 @@
 | TASK-05-04 | Document Parser Framework | S | DONE | TASK-05-03 | `05_ingestion/05-04_document_parser_framework.md` |
 | TASK-05-05 | Thai and Arabic Text Normalization | S | DONE | TASK-05-04 | `05_ingestion/05-05_thai_and_arabic_text_normalization.md` |
 | TASK-05-06 | Metadata Extraction Service | A | DONE | TASK-05-05 | `05_ingestion/05-06_metadata_extraction_service.md` |
-| TASK-05-07 | Create Review Task Automatically | A | READY | TASK-05-06 | `05_ingestion/05-07_create_review_task_automatically.md` |
-| TASK-06-01 | Review Queue API | A | BLOCKED | EPIC-05 complete | `06_review/06-01_review_queue_api.md` |
+| TASK-05-07 | Create Review Task Automatically | A | DONE | TASK-05-06 | `05_ingestion/05-07_create_review_task_automatically.md` |
+| TASK-06-01 | Review Queue API | A | READY | EPIC-05 complete | `06_review/06-01_review_queue_api.md` |
 | TASK-06-02 | Document Review API | S | TODO | TASK-06-01 | `06_review/06-02_document_review_api.md` |
 | TASK-06-03 | Scholar Approval Workflow | S | TODO | TASK-06-02 | `06_review/06-03_scholar_approval_workflow.md` |
 | TASK-06-04 | Document Publishing Service | S | TODO | TASK-06-03 | `06_review/06-04_document_publishing_service.md` |

@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session, sessionmaker
 from zayd_common.database.repositories import (
     AbstractDocumentRepository,
     AbstractIncidentRepository,
+    AbstractReviewTaskRepository,
     AbstractSourceRepository,
     AbstractUserRepository,
     SQLAlchemyDocumentRepository,
     SQLAlchemyIncidentRepository,
+    SQLAlchemyReviewTaskRepository,
     SQLAlchemySourceRepository,
     SQLAlchemyUserRepository,
 )
@@ -22,6 +24,7 @@ class AbstractUnitOfWork(ABC):
     sources: AbstractSourceRepository
     documents: AbstractDocumentRepository
     incidents: AbstractIncidentRepository
+    review_tasks: AbstractReviewTaskRepository
 
     def __enter__(self) -> "AbstractUnitOfWork":
         return self
@@ -56,6 +59,7 @@ class SQLAlchemyUnitOfWork(AbstractUnitOfWork):
         self.sources = SQLAlchemySourceRepository(self.session)
         self.documents = SQLAlchemyDocumentRepository(self.session)
         self.incidents = SQLAlchemyIncidentRepository(self.session)
+        self.review_tasks = SQLAlchemyReviewTaskRepository(self.session)
         return self
 
     def __exit__(

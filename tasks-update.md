@@ -1,3 +1,16 @@
+## 2026-07-08T15:15:00+00:00
+
+- Task: TASK-05-07 - Create Review Task Automatically
+- Attempt: 2
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented automatic review task creation after successful parsing/extraction. Added ReviewTask model, repository, service, migration, and configurable assignment rules for priority/review level/due date. Failed or quarantined documents are excluded. One active task per version+level (idempotent). All creations audited. EPIC-05 (Document Ingestion) is now complete.
+- Changed files: `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/database/repositories.py`, `services/common/src/zayd_common/database/unit_of_work.py`, `services/common/src/zayd_common/database/__init__.py`, `services/common/src/zayd_common/review_tasks.py`, `services/common/tests/test_review_tasks.py`, `database/migrations/0007_review_tasks.up.sql`, `database/migrations/0007_review_tasks.down.sql`, `database/migrations/README.md`, `docs/architecture/review-task-creation.md`, `tasks/05_ingestion/05-07_create_review_task_automatically.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_review_tasks.py -v` passed (19 tests); focused Ruff lint passed; focused mypy passed.
+- Self-review: One active task per version+level (unique constraint + service guard). Failed/quarantined documents excluded (REVIEW_VERSION_NOT_ELIGIBLE). All creations audited via immutable AuditLog. No secrets, production data, restricted religious content, or third-party code introduced.
+- Telegram notification: sent (STARTED)
+- Remaining risks: Review task creation not yet wired as automatic pipeline stage; no API endpoint exposed yet; reviewer auto-assignment not implemented.
+
 ## 2026-07-08T15:00:00+00:00
 
 - Task: TASK-05-06 - Metadata Extraction Service
@@ -8,7 +21,7 @@
 - Changed files: `services/common/src/zayd_common/metadata_extraction.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_metadata_extraction.py`, `docs/architecture/metadata-extraction.md`, `tasks/05_ingestion/05-06_metadata_extraction_service.md`, `tasks/00_task_index.md`, `tasks-update.md`
 - Verification: `uv run pytest services/common/tests/test_metadata_extraction.py -v` passed (32 tests); `uv run ruff check` passed; `uv run mypy` passed.
 - Self-review: All extracted fields default to UNVERIFIED. Extraction stores results in version metadata without modifying Document fields. Schema validation rejects out-of-range confidence, invalid madhhab, and invalid document type. No secrets, production data, restricted religious content, or third-party code introduced.
-- Telegram notification: sent (STARTED)
+- Telegram notification: sent (STARTED and COMPLETED)
 - Remaining risks: AI/LLM extractor not yet implemented; publisher/edition detection not yet implemented; no API endpoint exposed yet.
 
 ## 2026-07-08T14:45:00+00:00

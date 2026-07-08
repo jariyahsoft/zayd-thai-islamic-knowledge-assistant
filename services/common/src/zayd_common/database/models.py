@@ -618,6 +618,44 @@ class DocumentVersion(Base):
     frozen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ReviewTask(Base):
+    __tablename__ = "review_tasks"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_version_id", "review_level",
+            name="uq_review_tasks_open_level",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    document_version_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    document_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False)
+    assigned_to: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    review_level: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="open", nullable=False)
+    priority: Mapped[str] = mapped_column(String, default="normal", nullable=False)
+    category: Mapped[str | None] = mapped_column(String, nullable=True)
+    language: Mapped[str | None] = mapped_column(String, nullable=True)
+    madhhab: Mapped[str | None] = mapped_column(String, nullable=True)
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
