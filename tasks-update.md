@@ -10,7 +10,7 @@
 - Self-review: Publishing is not implemented in this task, so approval requirements are exposed as a fail-closed gate for TASK-06-04. RBAC/MFA are enforced through existing API permission dependencies. Audit summaries avoid document text, credentials, PHI, signed URLs, and raw review payloads. No unrelated user changes were reverted.
 - Telegram notification: sent (STARTED and COMPLETED).
 - Remaining risks: Expiry is service-driven, not scheduled; board approval maps to `admin` until a dedicated board role exists; TASK-06-04 must enforce `ready_for_publish` before publish visibility changes.
-- Commit: Pending (terminal notification sent; commit will be created next).
+- Commit: `68cc4e0` feat(review): add scholar approval workflow.
 
 ## 2026-07-08T16:51:30+07:00
 
