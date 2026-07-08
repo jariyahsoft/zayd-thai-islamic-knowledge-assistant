@@ -1,3 +1,17 @@
+## 2026-07-08T17:07:23+07:00
+
+- Task: TASK-06-03 - Scholar Approval Workflow
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented explicit scholar approval workflow with risk-based approval matrix (`routine`, `sensitive`, `restricted`), senior-scholar/admin role checks, board-level approval, active duplicate prevention, expiry, revocation, fail-closed requirement checks, and separation of duties across uploader, task creator, initial approving reviewer, and active prior approver. Added API routes for creating approvals, checking approval requirements, and revoking approvals. TASK-06-04 is now READY.
+- Changed files: `services/common/src/zayd_common/scholar_approval.py` (new), `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_scholar_approval.py` (new), `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_document_review_api.py`, `database/migrations/0009_scholar_approval_workflow.up.sql` (new), `database/migrations/0009_scholar_approval_workflow.down.sql` (new), `database/migrations/README.md`, `docs/governance/scholar-approval.md` (new), `tasks/06_review/06-03_scholar_approval_workflow.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_scholar_approval.py services/api/tests/test_document_review_api.py -v` passed with 23 passed; `uv run pytest services/common/tests/test_document_review.py services/common/tests/test_scholar_approval.py services/api/tests/test_document_review_api.py services/api/tests/test_review_queue_api.py -v` passed with 42 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Publishing is not implemented in this task, so approval requirements are exposed as a fail-closed gate for TASK-06-04. RBAC/MFA are enforced through existing API permission dependencies. Audit summaries avoid document text, credentials, PHI, signed URLs, and raw review payloads. No unrelated user changes were reverted.
+- Telegram notification: sent (STARTED and COMPLETED).
+- Remaining risks: Expiry is service-driven, not scheduled; board approval maps to `admin` until a dedicated board role exists; TASK-06-04 must enforce `ready_for_publish` before publish visibility changes.
+- Commit: Pending (terminal notification sent; commit will be created next).
+
 ## 2026-07-08T16:51:30+07:00
 
 - Task: TASK-05-03 - Malware Scan Pipeline

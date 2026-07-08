@@ -16,6 +16,7 @@ Forward migrations and documented rollback plans belong here.
 | `0006_immutable_audit_logs` | `0006_immutable_audit_logs.up.sql`, `0006_immutable_audit_logs.down.sql` | Append-only hash-chained audit logs with request IDs for TASK-03-05 |
 | `0007_review_tasks` | `0007_review_tasks.up.sql`, `0007_review_tasks.down.sql` | Review tasks table for TASK-05-07 |
 | `0008_document_review_api` | `0008_document_review_api.up.sql`, `0008_document_review_api.down.sql` | Document review revisions, decisions, comments and optimistic task row versions for TASK-06-02 |
+| `0009_scholar_approval_workflow` | `0009_scholar_approval_workflow.up.sql`, `0009_scholar_approval_workflow.down.sql` | Scholar approval, expiry and revocation records for TASK-06-03 |
 
 Use `scripts/migrate.sh up`, `scripts/migrate.sh down`, or `MIGRATION_ACTION=<up|down|reset> make migrate` for development/test execution. The `up` action is idempotent when `schema_migrations` already contains a migration version.
 

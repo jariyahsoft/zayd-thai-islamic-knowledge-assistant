@@ -28,9 +28,7 @@ from zayd_common.database.models import (
     Base,
     Document,
     DocumentVersion,
-    ReviewComment,
-    ReviewDecisionRecord,
-    ReviewRevision,
+    ReviewApproval,
     ReviewTask,
     Role,
     User,
@@ -38,7 +36,6 @@ from zayd_common.database.models import (
 )
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.mfa import MfaService, generate_totp
-from zayd_common.storage import SignedUrl
 from zayd_service_api import create_app
 
 
@@ -51,6 +48,30 @@ class FakeStorage:
 
     def put_private_bytes(self, **kwargs) -> Any:
         return None
+
+
+def test_scholar_approval_routes_are_registered(monkeypatch) -> None:
+    app, _session_factory = _app(monkeypatch)
+
+    route_paths = {route.path for route in app.routes if hasattr(route, "path")}
+    assert "/reviews/{review_task_id}/approvals" in route_paths
+    assert "/documents/{document_version_id}/approval-requirements" in route_paths
+    assert "/review-approvals/{approval_id}/revoke" in route_paths
+
+
+def test_scholar_approval_openapi_contract(monkeypatch) -> None:
+    app, _session_factory = _app(monkeypatch)
+    schema = app.openapi()
+
+    paths = schema["paths"]
+    assert paths["/reviews/{review_task_id}/approvals"]["post"]["responses"]["200"]
+    assert paths["/documents/{document_version_id}/approval-requirements"]["get"]["responses"][
+        "200"
+    ]
+    assert paths["/review-approvals/{approval_id}/revoke"]["post"]["responses"]["200"]
+    assert schema["components"]["schemas"]["ScholarApprovalRequest"]
+    assert schema["components"]["schemas"]["ApprovalRequirementResponse"]
+    assert schema["components"]["schemas"]["ScholarApprovalActionResponse"]
 
 
 def test_get_review_draft_requires_permission(monkeypatch) -> None:
@@ -274,7 +295,11 @@ def test_decide_approve_separation_of_duties(monkeypatch) -> None:
     _enroll_mfa(session_factory, actor.user.id)
     _set_user_preferences(session_factory, actor.user.id)
 
-    task_id, _ = _seed_draft_task(session_factory, created_by=actor.user.id, assigned_to=actor.user.id)
+    task_id, _ = _seed_draft_task(
+        session_factory,
+        created_by=actor.user.id,
+        assigned_to=actor.user.id,
+    )
 
     response = _request(
         app,
@@ -290,6 +315,175 @@ def test_decide_approve_separation_of_duties(monkeypatch) -> None:
 
     assert response["status"] == 403
     assert response["json"]["error"]["code"] == "DOCUMENT_REVIEW_SELF_APPROVAL_DENIED"
+
+
+def test_scholar_approval_api_two_level_success(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    reviewer = auth_service.register(
+        email="approval-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    scholar = auth_service.register(
+        email="approval-scholar@example.com",
+        password="very-strong-password",
+        display_name="Scholar",
+    )
+    _grant_role_directly(session_factory, reviewer.user.id, "reviewer")
+    _grant_role_directly(session_factory, scholar.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, reviewer.user.id)
+    _enroll_mfa(session_factory, scholar.user.id)
+    _set_user_preferences(session_factory, reviewer.user.id)
+    _set_user_preferences(session_factory, scholar.user.id)
+    task_id, version_id = _seed_draft_task(
+        session_factory,
+        assigned_to=scholar.user.id,
+        review_level="scholar",
+        document_status="scholar_review",
+    )
+
+    initial = _request(
+        app,
+        "POST",
+        f"/reviews/{task_id}/approvals",
+        json_body={
+            "content_risk": "sensitive",
+            "approval_level": "initial",
+            "reason": "Initial reviewer approval.",
+        },
+        headers={
+            "authorization": f"Bearer {reviewer.tokens.access_token}",
+            "x-request-id": "trace-approval-initial",
+        },
+    )
+    scholar_response = _request(
+        app,
+        "POST",
+        f"/reviews/{task_id}/approvals",
+        json_body={
+            "content_risk": "sensitive",
+            "approval_level": "scholar",
+            "reason": "Senior scholar approval.",
+        },
+        headers={
+            "authorization": f"Bearer {scholar.tokens.access_token}",
+            "x-request-id": "trace-approval-scholar",
+        },
+    )
+    requirements = _request(
+        app,
+        "GET",
+        f"/documents/{version_id}/approval-requirements?content_risk=sensitive",
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+
+    assert initial["status"] == 200
+    assert initial["json"]["approval"]["approval_level"] == "initial"
+    assert scholar_response["status"] == 200
+    assert scholar_response["json"]["approval"]["approval_level"] == "scholar"
+    assert requirements["status"] == 200
+    assert requirements["json"]["ready_for_publish"] is True
+    assert requirements["json"]["missing_levels"] == []
+    with session_factory() as session:
+        logs = session.execute(
+            select(AuditLog).where(AuditLog.action == "scholar_approval.created")
+        ).scalars().all()
+    assert any(log.trace_id == "trace-approval-scholar" for log in logs)
+
+
+def test_scholar_approval_api_blocks_self_approval(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    actor = auth_service.register(
+        email="approval-uploader@example.com",
+        password="very-strong-password",
+        display_name="UploaderScholar",
+    )
+    _grant_role_directly(session_factory, actor.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, actor.user.id)
+    _set_user_preferences(session_factory, actor.user.id)
+    task_id, _ = _seed_draft_task(
+        session_factory,
+        created_by=actor.user.id,
+        assigned_to=actor.user.id,
+        review_level="scholar",
+        document_status="scholar_review",
+    )
+
+    response = _request(
+        app,
+        "POST",
+        f"/reviews/{task_id}/approvals",
+        json_body={
+            "content_risk": "sensitive",
+            "approval_level": "scholar",
+            "reason": "Self approval attempt.",
+        },
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+
+    assert response["status"] == 403
+    assert response["json"]["error"]["code"] == "SCHOLAR_APPROVAL_SELF_APPROVAL_DENIED"
+
+
+def test_scholar_approval_api_revoke_marks_requirement_missing(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    reviewer = auth_service.register(
+        email="approval-revoke-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    scholar = auth_service.register(
+        email="approval-revoke-scholar@example.com",
+        password="very-strong-password",
+        display_name="Scholar",
+    )
+    _grant_role_directly(session_factory, reviewer.user.id, "reviewer")
+    _grant_role_directly(session_factory, scholar.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, reviewer.user.id)
+    _enroll_mfa(session_factory, scholar.user.id)
+    _set_user_preferences(session_factory, reviewer.user.id)
+    _set_user_preferences(session_factory, scholar.user.id)
+    task_id, version_id = _seed_draft_task(session_factory, assigned_to=reviewer.user.id)
+    with session_factory() as session:
+        approval = ReviewApproval(
+            id=uuid4(),
+            document_version_id=version_id,
+            review_task_id=task_id,
+            approver_id=reviewer.user.id,
+            approval_level="initial",
+            content_risk="routine",
+            status="active",
+            reason="Routine approval.",
+        )
+        session.add(approval)
+        approval_id = approval.id
+        session.commit()
+
+    revoked = _request(
+        app,
+        "POST",
+        f"/review-approvals/{approval_id}/revoke",
+        json_body={"reason": "Citation issue found."},
+        headers={
+            "authorization": f"Bearer {scholar.tokens.access_token}",
+            "x-request-id": "trace-approval-revoke",
+        },
+    )
+    requirements = _request(
+        app,
+        "GET",
+        f"/documents/{version_id}/approval-requirements?content_risk=routine",
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+
+    assert revoked["status"] == 200
+    assert revoked["json"]["approval"]["status"] == "revoked"
+    assert requirements["status"] == 200
+    assert requirements["json"]["ready_for_publish"] is False
+    assert requirements["json"]["missing_levels"] == ["initial"]
 
 
 # ---------------------------------------------------------------------------

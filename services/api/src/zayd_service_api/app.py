@@ -60,6 +60,12 @@ from zayd_common.review_queue import (
     ReviewTaskDetail,
     ReviewTaskSummary,
 )
+from zayd_common.scholar_approval import (
+    ApprovalPublic,
+    ApprovalRequirement,
+    ScholarApprovalError,
+    ScholarApprovalService,
+)
 from zayd_common.settings import ServiceSettings
 from zayd_common.sources import (
     SourceError,
@@ -555,6 +561,47 @@ class ReviewDecisionActionResponse(BaseModel):
     status: str
     task_row_version: int
     decision: ReviewDecisionResponse
+
+
+class ScholarApprovalRequest(BaseModel):
+    content_risk: str = Field(pattern="^(routine|sensitive|restricted)$")
+    approval_level: str = Field(pattern="^(initial|scholar|board)$")
+    reason: str = Field(min_length=1, max_length=10000)
+    valid_until: datetime | None = None
+
+
+class ScholarApprovalRevokeRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=10000)
+
+
+class ApprovalResponse(BaseModel):
+    id: str
+    document_version_id: str
+    review_task_id: str
+    approver_id: str
+    approval_level: str
+    content_risk: str
+    status: str
+    reason: str
+    valid_until: str | None
+    revoked_at: str | None
+    revoked_by: str | None
+    revoke_reason: str | None
+    created_at: str
+
+
+class ApprovalRequirementResponse(BaseModel):
+    document_version_id: str
+    content_risk: str
+    required_levels: list[str]
+    satisfied_levels: list[str]
+    missing_levels: list[str]
+    ready_for_publish: bool
+
+
+class ScholarApprovalActionResponse(BaseModel):
+    status: str
+    approval: ApprovalResponse
 
 
 def _auth_response(result: AuthResult) -> AuthResponse:
@@ -1729,6 +1776,11 @@ def create_app() -> FastAPI:
 
         return DocumentReviewService(SQLAlchemyUnitOfWork(session_factory))
 
+    def scholar_approval_service() -> ScholarApprovalService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return ScholarApprovalService(SQLAlchemyUnitOfWork(session_factory))
+
     @app.exception_handler(ReviewQueueError)
     async def review_queue_error_handler(
         request: Request, exc: ReviewQueueError
@@ -1741,6 +1793,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(DocumentReviewError)
     async def document_review_error_handler(
         request: Request, exc: DocumentReviewError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(ScholarApprovalError)
+    async def scholar_approval_error_handler(
+        request: Request, exc: ScholarApprovalError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -1848,6 +1909,35 @@ def create_app() -> FastAPI:
             resulting_task_status=decision.resulting_task_status,
             resulting_document_status=decision.resulting_document_status,
             created_at=decision.created_at.isoformat(),
+        )
+
+    def _approval_response(approval: ApprovalPublic) -> ApprovalResponse:
+        return ApprovalResponse(
+            id=str(approval.id),
+            document_version_id=str(approval.document_version_id),
+            review_task_id=str(approval.review_task_id),
+            approver_id=str(approval.approver_id),
+            approval_level=approval.approval_level,
+            content_risk=approval.content_risk,
+            status=approval.status,
+            reason=approval.reason,
+            valid_until=approval.valid_until.isoformat() if approval.valid_until else None,
+            revoked_at=approval.revoked_at.isoformat() if approval.revoked_at else None,
+            revoked_by=str(approval.revoked_by) if approval.revoked_by else None,
+            revoke_reason=approval.revoke_reason,
+            created_at=approval.created_at.isoformat(),
+        )
+
+    def _approval_requirement_response(
+        requirement: ApprovalRequirement,
+    ) -> ApprovalRequirementResponse:
+        return ApprovalRequirementResponse(
+            document_version_id=str(requirement.document_version_id),
+            content_risk=requirement.content_risk,
+            required_levels=list(requirement.required_levels),
+            satisfied_levels=list(requirement.satisfied_levels),
+            missing_levels=list(requirement.missing_levels),
+            ready_for_publish=requirement.ready_for_publish,
         )
 
     @app.get("/reviews/queue", response_model=ReviewQueueListResponse)
@@ -1992,6 +2082,77 @@ def create_app() -> FastAPI:
             status="ok",
             task_row_version=result.task_row_version,
             decision=_review_decision_response(result.decision),
+        )
+
+    @app.post(
+        "/reviews/{review_task_id}/approvals",
+        response_model=ScholarApprovalActionResponse,
+    )
+    async def create_scholar_approval(
+        review_task_id: UUID,
+        payload: ScholarApprovalRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ScholarApprovalService, Depends(scholar_approval_service)],
+    ) -> ScholarApprovalActionResponse:
+        approval = service.approve(
+            review_task_id=review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            content_risk=payload.content_risk,
+            approval_level=payload.approval_level,
+            reason=payload.reason,
+            valid_until=payload.valid_until,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ScholarApprovalActionResponse(
+            status="ok",
+            approval=_approval_response(approval),
+        )
+
+    @app.get(
+        "/documents/{document_version_id}/approval-requirements",
+        response_model=ApprovalRequirementResponse,
+    )
+    async def get_approval_requirements(
+        document_version_id: UUID,
+        content_risk: str,
+        _: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ScholarApprovalService, Depends(scholar_approval_service)],
+    ) -> ApprovalRequirementResponse:
+        requirement = service.get_requirements(
+            document_version_id=document_version_id,
+            content_risk=content_risk,
+        )
+        return _approval_requirement_response(requirement)
+
+    @app.post(
+        "/review-approvals/{approval_id}/revoke",
+        response_model=ScholarApprovalActionResponse,
+    )
+    async def revoke_scholar_approval(
+        approval_id: UUID,
+        payload: ScholarApprovalRevokeRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ScholarApprovalService, Depends(scholar_approval_service)],
+    ) -> ScholarApprovalActionResponse:
+        approval = service.revoke(
+            approval_id=approval_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            reason=payload.reason,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ScholarApprovalActionResponse(
+            status="ok",
+            approval=_approval_response(approval),
         )
 
     @app.post(

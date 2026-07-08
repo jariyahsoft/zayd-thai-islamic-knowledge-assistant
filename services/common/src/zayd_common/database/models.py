@@ -705,6 +705,40 @@ class ReviewDecisionRecord(Base):
     )
 
 
+class ReviewApproval(Base):
+    __tablename__ = "review_approvals"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    document_version_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("document_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    review_task_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("review_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    approver_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    approval_level: Mapped[str] = mapped_column(String, nullable=False)
+    content_risk: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="active", nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    revoke_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
 class ReviewComment(Base):
     __tablename__ = "review_comments"
 

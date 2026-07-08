@@ -27,15 +27,6 @@ from .database import (
     get_sessionmaker,
     seed_demo_data,
 )
-from .documents import (
-    DocumentMalwareScanResult,
-    DocumentProcessingError,
-    DocumentUploadDuplicate,
-    DocumentUploadError,
-    DocumentUploadRequest,
-    DocumentUploadResult,
-    DocumentUploadService,
-)
 from .document_review import (
     DOCUMENT_REVIEW_POLICY_VERSION,
     DocumentReviewError,
@@ -46,6 +37,15 @@ from .document_review import (
     ReviewDraft,
     ReviewEditResult,
     ReviewRevisionPublic,
+)
+from .documents import (
+    DocumentMalwareScanResult,
+    DocumentProcessingError,
+    DocumentUploadDuplicate,
+    DocumentUploadError,
+    DocumentUploadRequest,
+    DocumentUploadResult,
+    DocumentUploadService,
 )
 from .enums import (
     DocumentStatus,
@@ -155,6 +155,13 @@ from .review_tasks import (
     ReviewTaskService,
     resolve_due_at,
     resolve_priority,
+)
+from .scholar_approval import (
+    SCHOLAR_APPROVAL_POLICY_VERSION,
+    ApprovalPublic,
+    ApprovalRequirement,
+    ScholarApprovalError,
+    ScholarApprovalService,
 )
 from .settings import ServiceSettings
 from .sources import (
@@ -331,4 +338,9 @@ __all__ = [
     "ReviewTaskService",
     "resolve_due_at",
     "resolve_priority",
+    "SCHOLAR_APPROVAL_POLICY_VERSION",
+    "ApprovalPublic",
+    "ApprovalRequirement",
+    "ScholarApprovalError",
+    "ScholarApprovalService",
 ]
