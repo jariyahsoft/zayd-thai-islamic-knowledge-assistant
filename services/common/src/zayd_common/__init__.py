@@ -81,6 +81,15 @@ from .mfa import (
     generate_totp,
     verify_totp,
 )
+from .normalization import (
+    ARABIC_NORMALIZER_VERSION,
+    NORMALIZATION_FRAMEWORK_VERSION,
+    THAI_NORMALIZER_VERSION,
+    NormalizationResult,
+    normalize_arabic,
+    normalize_text,
+    normalize_thai,
+)
 from .parsing import (
     PARSER_FRAMEWORK_VERSION,
     CsvParser,
@@ -239,4 +248,11 @@ __all__ = [
     "ParseWarning",
     "PdfStubParser",
     "PlainTextParser",
+    "ARABIC_NORMALIZER_VERSION",
+    "NORMALIZATION_FRAMEWORK_VERSION",
+    "THAI_NORMALIZER_VERSION",
+    "NormalizationResult",
+    "normalize_arabic",
+    "normalize_text",
+    "normalize_thai",
 ]

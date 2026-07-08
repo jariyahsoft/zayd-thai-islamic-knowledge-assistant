@@ -1,3 +1,16 @@
+## 2026-07-08T14:45:00+00:00
+
+- Task: TASK-05-05 - Thai and Arabic Text Normalization
+- Attempt: 2
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented separate, versioned normalization pipelines for Thai (`thai-norm-v1`) and Arabic (`arabic-norm-v1`) search text. Thai pipeline performs NFC normalization, zero-width/invisible character removal, and whitespace collapsing. Arabic pipeline performs NFC normalization, diacritic stripping, tatweel removal, alef variant normalization, teh marbuta to heh, alef maksura to yeh, and whitespace collapsing. Original text is preserved byte-for-byte in `NormalizationResult.original`.
+- Changed files: `services/common/src/zayd_common/normalization.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_normalization.py`, `docs/architecture/text-normalization.md`, `tasks/05_ingestion/05-05_thai_and_arabic_text_normalization.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_normalization.py -v` passed (39 tests); ingestion regression suite passed (98 tests); focused Ruff lint passed; focused mypy passed.
+- Self-review: Original text is never mutated. Normalization is deterministic, idempotent, and versioned. Fixtures cover Thai, Arabic, mixed-script religious terminology, zero-width Thai, Arabic diacritics/tatweel/alef variants, and Quranic opening text. No secrets, production data, restricted religious content, PHI, third-party code, or new dependencies introduced.
+- Telegram notification: sent (STARTED and COMPLETED)
+- Remaining risks: Thai word segmentation is not implemented; Arabic diacritics table may not cover very rare marks; normalization not yet integrated as automatic post-parse pipeline stage.
+
 ## 2026-07-08T14:20:00+00:00
 
 - Task: TASK-05-04 - Document Parser Framework
@@ -8,8 +21,9 @@
 - Changed files: `services/common/src/zayd_common/parsing.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/common/tests/test_parsing.py`, `services/api/tests/test_documents_api.py`, `docs/development/parser-plugins.md`, `tasks/05_ingestion/05-04_document_parser_framework.md`, `tasks/00_task_index.md`, `tasks-update.md`
 - Verification: `uv run pytest` on focused tests passed (65 passed, 1 skipped); `uv run ruff check` passed; `uv run mypy` passed.
 - Self-review: Parsers operate on bytes from object storage without exposing paths or credentials. Parse route requires malware scan clean. Corrupt input raises ParserError without affecting other documents. Unsupported features produce warnings rather than silent data loss. No secrets, production data, restricted religious content, or third-party code introduced.
-- Telegram notification: sent (STARTED)
+- Telegram notification: sent (STARTED and COMPLETED)
 - Remaining risks: PDF and DOCX are stubs requiring production adapters (PyMuPDF, python-docx). Parse results not yet persisted to database. Parser not yet integrated as automatic post-scan pipeline stage.
+- Commit: `8654601` feat(ingestion): add quarantine-first malware scan pipeline (combined with TASK-05-03 fixes)
 
 ## 2026-07-08T12:32:00+07:00
 

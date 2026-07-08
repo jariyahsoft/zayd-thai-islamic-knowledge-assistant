@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -64,9 +64,9 @@ Implement separate, versioned normalization pipelines for Thai and Arabic search
 
 ## Acceptance Criteria
 
-- [ ] Original text is never mutated.
-- [ ] Normalization is deterministic and versioned.
-- [ ] Fixtures cover Thai, Arabic and mixed-script religious terminology.
+- [x] Original text is never mutated.
+- [x] Normalization is deterministic and versioned.
+- [x] Fixtures cover Thai, Arabic and mixed-script religious terminology.
 
 ## Required Tests
 
@@ -92,28 +92,44 @@ Implement separate, versioned normalization pipelines for Thai and Arabic search
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/normalization.py` — New normalization module: separate Thai (`thai-norm-v1`) and Arabic (`arabic-norm-v1`) pipelines with NFC, zero-width removal, diacritic stripping, tatweel removal, alef/teh-marbuta/alef-maksura normalization, whitespace collapsing.
+- `services/common/src/zayd_common/__init__.py` — Exported normalization types.
+- `services/common/tests/test_normalization.py` — 39 unit tests: golden Thai fixtures (9), golden Arabic fixtures (10), round-trip preservation (3), edge cases (11), determinism/versioning (6).
+- `docs/architecture/text-normalization.md` — Architecture documentation for normalization pipelines.
+- `tasks/05_ingestion/05-05_thai_and_arabic_text_normalization.md` — Updated task status and completion report.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_normalization.py -v` — 39 passed.
+- `uv run pytest` on full ingestion regression suite — 98 passed.
+- `uv run ruff check` on all task files — All checks passed.
+- `uv run mypy services/common/src/zayd_common/normalization.py --ignore-missing-imports` — Success: no issues found.
 
 ### Acceptance Criteria Result
 
-- Pending
+- ✅ Verified. `NormalizationResult` preserves `original` byte-for-byte while producing `normalized` as a separate field. Tests: `TestRoundTripPreservation` class (3 tests).
+- ✅ Verified. Both pipelines are deterministic (same input → same output) and versioned (`thai-norm-v1`, `arabic-norm-v1`). Tests: `TestDeterminismAndVersioning` class (6 tests).
+- ✅ Verified. Golden fixtures cover Thai Islamic terminology (อัลกุรอาน, ฮะดีษ, ซอลาต, etc.), Arabic Islamic terminology with tashkeel (بِسْمِ اللَّهِ, القُرْآنُ, الصَّلَاةُ, etc.), mixed-script content, and edge cases. Tests: `TestThaiNormalization` (9 tests), `TestArabicNormalization` (10 tests), `TestEdgeCases` (11 tests).
 
 ### Security and License Review
 
-- Pending
+- Normalization operates on in-memory strings with pure Python `unicodedata`. No filesystem access, no external dependencies.
+- Input text is treated as untrusted — no execution or interpretation of content.
+- Original text preservation ensures no data loss.
+- No production secrets, restricted religious content, PHI, third-party code, or new dependencies were introduced.
 
 ### Known Limitations
 
-- Pending
+- Thai word segmentation is not implemented — requires external library (PyThaiNLP or similar) for production-quality word boundaries.
+- Arabic normalizer uses a fixed diacritics table — very rare or newly encoded combining marks might not be covered.
+- Normalization is not yet integrated into the ingestion pipeline as an automatic post-parse stage.
 
 ### Follow-up Tasks
 
-- Pending
+- Add Thai word segmentation using PyThaiNLP for production-quality search.
+- Integrate normalization into the ingestion pipeline after parsing.
+- Add transliteration mapping between Thai Islamic terms and their Arabic originals.
 
 ### Commit
 
-- Pending
+- Pending (task verified, ready for focused commit).
