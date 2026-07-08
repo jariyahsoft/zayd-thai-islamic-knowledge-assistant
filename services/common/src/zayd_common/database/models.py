@@ -765,6 +765,18 @@ class ReviewComment(Base):
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_version_id",
+            "chunk_index",
+            name="uq_document_chunks_version_index",
+        ),
+        UniqueConstraint(
+            "document_version_id",
+            "content_hash",
+            name="uq_document_chunks_version_hash",
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
     document_version_id: Mapped[UUID] = mapped_column(

@@ -11,6 +11,11 @@ from pydantic import BaseModel, Field
 from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
+from zayd_common.document_publishing import (
+    DocumentPublishingError,
+    DocumentPublishingService,
+    DocumentPublishResult,
+)
 from zayd_common.document_review import (
     DocumentReviewError,
     DocumentReviewService,
@@ -602,6 +607,37 @@ class ApprovalRequirementResponse(BaseModel):
 class ScholarApprovalActionResponse(BaseModel):
     status: str
     approval: ApprovalResponse
+
+
+class DocumentPublishRequest(BaseModel):
+    content_risk: str = Field(pattern="^(routine|sensitive|restricted)$")
+    reason: str = Field(min_length=1, max_length=10000)
+
+
+class PublishedChunkResponse(BaseModel):
+    id: str
+    chunk_index: int
+    content_hash: str
+    reference: str | None
+    is_published: bool
+
+
+class DocumentPublishResponse(BaseModel):
+    document_id: str
+    document_version_id: str
+    published_version_id: str
+    document_status: str
+    version_status: str
+    chunk_count: int
+    chunks: list[PublishedChunkResponse]
+    policy_version: str
+    license_policy_version: str
+    scholar_approval_policy_version: str
+    chunking_strategy_version: str
+    embedding_pipeline_version: str
+    citation_pipeline_version: str
+    published_at: str
+    idempotent: bool
 
 
 def _auth_response(result: AuthResult) -> AuthResponse:
@@ -1781,6 +1817,11 @@ def create_app() -> FastAPI:
 
         return ScholarApprovalService(SQLAlchemyUnitOfWork(session_factory))
 
+    def document_publishing_service() -> DocumentPublishingService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return DocumentPublishingService(SQLAlchemyUnitOfWork(session_factory))
+
     @app.exception_handler(ReviewQueueError)
     async def review_queue_error_handler(
         request: Request, exc: ReviewQueueError
@@ -1802,6 +1843,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(ScholarApprovalError)
     async def scholar_approval_error_handler(
         request: Request, exc: ScholarApprovalError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(DocumentPublishingError)
+    async def document_publishing_error_handler(
+        request: Request, exc: DocumentPublishingError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -1938,6 +1988,34 @@ def create_app() -> FastAPI:
             satisfied_levels=list(requirement.satisfied_levels),
             missing_levels=list(requirement.missing_levels),
             ready_for_publish=requirement.ready_for_publish,
+        )
+
+    def _document_publish_response(result: DocumentPublishResult) -> DocumentPublishResponse:
+        return DocumentPublishResponse(
+            document_id=str(result.document_id),
+            document_version_id=str(result.document_version_id),
+            published_version_id=str(result.published_version_id),
+            document_status=result.document_status,
+            version_status=result.version_status,
+            chunk_count=result.chunk_count,
+            chunks=[
+                PublishedChunkResponse(
+                    id=str(chunk.id),
+                    chunk_index=chunk.chunk_index,
+                    content_hash=chunk.content_hash,
+                    reference=chunk.reference,
+                    is_published=chunk.is_published,
+                )
+                for chunk in result.chunks
+            ],
+            policy_version=result.policy_version,
+            license_policy_version=result.license_policy_version,
+            scholar_approval_policy_version=result.scholar_approval_policy_version,
+            chunking_strategy_version=result.chunking_strategy_version,
+            embedding_pipeline_version=result.embedding_pipeline_version,
+            citation_pipeline_version=result.citation_pipeline_version,
+            published_at=result.published_at.isoformat(),
+            idempotent=result.idempotent,
         )
 
     @app.get("/reviews/queue", response_model=ReviewQueueListResponse)
@@ -2129,6 +2207,29 @@ def create_app() -> FastAPI:
             content_risk=content_risk,
         )
         return _approval_requirement_response(requirement)
+
+    @app.post(
+        "/documents/{document_version_id}/publish",
+        response_model=DocumentPublishResponse,
+    )
+    async def publish_document_version(
+        document_version_id: UUID,
+        payload: DocumentPublishRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_PUBLISH))
+        ],
+        service: Annotated[DocumentPublishingService, Depends(document_publishing_service)],
+    ) -> DocumentPublishResponse:
+        result = service.publish_document_version(
+            document_version_id=document_version_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            content_risk=payload.content_risk,
+            reason=payload.reason,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _document_publish_response(result)
 
     @app.post(
         "/review-approvals/{approval_id}/revoke",

@@ -1,3 +1,17 @@
+## 2026-07-08T17:29:02+07:00
+
+- Task: TASK-06-04 - Document Publishing Service
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented the document publishing service and API route that freezes one scholar-approved version, regenerates deterministic retrieval chunks, records publish/license/approval/chunking/embedding/citation pipeline versions, and atomically exposes the version for retrieval. Publishing rechecks retrieval license policy inside the transaction, enforces `documents.publish` plus senior-scholar/admin role checks, and is retry-safe for already published versions.
+- Changed files: `services/common/src/zayd_common/document_publishing.py` (new), `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_document_publishing.py` (new), `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_document_review_api.py`, `docs/architecture/publishing-pipeline.md` (new), `tasks/06_review/06-04_document_publishing_service.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_document_publishing.py services/api/tests/test_document_review_api.py -v` passed with 21 passed; focused Ruff lint passed; focused mypy passed; review/publishing regression suite passed with 51 passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: The service creates chunks unpublished, records metadata, then flips chunk/document/version visibility only at the end of one transaction. License denial and injected pre-visibility failure tests leave no searchable chunks. Audit summaries exclude document text, credentials, signed URLs, PHI, production payloads and restricted religious content.
+- Telegram notification: STARTED was sent before implementation; terminal notification was not sent because credentials were not available in the command environment and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: Provider-backed embeddings and citation registry rows are represented as deterministic chunk metadata until later retrieval/orchestrator tasks; TASK-07-01 will replace the conservative paragraph/word chunking with the dedicated retrieval chunking framework.
+- Commit: focused commit `feat(review): add document publishing service`.
+
 ## 2026-07-08T17:07:23+07:00
 
 - Task: TASK-06-03 - Scholar Approval Workflow

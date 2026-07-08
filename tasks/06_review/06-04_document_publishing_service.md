@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -63,10 +63,10 @@ Freeze the approved document version, generate chunks, embeddings and canonical 
 
 ## Acceptance Criteria
 
-- [ ] No half-published document is searchable.
-- [ ] Published version and pipeline versions are recorded.
-- [ ] Retry does not duplicate chunks, embeddings or citations.
-- [ ] License policy is rechecked immediately before publish.
+- [x] No half-published document is searchable.
+- [x] Published version and pipeline versions are recorded.
+- [x] Retry does not duplicate chunks, embeddings or citations.
+- [x] License policy is rechecked immediately before publish.
 
 ## Required Tests
 
@@ -93,28 +93,49 @@ Freeze the approved document version, generate chunks, embeddings and canonical 
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/document_publishing.py`
+- `services/common/src/zayd_common/database/models.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/tests/test_document_publishing.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_document_review_api.py`
+- `docs/architecture/publishing-pipeline.md`
+- `tasks/06_review/06-04_document_publishing_service.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_document_publishing.py services/api/tests/test_document_review_api.py -v`
+- `uv run ruff check services/common/src/zayd_common/document_publishing.py services/common/src/zayd_common/database/models.py services/common/src/zayd_common/__init__.py services/common/tests/test_document_publishing.py services/api/src/zayd_service_api/app.py services/api/tests/test_document_review_api.py`
+- `uv run mypy services/common/src/zayd_common/document_publishing.py services/common/src/zayd_common/database/models.py services/api/src/zayd_service_api/app.py --ignore-missing-imports`
+- `uv run pytest services/common/tests/test_document_publishing.py services/common/tests/test_scholar_approval.py services/common/tests/test_document_review.py services/api/tests/test_document_review_api.py services/api/tests/test_review_queue_api.py -v`
+- `python3 -m py_compile services/common/src/zayd_common/document_publishing.py services/common/src/zayd_common/database/models.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py services/common/tests/test_document_publishing.py services/api/tests/test_document_review_api.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Publishing uses one database transaction and keeps chunks unpublished until final visibility flip.
+- Passed. `document_versions.metadata_json["publishing"]`, response fields, audit records and chunk metadata record publish, license, approval, chunking, embedding and citation pipeline versions.
+- Passed. Repeated publish calls for the same already published version return the existing chunk set with `idempotent=true`; partially generated unpublished chunks are replaced before publish.
+- Passed. The service evaluates `evaluate_license_policy(..., workflow="retrieval")` inside the publish transaction immediately before chunk generation and visibility changes.
 
 ### Security and License Review
 
-- Pending
+- RBAC enforces `documents.publish` at the API layer and service-side role checks restrict publishing to `senior_scholar` or `admin`.
+- Publish fails closed for missing approvals, expired approvals, invalid status, missing license, denied retrieval license policy and empty content.
+- Audit summaries are sanitized and include only IDs, status, counts, policy versions and reason codes. No document text, secrets, production data, signed URLs or restricted datasets were introduced.
 
 ### Known Limitations
 
-- Pending
+- Embedding and canonical citation provider integrations are recorded as deterministic pipeline metadata on chunks; provider-backed embedding records and citation registry rows remain later retrieval/orchestrator tasks.
+- Chunking is a conservative local paragraph/word-count strategy for the publish gate; TASK-07-01 will provide the dedicated retrieval chunking framework.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-06-05 — Suspend and Rollback Published Documents.
+- TASK-07-01 — Chunking Framework.
+- TASK-08-07 — Citation Registry.
 
 ### Commit
 
-- Pending
+- Focused commit: `feat(review): add document publishing service`.

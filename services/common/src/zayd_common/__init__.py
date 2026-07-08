@@ -27,6 +27,16 @@ from .database import (
     get_sessionmaker,
     seed_demo_data,
 )
+from .document_publishing import (
+    CHUNKING_STRATEGY_VERSION,
+    CITATION_PIPELINE_VERSION,
+    DOCUMENT_PUBLISH_POLICY_VERSION,
+    EMBEDDING_PIPELINE_VERSION,
+    DocumentPublishingError,
+    DocumentPublishingService,
+    DocumentPublishResult,
+    PublishedChunkPublic,
+)
 from .document_review import (
     DOCUMENT_REVIEW_POLICY_VERSION,
     DocumentReviewError,
@@ -250,6 +260,14 @@ __all__ = [
     "ReviewDraft",
     "ReviewEditResult",
     "ReviewRevisionPublic",
+    "DOCUMENT_PUBLISH_POLICY_VERSION",
+    "CHUNKING_STRATEGY_VERSION",
+    "EMBEDDING_PIPELINE_VERSION",
+    "CITATION_PIPELINE_VERSION",
+    "DocumentPublishingError",
+    "DocumentPublishingService",
+    "DocumentPublishResult",
+    "PublishedChunkPublic",
     "hash_password",
     "hash_token",
     "verify_password",

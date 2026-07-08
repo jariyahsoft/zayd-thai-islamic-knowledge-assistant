@@ -27,10 +27,13 @@ from zayd_common.database.models import (
     AuditLog,
     Base,
     Document,
+    DocumentChunk,
     DocumentVersion,
     ReviewApproval,
     ReviewTask,
     Role,
+    Source,
+    SourceLicense,
     User,
     UserRole,
 )
@@ -57,6 +60,7 @@ def test_scholar_approval_routes_are_registered(monkeypatch) -> None:
     assert "/reviews/{review_task_id}/approvals" in route_paths
     assert "/documents/{document_version_id}/approval-requirements" in route_paths
     assert "/review-approvals/{approval_id}/revoke" in route_paths
+    assert "/documents/{document_version_id}/publish" in route_paths
 
 
 def test_scholar_approval_openapi_contract(monkeypatch) -> None:
@@ -69,9 +73,12 @@ def test_scholar_approval_openapi_contract(monkeypatch) -> None:
         "200"
     ]
     assert paths["/review-approvals/{approval_id}/revoke"]["post"]["responses"]["200"]
+    assert paths["/documents/{document_version_id}/publish"]["post"]["responses"]["200"]
     assert schema["components"]["schemas"]["ScholarApprovalRequest"]
     assert schema["components"]["schemas"]["ApprovalRequirementResponse"]
     assert schema["components"]["schemas"]["ScholarApprovalActionResponse"]
+    assert schema["components"]["schemas"]["DocumentPublishRequest"]
+    assert schema["components"]["schemas"]["DocumentPublishResponse"]
 
 
 def test_get_review_draft_requires_permission(monkeypatch) -> None:
@@ -486,6 +493,170 @@ def test_scholar_approval_api_revoke_marks_requirement_missing(monkeypatch) -> N
     assert requirements["json"]["missing_levels"] == ["initial"]
 
 
+def test_document_publish_api_success_and_retry(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    reviewer = auth_service.register(
+        email="publish-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    scholar = auth_service.register(
+        email="publish-scholar@example.com",
+        password="very-strong-password",
+        display_name="Scholar",
+    )
+    _grant_role_directly(session_factory, reviewer.user.id, "reviewer")
+    _grant_role_directly(session_factory, scholar.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, reviewer.user.id)
+    _enroll_mfa(session_factory, scholar.user.id)
+    _set_user_preferences(session_factory, reviewer.user.id)
+    _set_user_preferences(session_factory, scholar.user.id)
+    task_id, version_id = _seed_draft_task(
+        session_factory,
+        created_by=reviewer.user.id,
+        assigned_to=scholar.user.id,
+        review_level="scholar",
+        document_status="scholar_approved",
+        version_status="scholar_approved",
+    )
+    _seed_api_approval(
+        session_factory,
+        task_id=task_id,
+        version_id=version_id,
+        approver_id=reviewer.user.id,
+        level="initial",
+    )
+    _seed_api_approval(
+        session_factory,
+        task_id=task_id,
+        version_id=version_id,
+        approver_id=scholar.user.id,
+        level="scholar",
+    )
+
+    published = _request(
+        app,
+        "POST",
+        f"/documents/{version_id}/publish",
+        json_body={"content_risk": "sensitive", "reason": "Approved for retrieval."},
+        headers={
+            "authorization": f"Bearer {scholar.tokens.access_token}",
+            "x-request-id": "trace-publish-api",
+        },
+    )
+    retried = _request(
+        app,
+        "POST",
+        f"/documents/{version_id}/publish",
+        json_body={"content_risk": "sensitive", "reason": "Retry publish."},
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+
+    assert published["status"] == 200
+    assert published["json"]["document_version_id"] == str(version_id)
+    assert published["json"]["document_status"] == "published"
+    assert published["json"]["chunk_count"] == 1
+    assert published["json"]["idempotent"] is False
+    assert published["json"]["embedding_pipeline_version"] == "embedding-record-v1"
+    assert retried["status"] == 200
+    assert retried["json"]["idempotent"] is True
+    with session_factory() as session:
+        chunks = session.execute(
+            select(DocumentChunk).where(DocumentChunk.document_version_id == version_id)
+        ).scalars().all()
+        logs = session.execute(
+            select(AuditLog).where(AuditLog.action == "documents.publish")
+        ).scalars().all()
+    assert len(chunks) == 1
+    assert chunks[0].is_published is True
+    assert any(log.trace_id == "trace-publish-api" for log in logs)
+
+
+def test_document_publish_api_requires_publish_permission(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    reviewer = auth_service.register(
+        email="publish-forbidden-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    _grant_role_directly(session_factory, reviewer.user.id, "reviewer")
+    _enroll_mfa(session_factory, reviewer.user.id)
+    _set_user_preferences(session_factory, reviewer.user.id)
+
+    response = _request(
+        app,
+        "POST",
+        f"/documents/{uuid4()}/publish",
+        json_body={"content_risk": "routine", "reason": "Not allowed."},
+        headers={"authorization": f"Bearer {reviewer.tokens.access_token}"},
+    )
+
+    assert response["status"] == 403
+    assert response["json"]["error"]["code"] == "RBAC_FORBIDDEN"
+
+
+def test_document_publish_api_license_failure_leaves_chunks_hidden(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    reviewer = auth_service.register(
+        email="publish-license-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    scholar = auth_service.register(
+        email="publish-license-scholar@example.com",
+        password="very-strong-password",
+        display_name="Scholar",
+    )
+    _grant_role_directly(session_factory, reviewer.user.id, "reviewer")
+    _grant_role_directly(session_factory, scholar.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, reviewer.user.id)
+    _enroll_mfa(session_factory, scholar.user.id)
+    _set_user_preferences(session_factory, reviewer.user.id)
+    _set_user_preferences(session_factory, scholar.user.id)
+    task_id, version_id = _seed_draft_task(
+        session_factory,
+        created_by=reviewer.user.id,
+        assigned_to=scholar.user.id,
+        review_level="scholar",
+        document_status="scholar_approved",
+        version_status="scholar_approved",
+        embedding_permission="prohibited",
+    )
+    _seed_api_approval(
+        session_factory,
+        task_id=task_id,
+        version_id=version_id,
+        approver_id=reviewer.user.id,
+        level="initial",
+    )
+    _seed_api_approval(
+        session_factory,
+        task_id=task_id,
+        version_id=version_id,
+        approver_id=scholar.user.id,
+        level="scholar",
+    )
+
+    response = _request(
+        app,
+        "POST",
+        f"/documents/{version_id}/publish",
+        json_body={"content_risk": "sensitive", "reason": "Attempt publish."},
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+
+    assert response["status"] == 409
+    assert response["json"]["error"]["code"] == "DOCUMENT_PUBLISH_LICENSE_BLOCKED"
+    with session_factory() as session:
+        chunks = session.execute(
+            select(DocumentChunk).where(DocumentChunk.document_version_id == version_id)
+        ).scalars().all()
+    assert chunks == []
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -497,18 +668,47 @@ def _seed_draft_task(
     assigned_to: UUID | None = None,
     review_level: str = "initial",
     document_status: str = "in_review",
+    version_status: str = "parsed",
+    embedding_permission: str = "allowed",
 ) -> tuple[UUID, UUID]:
     creator = created_by or uuid4()
+    source_id = uuid4()
+    license_id = uuid4()
     doc_id = uuid4()
     ver_id = uuid4()
     task_id = uuid4()
     uow = SQLAlchemyUnitOfWork(session_factory)
     with uow:
+        uow.sources.create(
+            Source(
+                id=source_id,
+                name="API Test Source",
+                source_type="book",
+                language="th",
+                reliability_level=5,
+                created_by=creator,
+            )
+        )
+        uow.sources.add_license(
+            SourceLicense(
+                id=license_id,
+                source_id=source_id,
+                license_name="API Test License",
+                license_version="2026-07",
+                status="persistent_redistributable",
+                storage_permission="allowed",
+                embedding_permission=embedding_permission,
+                commercial_use="allowed",
+                redistribution="allowed",
+                attribution_required=False,
+                created_by=creator,
+            )
+        )
         uow.documents.create(
             Document(
                 id=doc_id,
-                source_id=uuid4(),
-                source_license_id=uuid4(),
+                source_id=source_id,
+                source_license_id=license_id,
                 canonical_id=f"doc-{uuid4().hex[:8]}",
                 document_type="book",
                 title="API Test Doc Title",
@@ -524,7 +724,7 @@ def _seed_draft_task(
                 id=ver_id,
                 document_id=doc_id,
                 version_number=1,
-                status="parsed",
+                status=version_status,
                 content_hash="contenthash1",
                 original_file_key="uploads/test1.txt",
                 extracted_text="Old content lines",
@@ -552,6 +752,31 @@ def _seed_draft_task(
         )
         session.commit()
     return task_id, ver_id
+
+
+def _seed_api_approval(
+    session_factory: sessionmaker[Session],
+    *,
+    task_id: UUID,
+    version_id: UUID,
+    approver_id: UUID,
+    level: str,
+    content_risk: str = "sensitive",
+) -> None:
+    with session_factory() as session:
+        session.add(
+            ReviewApproval(
+                id=uuid4(),
+                document_version_id=version_id,
+                review_task_id=task_id,
+                approver_id=approver_id,
+                approval_level=level,
+                content_risk=content_risk,
+                status="active",
+                reason=f"{level} approval.",
+            )
+        )
+        session.commit()
 
 
 def _set_user_preferences(
