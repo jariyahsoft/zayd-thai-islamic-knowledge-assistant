@@ -95,3 +95,4 @@ backups/
 !database/migrations/*.sql
 *.dump
 
+.claude/settings.json

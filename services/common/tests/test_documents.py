@@ -6,14 +6,16 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-from zayd_common.database.models import AuditLog, Base
+from zayd_common.database.models import AuditLog, Base, DocumentVersion, Incident
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.documents import (
+    DocumentProcessingError,
     DocumentUploadError,
     DocumentUploadRequest,
     DocumentUploadService,
 )
 from zayd_common.licenses import LicenseCreate, LicenseService
+from zayd_common.malware_scanning import SignatureMalwareScanner
 from zayd_common.sources import SourceService
 from zayd_common.storage import SignedUrl, StorageError
 
@@ -41,6 +43,9 @@ class FakeStorage:
             )
         self.uploaded[key] = content
         return object()
+
+    def get_private_bytes(self, *, key: str) -> bytes:
+        return self.uploaded[key]
 
     def delete_object(self, *, key: str) -> None:
         self.deleted.append(key)
@@ -264,7 +269,7 @@ def test_duplicate_detection_returns_safe_result(
     assert second.upload_status == "duplicate"
     assert second.duplicate is not None
     assert second.duplicate.document_id == first.document_id
-    assert second.download_url.url.endswith("/duplicate.pdf")
+    assert second.download_url.url.endswith("/test.pdf")
     assert len(storage.uploaded) == 1
     with session_factory() as session:
         logs = session.execute(select(AuditLog)).scalars().all()
@@ -336,6 +341,138 @@ def test_oversized_file_is_rejected(
             actor_user_id=actor_user_id,
         )
     assert exc_info.value.code == "DOCUMENT_FILE_TOO_LARGE"
+
+
+def test_clean_scan_marks_version_parser_eligible(
+    services: tuple[
+        SourceService, LicenseService, DocumentUploadService, sessionmaker, FakeStorage
+    ],
+    actor_user_id,
+) -> None:
+    source_service, license_service, upload_service, session_factory, _storage = services
+    source, license_record = _source_and_license(source_service, license_service, actor_user_id)
+    upload = upload_service.register_upload(
+        data=_request(source.id, license_record.id),
+        actor_user_id=actor_user_id,
+    )
+
+    result = upload_service.scan_document_version(
+        document_version_id=upload.document_version_id,
+        actor_user_id=actor_user_id,
+        trace_id="trace-clean-scan",
+    )
+
+    assert result.status == "clean"
+    upload_service.assert_parser_allowed(document_version_id=upload.document_version_id)
+    with session_factory() as session:
+        version = session.get(DocumentVersion, upload.document_version_id)
+        logs = session.execute(select(AuditLog)).scalars().all()
+    assert version is not None
+    assert version.status == "scanned_clean"
+    assert version.metadata_json["malware_scan_status"] == "clean"
+    assert version.metadata_json["parser_eligible"] is True
+    assert any(log.action == "documents.malware_scan.clean" for log in logs)
+
+
+def test_infected_scan_creates_incident_and_blocks_parser(
+    services: tuple[
+        SourceService, LicenseService, DocumentUploadService, sessionmaker, FakeStorage
+    ],
+    actor_user_id,
+) -> None:
+    source_service, license_service, upload_service, session_factory, _storage = services
+    source, license_record = _source_and_license(source_service, license_service, actor_user_id)
+    upload = upload_service.register_upload(
+        data=_request(
+            source.id,
+            license_record.id,
+            file_bytes=b"safe prefix zayd-test-malware-signature suffix",
+        ),
+        actor_user_id=actor_user_id,
+    )
+
+    result = upload_service.scan_document_version(
+        document_version_id=upload.document_version_id,
+        actor_user_id=actor_user_id,
+        trace_id="trace-infected-scan",
+    )
+
+    assert result.status == "infected"
+    assert result.incident_id is not None
+    with pytest.raises(DocumentProcessingError) as exc_info:
+        upload_service.assert_parser_allowed(document_version_id=upload.document_version_id)
+    assert exc_info.value.code == "DOCUMENT_VERSION_INFECTED"
+    with session_factory() as session:
+        incident = session.get(Incident, result.incident_id)
+        logs = session.execute(select(AuditLog)).scalars().all()
+    assert incident is not None
+    assert incident.affected_document_id == upload.document_id
+    assert any(log.action == "documents.malware_scan.infected" for log in logs)
+
+
+def test_scanner_unavailable_fails_closed(
+    services: tuple[
+        SourceService, LicenseService, DocumentUploadService, sessionmaker, FakeStorage
+    ],
+    actor_user_id,
+) -> None:
+    source_service, license_service, upload_service, session_factory, storage = services
+    source, license_record = _source_and_license(source_service, license_service, actor_user_id)
+    upload = upload_service.register_upload(
+        data=_request(source.id, license_record.id),
+        actor_user_id=actor_user_id,
+    )
+    unavailable_service = DocumentUploadService(
+        SQLAlchemyUnitOfWork(session_factory),
+        storage,
+        SignatureMalwareScanner(available=False),
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        unavailable_service.scan_document_version(
+            document_version_id=upload.document_version_id,
+            actor_user_id=actor_user_id,
+        )
+
+    assert exc_info.value.code == "MALWARE_SCANNER_UNAVAILABLE"
+    with pytest.raises(DocumentProcessingError) as parser_exc:
+        upload_service.assert_parser_allowed(document_version_id=upload.document_version_id)
+    assert parser_exc.value.code == "DOCUMENT_VERSION_NOT_SCANNED"
+    with session_factory() as session:
+        logs = session.execute(select(AuditLog)).scalars().all()
+    assert any(log.action == "documents.malware_scan.unavailable" for log in logs)
+
+
+def test_scan_is_idempotent_after_terminal_result(
+    services: tuple[
+        SourceService, LicenseService, DocumentUploadService, sessionmaker, FakeStorage
+    ],
+    actor_user_id,
+) -> None:
+    source_service, license_service, upload_service, session_factory, _storage = services
+    source, license_record = _source_and_license(source_service, license_service, actor_user_id)
+    upload = upload_service.register_upload(
+        data=_request(source.id, license_record.id),
+        actor_user_id=actor_user_id,
+    )
+
+    first = upload_service.scan_document_version(
+        document_version_id=upload.document_version_id,
+        actor_user_id=actor_user_id,
+    )
+    second = upload_service.scan_document_version(
+        document_version_id=upload.document_version_id,
+        actor_user_id=actor_user_id,
+    )
+
+    assert first == second
+    with session_factory() as session:
+        logs = [
+            log
+            for log in session.execute(select(AuditLog)).scalars().all()
+            if log.action == "documents.malware_scan.clean"
+        ]
+    assert len(logs) == 1
 
 
 def test_storage_failure_is_returned_without_db_write(

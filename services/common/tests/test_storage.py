@@ -17,16 +17,36 @@ from zayd_common.storage import (
 )
 
 
+class FakeBody:
+    def __init__(self, content: bytes) -> None:
+        self.content = content
+        self.closed = False
+
+    def read(self) -> bytes:
+        return self.content
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class FakeS3Client:
     def __init__(self) -> None:
         self.put_calls: list[dict[str, object]] = []
         self.deleted_keys: list[str] = []
         self.fail_put = False
+        self.fail_get = False
+        self.objects: dict[str, bytes] = {}
 
     def put_object(self, **kwargs: object) -> None:
         if self.fail_put:
             raise ClientError({"Error": {"Code": "SlowDown", "Message": "retry"}}, "PutObject")
         self.put_calls.append(kwargs)
+        self.objects[str(kwargs["Key"])] = bytes(kwargs["Body"])
+
+    def get_object(self, *, Bucket: str, Key: str) -> dict[str, object]:
+        if self.fail_get:
+            raise ClientError({"Error": {"Code": "NoSuchKey", "Message": "missing"}}, "GetObject")
+        return {"Body": FakeBody(self.objects[Key])}
 
     def delete_object(self, *, Bucket: str, Key: str) -> None:
         self.deleted_keys.append(Key)
@@ -72,6 +92,29 @@ def test_signed_url_ttl_is_bounded() -> None:
     assert "ttl=120" in signed.url
 
 
+def test_get_private_bytes_reads_quarantine_object() -> None:
+    client = FakeS3Client()
+    storage = S3ObjectStorage(_settings(), client=client)
+    storage.put_private_bytes(
+        key="uploads/quarantine/doc/test.pdf",
+        content=b"scan-me",
+        content_type="application/pdf",
+    )
+
+    assert storage.get_private_bytes(key="uploads/quarantine/doc/test.pdf") == b"scan-me"
+
+
+def test_get_failure_returns_stable_error() -> None:
+    client = FakeS3Client()
+    client.fail_get = True
+    storage = S3ObjectStorage(_settings(), client=client)
+
+    with pytest.raises(StorageError) as exc_info:
+        storage.get_private_bytes(key="uploads/quarantine/doc/test.pdf")
+
+    assert exc_info.value.code == "STORAGE_DOWNLOAD_FAILED"
+
+
 def test_put_failure_returns_stable_error() -> None:
     client = FakeS3Client()
     client.fail_put = True
@@ -110,6 +153,7 @@ def test_minio_round_trip_and_signed_url() -> None:
     payload = b"minio-round-trip"
 
     storage.put_private_bytes(key=key, content=payload, content_type="text/plain")
+    assert storage.get_private_bytes(key=key) == payload
     signed = storage.create_signed_get_url(
         key=key,
         filename="test.txt",

@@ -13,7 +13,7 @@ from botocore.client import BaseClient
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-StorageOperation = Literal["put", "delete", "presign_get"]
+StorageOperation = Literal["put", "get", "delete", "presign_get"]
 StorageUrlMethod = Literal["GET"]
 S3_ADDRESSING_STYLE = Literal["auto", "path", "virtual"]
 
@@ -66,6 +66,8 @@ class ObjectStorage(Protocol):
         content_type: str,
         metadata: dict[str, str] | None = None,
     ) -> StorageObjectRef: ...
+
+    def get_private_bytes(self, *, key: str) -> bytes: ...
 
     def delete_object(self, *, key: str) -> None: ...
 
@@ -138,6 +140,22 @@ class S3ObjectStorage:
                 operation="put",
             ) from exc
         return StorageObjectRef(bucket=self.settings.bucket, key=key)
+
+    def get_private_bytes(self, *, key: str) -> bytes:
+        try:
+            response = self._client.get_object(Bucket=self.settings.bucket, Key=key)
+            body = response["Body"]
+            try:
+                data: bytes = body.read()
+                return data
+            finally:
+                body.close()
+        except (ClientError, BotoCoreError) as exc:
+            raise StorageError(
+                "STORAGE_DOWNLOAD_FAILED",
+                "Object storage download failed.",
+                operation="get",
+            ) from exc
 
     def delete_object(self, *, key: str) -> None:
         try:

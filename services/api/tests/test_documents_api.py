@@ -37,6 +37,9 @@ class FakeStorage:
         self.uploaded[key] = content
         return object()
 
+    def get_private_bytes(self, *, key: str) -> bytes:
+        return self.uploaded[key]
+
     def delete_object(self, *, key: str) -> None:
         self.uploaded.pop(key, None)
 
@@ -66,6 +69,9 @@ def test_document_routes_are_registered(monkeypatch) -> None:
 
     route_paths = {route.path for route in app.routes if hasattr(route, "path")}
     assert "/documents" in route_paths
+    assert "/documents/{document_version_id}/scan" in route_paths
+    assert "/documents/{document_version_id}/parser-eligibility" in route_paths
+    assert "/documents/{document_version_id}/parse" in route_paths
 
 
 def test_document_openapi_documents_contract(monkeypatch) -> None:
@@ -81,6 +87,14 @@ def test_document_openapi_documents_contract(monkeypatch) -> None:
     assert schema["components"]["schemas"]["DocumentUploadResponse"]
     assert schema["components"]["schemas"]["DocumentUploadDuplicateResponse"]
     assert schema["components"]["schemas"]["SignedUrlResponse"]
+    assert schema["paths"]["/documents/{document_version_id}/scan"]["post"]["responses"]["200"]
+    assert schema["components"]["schemas"]["DocumentMalwareScanResponse"]
+    assert schema["paths"]["/documents/{document_version_id}/parser-eligibility"]["get"]
+    assert schema["components"]["schemas"]["ParserEligibilityResponse"]
+    assert schema["paths"]["/documents/{document_version_id}/parse"]["post"]["responses"]["200"]
+    assert schema["components"]["schemas"]["DocumentParseResponse"]
+    assert schema["components"]["schemas"]["ParsedSectionResponse"]
+    assert schema["components"]["schemas"]["ParseWarningResponse"]
 
 
 def test_document_upload_requires_permission(monkeypatch) -> None:
@@ -197,6 +211,194 @@ def test_document_upload_rejects_malformed_payload(monkeypatch) -> None:
     assert response["json"]["error"]["code"] == "DOCUMENT_INVALID_FILE_PAYLOAD"
 
 
+def test_document_scan_clean_then_parser_eligible(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    actor = auth_service.register(
+        email="scan-clean@example.com",
+        password="very-strong-password",
+        display_name="Operator",
+    )
+    _grant_role_directly(session_factory, actor.user.id, "data_operator")
+    _enroll_mfa(session_factory, actor.user.id)
+    source_id, license_id = _seed_source_and_license(session_factory, actor.user.id)
+    upload = _request(
+        app,
+        "POST",
+        "/documents",
+        json_body=_payload(
+            source_id,
+            license_id,
+            canonical_id="doc-scan-clean",
+            file_base64=base64.b64encode(b"clean scan content").decode("ascii"),
+        ),
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+
+    scan = _request(
+        app,
+        "POST",
+        f"/documents/{upload['json']['document_version_id']}/scan",
+        headers={
+            "authorization": f"Bearer {actor.tokens.access_token}",
+            "x-request-id": "trace-api-clean-scan",
+        },
+    )
+    eligibility = _request(
+        app,
+        "GET",
+        f"/documents/{upload['json']['document_version_id']}/parser-eligibility",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+
+    assert scan["status"] == 200
+    assert scan["json"]["status"] == "clean"
+    assert scan["json"]["engine"] == "zayd-signature-scanner"
+    assert eligibility["status"] == 200
+    assert eligibility["json"]["parser_eligible"] is True
+    with session_factory() as session:
+        logs = session.execute(select(AuditLog)).scalars().all()
+    assert any(
+        log.action == "documents.malware_scan.clean" and log.trace_id == "trace-api-clean-scan"
+        for log in logs
+    )
+
+
+def test_document_scan_infected_blocks_parser(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    actor = auth_service.register(
+        email="scan-infected@example.com",
+        password="very-strong-password",
+        display_name="Operator",
+    )
+    _grant_role_directly(session_factory, actor.user.id, "data_operator")
+    _enroll_mfa(session_factory, actor.user.id)
+    source_id, license_id = _seed_source_and_license(session_factory, actor.user.id)
+    upload = _request(
+        app,
+        "POST",
+        "/documents",
+        json_body=_payload(
+            source_id,
+            license_id,
+            file_base64=base64.b64encode(b"zayd-test-malware-signature").decode("ascii"),
+        ),
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+
+    scan = _request(
+        app,
+        "POST",
+        f"/documents/{upload['json']['document_version_id']}/scan",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+    eligibility = _request(
+        app,
+        "GET",
+        f"/documents/{upload['json']['document_version_id']}/parser-eligibility",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+
+    assert scan["status"] == 200
+    assert scan["json"]["status"] == "infected"
+    assert scan["json"]["incident_id"] is not None
+    assert eligibility["status"] == 409
+    assert eligibility["json"]["error"]["code"] == "DOCUMENT_VERSION_INFECTED"
+
+
+def test_document_parse_text_file_success(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    actor = auth_service.register(
+        email="parse-text@example.com",
+        password="very-strong-password",
+        display_name="Operator",
+    )
+    _grant_role_directly(session_factory, actor.user.id, "data_operator")
+    _enroll_mfa(session_factory, actor.user.id)
+    source_id, license_id = _seed_source_and_license(session_factory, actor.user.id)
+
+    # Upload a clean text file
+    upload = _request(
+        app,
+        "POST",
+        "/documents",
+        json_body=_payload(
+            source_id,
+            license_id,
+            canonical_id="doc-parse-text",
+            filename="test.txt",
+            content_type="text/plain",
+            file_base64=base64.b64encode(b"Line one\nLine two").decode("ascii"),
+        ),
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+    assert upload["status"] == 201
+
+    # Scan it clean
+    scan = _request(
+        app,
+        "POST",
+        f"/documents/{upload['json']['document_version_id']}/scan",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+    assert scan["json"]["status"] == "clean"
+
+    # Parse it
+    parse = _request(
+        app,
+        "POST",
+        f"/documents/{upload['json']['document_version_id']}/parse",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+    assert parse["status"] == 200
+    assert parse["json"]["parser_name"] == "zayd-text-parser"
+    assert len(parse["json"]["sections"]) == 2
+    assert parse["json"]["sections"][0]["content"] == "Line one"
+    assert parse["json"]["sections"][1]["content"] == "Line two"
+    assert parse["json"]["framework_version"] == "parser-framework-v1"
+
+
+def test_document_parse_blocked_before_scan(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    actor = auth_service.register(
+        email="parse-blocked@example.com",
+        password="very-strong-password",
+        display_name="Operator",
+    )
+    _grant_role_directly(session_factory, actor.user.id, "data_operator")
+    _enroll_mfa(session_factory, actor.user.id)
+    source_id, license_id = _seed_source_and_license(session_factory, actor.user.id)
+
+    upload = _request(
+        app,
+        "POST",
+        "/documents",
+        json_body=_payload(
+            source_id,
+            license_id,
+            canonical_id="doc-parse-blocked",
+            filename="test.txt",
+            content_type="text/plain",
+            file_base64=base64.b64encode(b"some text").decode("ascii"),
+        ),
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+    assert upload["status"] == 201
+
+    # Try parse without scan
+    parse = _request(
+        app,
+        "POST",
+        f"/documents/{upload['json']['document_version_id']}/parse",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+    assert parse["status"] == 409
+    assert parse["json"]["error"]["code"] == "DOCUMENT_VERSION_NOT_SCANNED"
+
+
 def _app(monkeypatch) -> tuple[FastAPI, sessionmaker[Session]]:
     engine = create_engine(
         "sqlite:///file:zayd_documents_api_tests?mode=memory&cache=shared&uri=true",
@@ -206,9 +408,10 @@ def _app(monkeypatch) -> tuple[FastAPI, sessionmaker[Session]]:
     session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     monkeypatch.setenv("DATABASE_URL", "postgresql://zayd_dev:zayd_dev@postgres:5432/zayd_dev")
     monkeypatch.setenv("AUTH_JWT_SECRET", "test-secret")
+    storage = FakeStorage(uploaded={})
     monkeypatch.setattr(
         "zayd_service_api.app.S3ObjectStorage",
-        lambda settings: FakeStorage(uploaded={}),
+        lambda settings: storage,
     )
     monkeypatch.setattr(
         "zayd_service_api.app.get_sessionmaker",

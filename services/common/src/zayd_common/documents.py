@@ -7,9 +7,16 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from zayd_common.database.models import AuditLog, Document, DocumentVersion, SourceLicense
+from zayd_common.database.models import AuditLog, Document, DocumentVersion, Incident, SourceLicense
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.license_policy import LicensePolicyInput, evaluate_license_policy
+from zayd_common.malware_scanning import (
+    MALWARE_SCAN_POLICY_VERSION,
+    MalwareScanner,
+    MalwareScannerUnavailable,
+    MalwareScanResult,
+    SignatureMalwareScanner,
+)
 from zayd_common.storage import (
     DEFAULT_SIGNED_URL_TTL_SECONDS,
     ObjectStorage,
@@ -32,6 +39,11 @@ DocumentUploadErrorCode = Literal[
     "DOCUMENT_TITLE_REQUIRED",
     "DOCUMENT_DUPLICATE",
 ]
+DocumentProcessingErrorCode = Literal[
+    "DOCUMENT_VERSION_NOT_FOUND",
+    "DOCUMENT_VERSION_NOT_SCANNED",
+    "DOCUMENT_VERSION_INFECTED",
+]
 
 DOCUMENT_UPLOAD_POLICY_VERSION = "document-upload-v1"
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
@@ -53,6 +65,20 @@ class DocumentUploadError(Exception):
         message: str,
         *,
         status_code: int = 400,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+
+
+class DocumentProcessingError(Exception):
+    def __init__(
+        self,
+        code: DocumentProcessingErrorCode,
+        message: str,
+        *,
+        status_code: int = 409,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -85,6 +111,7 @@ class DocumentUploadDuplicate:
     canonical_id: str
     title: str
     content_hash: str
+    original_file_key: str
 
 
 @dataclass(frozen=True)
@@ -102,10 +129,29 @@ class DocumentUploadResult:
     policy_version: str
 
 
+@dataclass(frozen=True)
+class DocumentMalwareScanResult:
+    document_id: UUID
+    document_version_id: UUID
+    status: Literal["clean", "infected"]
+    engine: str
+    engine_version: str
+    signature_name: str | None
+    scanned_bytes: int
+    policy_version: str
+    incident_id: UUID | None = None
+
+
 class DocumentUploadService:
-    def __init__(self, uow: SQLAlchemyUnitOfWork, storage: ObjectStorage) -> None:
+    def __init__(
+        self,
+        uow: SQLAlchemyUnitOfWork,
+        storage: ObjectStorage,
+        scanner: MalwareScanner | None = None,
+    ) -> None:
         self.uow = uow
         self.storage = storage
+        self.scanner = scanner or SignatureMalwareScanner()
 
     def register_upload(
         self,
@@ -174,7 +220,7 @@ class DocumentUploadService:
                     trace_id=trace_id,
                 )
                 signed_url = self.storage.create_signed_get_url(
-                    key=self._duplicate_object_key(duplicate, normalized.filename),
+                    key=duplicate.original_file_key,
                     filename=normalized.filename,
                     content_type=normalized.content_type,
                 )
@@ -188,7 +234,7 @@ class DocumentUploadService:
                     byte_size=file_size,
                     duplicate=duplicate,
                     upload_status="duplicate",
-                    original_file_key=self._duplicate_object_key(duplicate, normalized.filename),
+                    original_file_key=duplicate.original_file_key,
                     download_url=signed_url,
                     policy_version=DOCUMENT_UPLOAD_POLICY_VERSION,
                 )
@@ -249,6 +295,9 @@ class DocumentUploadService:
                     "byte_size": file_size,
                     "policy_version": DOCUMENT_UPLOAD_POLICY_VERSION,
                     "source_license_id": str(normalized.source_license_id),
+                    "malware_scan_status": "pending",
+                    "malware_scan_policy_version": MALWARE_SCAN_POLICY_VERSION,
+                    "parser_eligible": False,
                 },
                 created_by=actor_user_id,
             )
@@ -298,6 +347,151 @@ class DocumentUploadService:
                 download_url=signed_url,
                 policy_version=DOCUMENT_UPLOAD_POLICY_VERSION,
             )
+
+    def scan_document_version(
+        self,
+        *,
+        document_version_id: UUID,
+        actor_user_id: UUID,
+        trace_id: str | None = None,
+    ) -> DocumentMalwareScanResult:
+        with self.uow:
+            version = self.uow.documents.get_version_by_id(document_version_id)
+            if version is None:
+                raise DocumentProcessingError(
+                    "DOCUMENT_VERSION_NOT_FOUND",
+                    "Document version not found.",
+                    status_code=404,
+                )
+            document = self.uow.documents.get_by_id(version.document_id)
+            if document is None:
+                raise DocumentProcessingError(
+                    "DOCUMENT_VERSION_NOT_FOUND",
+                    "Document version not found.",
+                    status_code=404,
+                )
+            metadata = dict(version.metadata_json or {})
+            if metadata.get("malware_scan_status") in {"clean", "infected"}:
+                return DocumentMalwareScanResult(
+                    document_id=document.id,
+                    document_version_id=version.id,
+                    status=metadata["malware_scan_status"],
+                    engine=str(metadata.get("malware_scan_engine", "unknown")),
+                    engine_version=str(metadata.get("malware_scan_engine_version", "unknown")),
+                    signature_name=metadata.get("malware_signature"),
+                    scanned_bytes=int(metadata.get("malware_scanned_bytes", 0)),
+                    policy_version=str(
+                        metadata.get("malware_scan_policy_version", MALWARE_SCAN_POLICY_VERSION)
+                    ),
+                    incident_id=UUID(str(metadata["malware_incident_id"]))
+                    if metadata.get("malware_incident_id")
+                    else None,
+                )
+            filename = str(metadata.get("filename", "uploaded-file"))
+            content_type = str(metadata.get("content_type", "application/octet-stream"))
+            content = self.storage.get_private_bytes(key=version.original_file_key or "")
+            try:
+                scan = self.scanner.scan_bytes(
+                    content=content,
+                    filename=filename,
+                    content_type=content_type,
+                    content_hash=version.content_hash,
+                )
+            except MalwareScannerUnavailable as exc:
+                self._audit(
+                    action="documents.malware_scan.unavailable",
+                    outcome="error",
+                    actor_user_id=actor_user_id,
+                    resource_id=document.id,
+                    reason="scanner_unavailable",
+                    after_summary={
+                        "document_version_id": str(version.id),
+                        "scanner_engine": exc.engine,
+                        "scanner_engine_version": exc.engine_version,
+                        "policy_version": MALWARE_SCAN_POLICY_VERSION,
+                    },
+                    trace_id=trace_id,
+                )
+                self.uow.commit()
+                raise
+
+            incident_id = None
+            if scan.status == "infected":
+                incident_id = uuid4()
+                self.uow.incidents.create(
+                    Incident(
+                        id=incident_id,
+                        severity="p1",
+                        status="open",
+                        summary="Malware scan detected an infected uploaded document.",
+                        affected_document_id=document.id,
+                        opened_by=actor_user_id,
+                    )
+                )
+                document.review_status = "rejected"
+                version.status = "rejected"
+                self._audit(
+                    action="documents.malware_scan.infected",
+                    outcome="denied",
+                    actor_user_id=actor_user_id,
+                    resource_id=document.id,
+                    reason="malware_detected",
+                    after_summary=_scan_summary(scan)
+                    | {
+                        "document_version_id": str(version.id),
+                        "incident_id": str(incident_id),
+                    },
+                    trace_id=trace_id,
+                )
+            else:
+                version.status = "scanned_clean"
+                self._audit(
+                    action="documents.malware_scan.clean",
+                    outcome="success",
+                    actor_user_id=actor_user_id,
+                    resource_id=document.id,
+                    after_summary=_scan_summary(scan)
+                    | {"document_version_id": str(version.id)},
+                    trace_id=trace_id,
+                )
+            version.metadata_json = metadata | _scan_metadata(scan, incident_id=incident_id)
+            self.uow.documents.update(document)
+            self.uow.documents.add_version(version)
+            self.uow.commit()
+            return DocumentMalwareScanResult(
+                document_id=document.id,
+                document_version_id=version.id,
+                status=scan.status,
+                engine=scan.engine,
+                engine_version=scan.engine_version,
+                signature_name=scan.signature_name,
+                scanned_bytes=scan.scanned_bytes,
+                policy_version=scan.policy_version,
+                incident_id=incident_id,
+            )
+
+    def assert_parser_allowed(self, *, document_version_id: UUID) -> None:
+        with self.uow:
+            version = self.uow.documents.get_version_by_id(document_version_id)
+            if version is None:
+                raise DocumentProcessingError(
+                    "DOCUMENT_VERSION_NOT_FOUND",
+                    "Document version not found.",
+                    status_code=404,
+                )
+            metadata = version.metadata_json or {}
+            if metadata.get("malware_scan_status") == "infected":
+                raise DocumentProcessingError(
+                    "DOCUMENT_VERSION_INFECTED",
+                    "Document version is quarantined after malware detection.",
+                )
+            if metadata.get("malware_scan_status") != "clean" or not metadata.get(
+                "parser_eligible"
+            ):
+                raise DocumentProcessingError(
+                    "DOCUMENT_VERSION_NOT_SCANNED",
+                    "Document version must pass malware scanning before parsing.",
+                )
 
     def _normalize_request(self, data: DocumentUploadRequest) -> DocumentUploadRequest:
         filename = data.filename.strip()
@@ -361,9 +555,6 @@ class DocumentUploadService:
     def _object_key(self, document_id: UUID, filename: str) -> str:
         return f"uploads/quarantine/{document_id}/{filename}"
 
-    def _duplicate_object_key(self, duplicate: DocumentUploadDuplicate, filename: str) -> str:
-        return f"uploads/quarantine/{duplicate.document_version_id}/{filename}"
-
     def _find_duplicate(self, content_hash: str) -> DocumentUploadDuplicate | None:
         for document in self.uow.documents.get_documents():
             versions = self.uow.documents.get_versions_by_document(document.id)
@@ -375,6 +566,7 @@ class DocumentUploadService:
                         canonical_id=document.canonical_id,
                         title=document.title,
                         content_hash=version.content_hash,
+                        original_file_key=version.original_file_key or "",
                     )
         return None
 
@@ -411,6 +603,36 @@ class DocumentUploadService:
         if self.uow.session is None:
             raise RuntimeError("Database session not initialized in UoW.")
         return self.uow.session
+
+
+def _scan_metadata(
+    scan: MalwareScanResult,
+    *,
+    incident_id: UUID | None,
+) -> dict[str, Any]:
+    return {
+        "malware_scan_status": scan.status,
+        "malware_scan_engine": scan.engine,
+        "malware_scan_engine_version": scan.engine_version,
+        "malware_signature": scan.signature_name,
+        "malware_scanned_bytes": scan.scanned_bytes,
+        "malware_scan_policy_version": scan.policy_version,
+        "malware_incident_id": str(incident_id) if incident_id else None,
+        "parser_eligible": scan.status == "clean",
+    }
+
+
+def _scan_summary(scan: MalwareScanResult) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "malware_scan_status": scan.status,
+        "malware_scan_engine": scan.engine,
+        "malware_scan_engine_version": scan.engine_version,
+        "malware_scan_policy_version": scan.policy_version,
+        "parser_eligible": scan.status == "clean",
+    }
+    if scan.signature_name:
+        summary["malware_signature"] = scan.signature_name
+    return summary
 
 
 def _policy_input(license_record: SourceLicense) -> LicensePolicyInput:

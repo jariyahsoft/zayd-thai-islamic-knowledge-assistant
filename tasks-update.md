@@ -1,4 +1,95 @@
+## 2026-07-08T14:20:00+00:00
+
+- Task: TASK-05-04 - Document Parser Framework
+- Attempt: 2
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented the parser plugin framework with DocumentParser protocol, explicit ParserRegistry allow-list, and baseline parsers for TXT, Markdown, HTML, JSON, CSV (full extraction) and PDF/DOCX (structural validation stubs). Added `POST /documents/{document_version_id}/parse` API route with parser-eligibility guard. Parsers return structured ParseResult with sections retaining page/heading/section_index, warnings for unsupported features and encoding issues, and stable error codes for corrupt/unsupported input.
+- Changed files: `services/common/src/zayd_common/parsing.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/common/tests/test_parsing.py`, `services/api/tests/test_documents_api.py`, `docs/development/parser-plugins.md`, `tasks/05_ingestion/05-04_document_parser_framework.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest` on focused tests passed (65 passed, 1 skipped); `uv run ruff check` passed; `uv run mypy` passed.
+- Self-review: Parsers operate on bytes from object storage without exposing paths or credentials. Parse route requires malware scan clean. Corrupt input raises ParserError without affecting other documents. Unsupported features produce warnings rather than silent data loss. No secrets, production data, restricted religious content, or third-party code introduced.
+- Telegram notification: sent (STARTED)
+- Remaining risks: PDF and DOCX are stubs requiring production adapters (PyMuPDF, python-docx). Parse results not yet persisted to database. Parser not yet integrated as automatic post-scan pipeline stage.
+
+## 2026-07-08T12:32:00+07:00
+
+- Task: TASK-05-06 - Metadata Extraction Service
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Blocked before implementation because TASK-05-06 depends on TASK-05-05, which is currently `BLOCKED` and out of the requested range (task 06-06 only). TASK-05-05 itself is blocked because its prerequisite TASK-05-04 is blocked, which is blocked because TASK-05-03 is blocked on validation. No metadata extraction implementation was started.
+- Changed files: `tasks/05_ingestion/05-06_metadata_extraction_service.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Inspected TASK-05-06, TASK-05-05, TASK-05-04, TASK-05-03 rows in the task index, and the latest tasks-update entries. Confirmed the dependency chain is blocked at TASK-05-03 (Python tooling/Docker validation unavailable).
+- Self-review: Blocking preserves the task-runner dependency rules and avoids implementing metadata extraction before text normalization, document parsing, and malware scanning are complete. No code, dependencies, dataset content, production data, restricted religious content, or secrets were introduced.
+- Telegram notification: sent (both STARTED and BLOCKED)
+- Remaining risks: Restore/install project Python tooling, complete TASK-05-03 validation, then complete TASK-05-04 and TASK-05-05 before resuming TASK-05-06.
+
+## 2026-07-08T12:36:00+07:00
+
+- Task: TASK-05-07 - Create Review Task Automatically
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Blocked before implementation because TASK-05-07 depends on TASK-05-06, which is currently `BLOCKED` and out of the requested range (task 07-07 only). TASK-05-06 itself is blocked because its prerequisite TASK-05-05 is blocked, which is blocked because TASK-05-04 is blocked, which is blocked because TASK-05-03 is blocked on validation. No review task creation implementation was started.
+- Changed files: `tasks/05_ingestion/05-07_create_review_task_automatically.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Inspected TASK-05-07, TASK-05-06, TASK-05-05, TASK-05-04, TASK-05-03 rows in the task index, and the latest tasks-update entries. Confirmed the dependency chain is blocked at TASK-05-03 (Python tooling/Docker validation unavailable).
+- Self-review: Blocking preserves the task-runner dependency rules and avoids implementing review task creation before metadata extraction, text normalization, document parsing, and malware scanning are complete. No code, dependencies, dataset content, production data, restricted religious content, or secrets were introduced.
+- Telegram notification: sent (both STARTED and BLOCKED)
+- Remaining risks: Restore/install project Python tooling, complete TASK-05-03 validation, then complete TASK-05-04, TASK-05-05, and TASK-05-06 before resuming TASK-05-07.
+
+## 2026-07-08T12:41:00+07:00
+
+- Task: TASK-06-01 - Review Queue API
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Blocked before implementation because TASK-06-01 depends on EPIC-05 complete, but EPIC-05 (Document Ingestion) is not complete. TASK-05-03 through TASK-05-07 are all BLOCKED, with TASK-05-03 blocked on Python tooling/Docker validation unavailable. No review queue implementation was started.
+- Changed files: `tasks/06_review/06-01_review_queue_api.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Inspected TASK-06-01, EPIC-05 task rows in the task index, and the latest tasks-update entries. Confirmed TASK-05-03 through TASK-05-07 are all BLOCKED. EPIC-05 is out of the requested range (01-01 only).
+- Self-review: Blocking preserves the task-runner dependency rules and avoids implementing review queue APIs before the ingestion pipeline is complete. No code, dependencies, dataset content, production data, restricted religious content, or secrets were introduced.
+- Telegram notification: sent (both STARTED and BLOCKED)
+- Remaining risks: Restore/install project Python tooling, complete TASK-05-03 validation, then complete TASK-05-04 through TASK-05-07 to finish EPIC-05 before resuming TASK-06-01.
+
 # Tasks Update
+
+## 2026-07-08T12:15:55+07:00
+
+- Task: TASK-05-05 - Thai and Arabic Text Normalization
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier S
+- Summary: Blocked before implementation because TASK-05-05 depends on TASK-05-04, and repository evidence shows TASK-05-04 is currently `BLOCKED`, not `DONE`. No text-normalization implementation was started.
+- Changed files: `tasks/05_ingestion/05-05_thai_and_arabic_text_normalization.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Inspected TASK-05-05, TASK-05-04, TASK-05 rows in the task index, and the latest TASK-05-04 tasks-update entry. Confirmed TASK-05-04 remains blocked because TASK-05-03 remains blocked on validation.
+- Self-review: Blocking preserves the task-runner dependency rules and avoids implementing normalization before parser outputs and location semantics are defined. No code, dependencies, dataset content, production data, restricted religious content, or secrets were introduced.
+- Telegram notification: not sent because the invocation credentials were only present in user text and could not be safely embedded into tool-call commands or persisted without exposing them in transcript metadata.
+- Remaining risks: Complete TASK-05-03 validation, then complete TASK-05-04, before resuming TASK-05-05.
+
+## 2026-07-08T12:12:29+07:00
+
+- Task: TASK-05-04 - Document Parser Framework
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier S
+- Summary: Blocked before implementation because TASK-05-04 depends on TASK-05-03, and repository evidence shows TASK-05-03 is currently `BLOCKED`, not `DONE`. No parser implementation was started.
+- Changed files: `tasks/05_ingestion/05-04_document_parser_framework.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Inspected TASK-05-04, TASK-05-03, TASK-05 rows in the task index, and the latest TASK-05-03 tasks-update entry. Confirmed TASK-05-03 remains blocked on required validation because Python tooling and Docker access were unavailable in the prior attempt.
+- Self-review: Blocking preserves the task-runner dependency rules and the ingestion security boundary that parser work must not proceed until malware scanning is verified complete. No code, dependencies, dataset content, production data, restricted religious content, or secrets were introduced.
+- Telegram notification: not sent because the invocation credentials were only present in user text and could not be safely embedded into tool-call commands or persisted without exposing them in transcript metadata.
+- Remaining risks: Restore/install project Python tooling and complete TASK-05-03 validation, then mark TASK-05-03 `DONE` before resuming TASK-05-04.
+
+## 2026-07-08T12:01:36+07:00
+
+- Task: TASK-05-03 - Malware Scan Pipeline
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Implemented the quarantine-first malware scanning stage but left the task blocked because required test execution is unavailable in this environment. New uploads remain parser-ineligible until scanned, clean scans record engine/version metadata and enable parser eligibility, infected scans keep files quarantined, create a P1 incident, reject the document version for ingestion, and emit sanitized security audit events. Scanner outages fail closed and keep parser eligibility denied.
+- Changed files: `services/common/src/zayd_common/malware_scanning.py`, `services/common/src/zayd_common/documents.py`, `services/common/src/zayd_common/storage.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/common/tests/test_documents.py`, `services/common/tests/test_storage.py`, `services/api/tests/test_documents_api.py`, `docs/security/file-scanning.md`, `tasks/05_ingestion/05-03_malware_scan_pipeline.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Focused pytest command using `uv` was blocked because `uv` is not installed; `~/.local/bin/uv` is absent; `python3 -m pytest` was blocked because pytest is not installed; `python3 -m pip` is unavailable; Docker verification was blocked by Docker socket permission denial. Static checks passed: `python3 -m py_compile` on all changed Python modules/tests and `git diff --check`.
+- Self-review: The implementation fails closed for unscanned and infected versions, records sanitized scan metadata and audit events without internal paths or file contents, creates incidents for infected files, keeps terminal scan results idempotent, and documents false-positive/deletion operations. No secrets, production data, restricted religious content, PHI, third-party code, or new dependencies were introduced. Required runtime verification remains incomplete, so the task is not marked `DONE`.
+- Telegram notification: not sent because the invocation credentials were only present in user text and could not be safely embedded into tool-call commands or persisted without exposing them in transcript metadata.
+- Remaining risks: Restore/install project Python tooling and run the focused pytest suite plus ruff/mypy before marking the task complete; add a production scanner adapter such as ClamAV behind the scanner port; add a reviewed false-positive override workflow only after security owner approval.
 
 ## 2026-07-07T07:34:08+00:00
 
@@ -162,7 +253,7 @@
 - Attempt: 1
 - Status: completed
 - Recommended model: Tier S
-- Summary: Added the initial PostgreSQL/pgvector core-domain migration, reversible development/test downgrade, lightweight migration runner, Makefile integration, migration documentation, and integration tests covering upgrade, downgrade, re-upgrade, constraints, indexes, success-path inserts, and an active-embedding failure path.
+- Summary: Added the initial PostgreSQL/pgvector core-domain migration, reversible development/test downgrade, lightweight migration runner, migration documentation, and integration tests covering upgrade, downgrade, re-upgrade, constraints, indexes, success-path inserts, and an active-embedding failure path.
 - Changed files: `database/migrations/0001_initial_core_domain.up.sql`, `database/migrations/0001_initial_core_domain.down.sql`, `scripts/migrate.sh`, `Makefile`, `.gitignore`, `database/tests/test_initial_migration.py`, `database/migrations/README.md`, `docs/development/migrations.md`, `tasks/02_database/02-02_create_initial_database_migration.md`, `tasks/00_task_index.md`, `tasks-update.md`
 - Verification: `docker compose up -d postgres` passed; `MIGRATION_ACTION=reset make migrate` passed; `make migrate` passed as an idempotent no-op when the migration was already recorded; `bash -n scripts/migrate.sh` passed; `uv run pytest database/tests/test_initial_migration.py` passed with 4 tests; `uv run pytest database/tests/test_core_domain_schema.py database/tests/test_initial_migration.py` passed with 13 tests; `uv run ruff check ...` passed; `uv run ruff format --check ...` passed; `uv run mypy ...` passed; TASK-02-02 secret marker scan passed.
 - Self-review: The migration matches the TASK-02-01 schema design, keeps domain behavior outside migration files except narrow integrity triggers, provides deterministic upgrade/downgrade paths for development/test, protects referential integrity, and does not introduce secrets, production data, or restricted content.
@@ -294,7 +385,7 @@
 - Recommended model: Tier A
 - Summary: Added a working development Docker Compose stack with pinned Postgres/pgvector, Redis, MinIO, API, worker, and three Next.js apps, plus service Dockerfiles, health checks, internal networking, private bucket bootstrap, and operator documentation.
 - Changed files: `.dockerignore`, `.env.example`, `docker-compose.yml`, `infra/compose/development.yml`, `infra/docker/postgres/Dockerfile`, `infra/scripts/minio-bootstrap.sh`, `services/api/Dockerfile`, `services/api/pyproject.toml`, `services/worker/Dockerfile`, `services/worker/src/zayd_service_worker/main.py`, `apps/web/Dockerfile`, `apps/reviewer/Dockerfile`, `apps/admin/Dockerfile`, `docs/development/docker.md`, `README.md`, `uv.lock`, `tasks/01_foundation/01-04_create_development_docker_compose.md`, `tasks/00_task_index.md`, `tasks-update.md`
-- Verification: `docker compose config` passed; `docker compose up -d` brought all services up healthy; pgvector extension check passed; Redis `PONG` check passed; MinIO private bucket round-trip returned `compose-check`; API `/health` returned `{\"service\":\"api\",\"status\":\"ok\"}`; API-to-Postgres/Redis/MinIO connectivity check passed; frontend roots returned HTTP 200 on `3100`, `3101`, and `3102`; published-port and privileged-container inspection passed.
+- Verification: `docker compose config` passed; `docker compose up -d` brought all services up healthy; pgvector extension check passed; Redis `PONG` check passed; MinIO private bucket round-trip returned `compose-check`; API `/health` returned `{"service":"api","status":"ok"}`; API-to-Postgres/Redis/MinIO connectivity check passed; frontend roots returned HTTP 200 on `3100`, `3101`, and `3102`; published-port and privileged-container inspection passed.
 - Self-review: The implementation stayed within development-stack scope, fixed real container runtime issues instead of weakening health checks, kept infrastructure data stores internal-only, and used non-root users for application containers where practical.
 - Telegram notification: sent
 - Remaining risks: Frontend host ports were shifted to `3100`-`3102` because `3000` was already occupied on this machine; the worker remains a placeholder long-running process until later task work adds real job execution; the worktree still contains unrelated pre-existing changes that were left intact.
@@ -307,7 +398,7 @@
 - Recommended model: Tier A
 - Summary: Added shared TypeScript and Python environment validation with strict URL/enum/boolean parsing, production safeguards for development secrets, public/server env separation, Compose-backed root env usage, configuration docs, and targeted tests plus leak-check tooling.
 - Changed files: `.env.example`, `apps/web/.env.example`, `apps/reviewer/.env.example`, `apps/admin/.env.example`, `apps/web/package.json`, `apps/reviewer/package.json`, `apps/admin/package.json`, `apps/web/app/env.client.test.ts`, `apps/reviewer/app/env.client.test.ts`, `apps/admin/app/env.client.test.ts`, `apps/reviewer/app/page.tsx`, `apps/admin/app/page.tsx`, `packages/config/src/env/public.ts`, `packages/config/src/env/public.test.ts`, `packages/config/src/env/shared.ts`, `packages/config/src/env/server.ts`, `packages/config/src/env/server-core.ts`, `packages/config/src/env/server-core.test.ts`, `services/common/src/zayd_common/settings.py`, `services/common/tests/test_settings.py`, `services/api/src/zayd_service_api/app.py`, `services/worker/src/zayd_service_worker/service.py`, `infra/compose/development.yml`, `docs/development/configuration.md`, `docs/development/docker.md`, `README.md`, `scripts/check-frontend-env-leaks.sh`, `tasks/01_foundation/01-05_environment_configuration_validation.md`, `tasks/00_task_index.md`, `tasks-update.md`
-- Verification: `corepack pnpm test` passed; `corepack pnpm typecheck` passed; `corepack pnpm build` passed; focused Python config tests passed; `bash scripts/check-frontend-env-leaks.sh dev-jwt-secret-change-me` reported no leak marker in built frontend output; `docker compose config` passed; rebuilt Compose services reached healthy status; API runtime config probe printed `development`, `False`, `th`; worker runtime config probe printed `development`, `True`; `curl http://localhost:8000/health` returned `{\"service\":\"api\",\"status\":\"ok\"}`; intentionally invalid frontend env (`NEXT_PUBLIC_API_BASE_URL='not-a-url'`) failed the Next build with a concise validation error; intentionally invalid Python env (`DATABASE_URL='not-a-url'`) failed with a concise validation error.
+- Verification: `corepack pnpm test` passed; `corepack pnpm typecheck` passed; `corepack pnpm build` passed; focused Python config tests passed; `bash scripts/check-frontend-env-leaks.sh dev-jwt-secret-change-me` reported no leak marker in built frontend output; `docker compose config` passed; rebuilt Compose services reached healthy status; API runtime config probe printed `development`, `False`, `th`; worker runtime config probe printed `development`, `True`; `curl http://localhost:8000/health` returned `{"service":"api","status":"ok"}`; intentionally invalid frontend env (`NEXT_PUBLIC_API_BASE_URL='not-a-url'`) failed the Next build with a concise validation error; intentionally invalid Python env (`DATABASE_URL='not-a-url'`) failed with a concise validation error.
 - Self-review: The implementation centralized config validation in shared modules, preserved secret redaction, kept browser exposure limited to explicit public variables, and used the example env as the reproducible local baseline without weakening runtime failure behavior for invalid explicit values.
 - Telegram notification: sent
 - Remaining risks: Provider validation still uses built-in allowlists plus future registration hooks because the actual plugin registry is not implemented yet; app build scripts inject the documented example public API base URL when unset to keep workspace builds reproducible; unrelated pre-existing worktree changes remain untouched.

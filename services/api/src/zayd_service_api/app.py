@@ -11,6 +11,8 @@ from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, seriali
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.database import get_sessionmaker
 from zayd_common.documents import (
+    DocumentMalwareScanResult,
+    DocumentProcessingError,
     DocumentUploadDuplicate,
     DocumentUploadError,
     DocumentUploadRequest,
@@ -29,11 +31,16 @@ from zayd_common.licenses import (
     PublicationAuthorization,
 )
 from zayd_common.logging import get_logger
+from zayd_common.malware_scanning import MalwareScannerUnavailable
 from zayd_common.mfa import (
     MfaEnrollment,
     MfaError,
     MfaResetChannel,
     MfaService,
+)
+from zayd_common.parsing import (
+    ParserError,
+    ParserRegistry,
 )
 from zayd_common.rbac import Permission, RbacError, RbacService, UserPrincipal
 from zayd_common.settings import ServiceSettings
@@ -43,7 +50,7 @@ from zayd_common.sources import (
     SourceSearchQuery,
     SourceService,
 )
-from zayd_common.storage import S3ObjectStorage, S3StorageSettings, SignedUrl
+from zayd_common.storage import S3ObjectStorage, S3StorageSettings, SignedUrl, StorageError
 
 logger = get_logger("zayd.api")
 
@@ -363,6 +370,50 @@ class DocumentUploadResponse(BaseModel):
     policy_version: str
 
 
+class DocumentMalwareScanResponse(BaseModel):
+    document_id: str
+    document_version_id: str
+    status: str
+    engine: str
+    engine_version: str
+    signature_name: str | None
+    scanned_bytes: int
+    policy_version: str
+    incident_id: str | None
+
+
+class ParserEligibilityResponse(BaseModel):
+    document_version_id: str
+    parser_eligible: bool
+
+
+class ParseWarningResponse(BaseModel):
+    category: str
+    message: str
+    location: str | None
+
+
+class ParsedSectionResponse(BaseModel):
+    content: str
+    heading: str | None
+    page: int | None
+    section_index: int
+    content_type: str
+    metadata: dict[str, object] | None
+
+
+class DocumentParseResponse(BaseModel):
+    document_version_id: str
+    parser_name: str
+    parser_version: str
+    framework_version: str
+    content_type: str
+    sections: list[ParsedSectionResponse]
+    warnings: list[ParseWarningResponse]
+    page_count: int | None
+    metadata: dict[str, object]
+
+
 def _auth_response(result: AuthResult) -> AuthResponse:
     user = result.user
     tokens = result.tokens
@@ -581,6 +632,22 @@ def _document_upload_response(result: DocumentUploadResult) -> DocumentUploadRes
     )
 
 
+def _document_malware_scan_response(
+    result: DocumentMalwareScanResult,
+) -> DocumentMalwareScanResponse:
+    return DocumentMalwareScanResponse(
+        document_id=str(result.document_id),
+        document_version_id=str(result.document_version_id),
+        status=result.status,
+        engine=result.engine,
+        engine_version=result.engine_version,
+        signature_name=result.signature_name,
+        scanned_bytes=result.scanned_bytes,
+        policy_version=result.policy_version,
+        incident_id=str(result.incident_id) if result.incident_id else None,
+    )
+
+
 def _signed_url_response(signed_url: SignedUrl) -> SignedUrlResponse:
     return SignedUrlResponse(
         method=signed_url.method,
@@ -740,6 +807,38 @@ def create_app() -> FastAPI:
     async def document_upload_error_handler(
         request: Request, exc: DocumentUploadError
     ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(DocumentProcessingError)
+    async def document_processing_error_handler(
+        request: Request, exc: DocumentProcessingError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(MalwareScannerUnavailable)
+    async def malware_scanner_unavailable_handler(
+        request: Request, exc: MalwareScannerUnavailable
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(StorageError)
+    async def storage_error_handler(request: Request, exc: StorageError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(ParserError)
+    async def parser_error_handler(request: Request, exc: ParserError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -1151,6 +1250,100 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _document_upload_response(result)
+
+    @app.post(
+        "/documents/{document_version_id}/scan",
+        response_model=DocumentMalwareScanResponse,
+    )
+    async def scan_document_version(
+        document_version_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_UPLOAD))],
+        service: Annotated[DocumentUploadService, Depends(document_upload_service)],
+    ) -> DocumentMalwareScanResponse:
+        result = service.scan_document_version(
+            document_version_id=document_version_id,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _document_malware_scan_response(result)
+
+    @app.get(
+        "/documents/{document_version_id}/parser-eligibility",
+        response_model=ParserEligibilityResponse,
+    )
+    async def check_parser_eligibility(
+        document_version_id: UUID,
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_UPLOAD))],
+        service: Annotated[DocumentUploadService, Depends(document_upload_service)],
+    ) -> ParserEligibilityResponse:
+        service.assert_parser_allowed(document_version_id=document_version_id)
+        return ParserEligibilityResponse(
+            document_version_id=str(document_version_id),
+            parser_eligible=True,
+        )
+
+    @app.post(
+        "/documents/{document_version_id}/parse",
+        response_model=DocumentParseResponse,
+    )
+    async def parse_document_version(
+        document_version_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_UPLOAD))],
+        upload_service: Annotated[DocumentUploadService, Depends(document_upload_service)],
+    ) -> DocumentParseResponse:
+        upload_service.assert_parser_allowed(document_version_id=document_version_id)
+        registry = ParserRegistry()
+        with upload_service.uow:
+            version = upload_service.uow.documents.get_version_by_id(document_version_id)
+            if version is None:
+                raise DocumentProcessingError(
+                    "DOCUMENT_VERSION_NOT_FOUND",
+                    "Document version not found.",
+                    status_code=404,
+                )
+            metadata = version.metadata_json or {}
+            content_type = str(metadata.get("content_type", "application/octet-stream"))
+            filename = str(metadata.get("filename", "uploaded-file"))
+            content = upload_service.storage.get_private_bytes(
+                key=version.original_file_key or ""
+            )
+        result = registry.parse(
+            content=content,
+            filename=filename,
+            content_type=content_type,
+        )
+        return DocumentParseResponse(
+            document_version_id=str(document_version_id),
+            parser_name=result.parser_name,
+            parser_version=result.parser_version,
+            framework_version=result.framework_version,
+            content_type=result.content_type,
+            sections=[
+                ParsedSectionResponse(
+                    content=s.content,
+                    heading=s.heading,
+                    page=s.page,
+                    section_index=s.section_index,
+                    content_type=s.content_type,
+                    metadata=s.metadata,
+                )
+                for s in result.sections
+            ],
+            warnings=[
+                ParseWarningResponse(
+                    category=w.category,
+                    message=w.message,
+                    location=w.location,
+                )
+                for w in result.warnings
+            ],
+            page_count=result.page_count,
+            metadata=result.metadata,
+        )
 
     @app.post("/admin/sources", response_model=SourceResponse, status_code=201)
     async def create_source(

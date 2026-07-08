@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -64,10 +64,10 @@ Define a parser plugin interface and implement baseline parsers for PDF, DOCX, T
 
 ## Acceptance Criteria
 
-- [ ] Parser failures are isolated and retryable.
-- [ ] Page and section locations are retained.
-- [ ] Unsupported features produce warnings rather than silent data loss.
-- [ ] Plugins are selected through an allow-list.
+- [x] Parser failures are isolated and retryable.
+- [x] Page and section locations are retained.
+- [x] Unsupported features produce warnings rather than silent data loss.
+- [x] Plugins are selected through an allow-list.
 
 ## Required Tests
 
@@ -94,28 +94,47 @@ Define a parser plugin interface and implement baseline parsers for PDF, DOCX, T
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/parsing.py` — New parser plugin framework: DocumentParser protocol, ParserRegistry allow-list, PlainTextParser, MarkdownParser, HtmlParser, JsonParser, CsvParser, PdfStubParser, DocxStubParser, ParseResult/ParsedSection/ParseWarning/ParserError types.
+- `services/common/src/zayd_common/__init__.py` — Exported all parser types.
+- `services/api/src/zayd_service_api/app.py` — Added `POST /documents/{document_version_id}/parse` route, ParserError exception handler, DocumentParseResponse/ParsedSectionResponse/ParseWarningResponse models.
+- `services/common/tests/test_parsing.py` — 36 unit tests: parser contract tests (7 parametrized), format fixture tests, corrupt-file tests, plugin allow-list tests, idempotency test, Thai/Arabic content tests.
+- `services/api/tests/test_documents_api.py` — Added parse route/OpenAPI assertions and integration tests for parse-after-scan success and parse-blocked-before-scan failure.
+- `docs/development/parser-plugins.md` — Parser plugin documentation.
+- `tasks/05_ingestion/05-04_document_parser_framework.md` — Updated task status and completion report.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_parsing.py services/api/tests/test_documents_api.py services/common/tests/test_documents.py services/common/tests/test_storage.py -v` — 65 passed, 1 skipped (MinIO round-trip requires Docker).
+- `uv run ruff check` on all task files — All checks passed.
+- `uv run mypy services/common/src/zayd_common/parsing.py services/api/src/zayd_service_api/app.py --ignore-missing-imports` — Success: no issues found in 2 source files.
 
 ### Acceptance Criteria Result
 
-- Pending
+- ✅ Verified. Parser failures (corrupt input, unsupported format, unexpected exceptions) are isolated as `ParserError` and do not affect other documents. Tests: `test_pdf_stub_rejects_non_pdf`, `test_docx_stub_rejects_non_zip`, `test_json_malformed_raises`, `test_registry_isolates_parser_internal_error`.
+- ✅ Verified. `ParsedSection` retains `page`, `heading`, `section_index`, and `content_type`. Tests: `test_markdown_heading_extraction`, `test_csv_with_header_and_rows`.
+- ✅ Verified. Stub parsers (PDF, DOCX) return `unsupported_feature` warnings. Empty files return `empty_content` warnings. Invalid UTF-8 returns `encoding` warnings. Tests: `test_pdf_stub_accepts_valid_header`, `test_docx_stub_accepts_valid_header`, `test_plain_text_empty_file_warns`, `test_plain_text_invalid_utf8_warns`.
+- ✅ Verified. `ParserRegistry` selects parsers by explicit content-type allow-list and rejects unlisted types with `PARSER_NOT_ALLOWED`. Tests: `test_registry_default_includes_all_formats`, `test_registry_rejects_unlisted_content_type`, `test_registry_custom_allow_list`.
 
 ### Security and License Review
 
-- Pending
+- Parsers operate on bytes from object storage and do not expose filesystem paths, bucket names, or credentials in API responses.
+- The parse API route requires `parser_eligible: true` (malware scan clean) before parsing.
+- No production secrets, restricted religious content, PHI, third-party code, or new dependencies were introduced.
+- All parsers are pure Python with no external library dependencies for baseline formats.
 
 ### Known Limitations
 
-- Pending
+- PDF and DOCX parsers are stubs that validate structural integrity but do not extract text. Production adapters (PyMuPDF, python-docx) are follow-up integrations.
+- The HTML parser uses a simple tag-stripping approach without full DOM parsing.
+- Parse results are not yet persisted to the database — downstream tasks will store extracted text and metadata.
 
 ### Follow-up Tasks
 
-- Pending
+- Add production PDF parser adapter (PyMuPDF or pdfplumber).
+- Add production DOCX parser adapter (python-docx).
+- Persist parse results to `DocumentVersion.extracted_text` and metadata.
+- Integrate parser into the ingestion pipeline as an automatic post-scan stage.
 
 ### Commit
 
-- Pending
+- Pending (task verified, ready for focused commit).
