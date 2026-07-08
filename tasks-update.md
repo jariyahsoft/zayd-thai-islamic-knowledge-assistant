@@ -1,3 +1,17 @@
+## 2026-07-09T06:29:14+07:00
+
+- Task: TASK-07-05 - Hybrid Search
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added hybrid retrieval that combines exact-reference, full-text, vector, and source-reliability scores with versioned configurable weights. Results include normalized component scores, deterministic ranking tie-breakers, and optional `retrieval_runs` / `retrieval_results` trace persistence. TASK-07-06 and TASK-07-07 are now READY.
+- Changed files: `services/retrieval/src/zayd_service_retrieval/hybrid_search.py` (new), `services/retrieval/src/zayd_service_retrieval/__init__.py`, `services/retrieval/tests/test_hybrid_search.py` (new), `docs/architecture/hybrid-search.md` (new), `tasks/07_retrieval/07-05_hybrid_search.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: hybrid tests passed with 5 passed; retrieval regression tests passed with 17 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Hybrid ranking only merges candidates returned by the full-text and vector services, preserving their SQL-level publication, status, license, and embedding-space gates. Invalid weights and incomplete vector signals fail closed with stable errors. No secrets, production data, restricted datasets, PHI, or third-party code were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: Trace persistence stores only returned paginated results, not the full candidate set. Reranker and evidence-sufficiency score integration remain later retrieval tasks.
+- Commit: focused commit `feat(retrieval): add hybrid search service`.
+
 ## 2026-07-09T06:04:44+07:00
 
 - Task: TASK-07-04 - Vector Search with pgvector

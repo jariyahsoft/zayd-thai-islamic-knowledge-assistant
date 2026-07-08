@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -63,9 +63,9 @@ Combine exact-reference, full-text, vector and source-reliability signals using 
 
 ## Acceptance Criteria
 
-- [ ] Weights are versioned and configurable.
-- [ ] Results are deterministic for fixed inputs/configuration.
-- [ ] Regression tests protect ranking of approved fixtures.
+- [x] Weights are versioned and configurable.
+- [x] Results are deterministic for fixed inputs/configuration.
+- [x] Regression tests protect ranking of approved fixtures.
 
 ## Required Tests
 
@@ -91,28 +91,44 @@ Combine exact-reference, full-text, vector and source-reliability signals using 
 
 ### Files Changed
 
-- Pending
+- `services/retrieval/src/zayd_service_retrieval/hybrid_search.py` (new)
+- `services/retrieval/src/zayd_service_retrieval/__init__.py`
+- `services/retrieval/tests/test_hybrid_search.py` (new)
+- `docs/architecture/hybrid-search.md` (new)
+- `tasks/07_retrieval/07-05_hybrid_search.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/retrieval/tests/test_hybrid_search.py -v`
+- `uv run pytest services/retrieval/tests/test_full_text_search.py services/retrieval/tests/test_vector_search.py services/retrieval/tests/test_hybrid_search.py services/retrieval/tests/test_retrieval_imports.py -v`
+- `uv run ruff check services/retrieval/src/zayd_service_retrieval/hybrid_search.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_hybrid_search.py`
+- `uv run mypy services/retrieval/src/zayd_service_retrieval/hybrid_search.py services/retrieval/src/zayd_service_retrieval/__init__.py --ignore-missing-imports`
+- `python3 -m py_compile services/retrieval/src/zayd_service_retrieval/hybrid_search.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_hybrid_search.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. `HybridSearchWeights` is versioned, configurable, normalized, and rejects invalid all-zero, negative, or unversioned configurations.
+- Passed. Ranking uses deterministic tie-breakers for fixed inputs and configuration.
+- Passed. Regression tests cover default scoring, exact-weighted ranking, vector-weighted ranking, deterministic repeated runs, full-text-only fallback, invalid inputs, and license-filter visibility.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, PHI, restricted religious datasets, or new third-party code were introduced.
+- Hybrid search composes full-text and vector services that enforce published/status/license filters inside data-access queries.
+- Retrieval trace persistence stores score metadata and configuration versions, not credentials or source document payloads beyond already-returned retrieval result fields.
 
 ### Known Limitations
 
-- Pending
+- Hybrid search persists returned paginated results only; full candidate-set persistence is left for future evaluation tooling if needed.
+- Reranker and evidence sufficiency integration remain later retrieval tasks.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-07-06 Multilingual Query Expansion can build on hybrid query orchestration.
+- TASK-07-07 Reranker Interface can add reranker score components.
 
 ### Commit
 
-- Pending
+- Focused commit created for TASK-07-05.
