@@ -1,3 +1,17 @@
+## 2026-07-09T06:56:28+07:00
+
+- Task: TASK-07-06 - Multilingual Query Expansion
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added deterministic local query expansion for Thai, Arabic, English, and conservative Islamic terminology variants. Expansion has versioned policy controls for disabling, limiting, cross-language variants, and named-reference preservation, and returns structured trace metadata for retrieval runs.
+- Changed files: `services/retrieval/src/zayd_service_retrieval/query_expansion.py` (new), `services/retrieval/src/zayd_service_retrieval/__init__.py`, `services/retrieval/tests/test_query_expansion.py` (new), `docs/architecture/query-expansion.md` (new), `tasks/07_retrieval/07-06_multilingual_query_expansion.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: query-expansion/import tests passed with 6 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Expansion is local and deterministic, so provider fallback does not leak query text externally. Named references suppress terminology variants by default to preserve intent, and expansion never changes madhhab, source, license, or reliability filters. No secrets, production data, restricted datasets, PHI, or third-party code were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: Terminology fixtures are intentionally conservative and require future governed review before expanding the vocabulary. Provider-backed translation is not implemented.
+- Commit: focused commit `feat(retrieval): add multilingual query expansion`.
+
 ## 2026-07-09T06:29:14+07:00
 
 - Task: TASK-07-05 - Hybrid Search

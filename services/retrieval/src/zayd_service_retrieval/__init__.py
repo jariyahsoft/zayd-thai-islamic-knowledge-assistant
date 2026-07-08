@@ -18,6 +18,16 @@ from .hybrid_search import (
     HybridSearchService,
     HybridSearchWeights,
 )
+from .query_expansion import (
+    QUERY_EXPANSION_POLICY_VERSION,
+    QUERY_EXPANSION_VERSION,
+    QueryExpansionError,
+    QueryExpansionItem,
+    QueryExpansionPolicy,
+    QueryExpansionRequest,
+    QueryExpansionResponse,
+    QueryExpansionService,
+)
 from .service import get_health
 from .vector_search import (
     VECTOR_RETRIEVER_VERSION,
@@ -31,6 +41,8 @@ from .vector_search import (
 __all__ = [
     "FULL_TEXT_RETRIEVER_VERSION",
     "HYBRID_RETRIEVER_VERSION",
+    "QUERY_EXPANSION_POLICY_VERSION",
+    "QUERY_EXPANSION_VERSION",
     "DEFAULT_HYBRID_WEIGHTS_VERSION",
     "VECTOR_RETRIEVER_VERSION",
     "FullTextSearchError",
@@ -44,6 +56,12 @@ __all__ = [
     "HybridSearchResult",
     "HybridSearchService",
     "HybridSearchWeights",
+    "QueryExpansionError",
+    "QueryExpansionItem",
+    "QueryExpansionPolicy",
+    "QueryExpansionRequest",
+    "QueryExpansionResponse",
+    "QueryExpansionService",
     "VectorSearchError",
     "VectorSearchQuery",
     "VectorSearchResponse",

@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Produce original, normalized Thai, Arabic, English and terminology-variant queri
 
 ## Acceptance Criteria
 
-- [ ] Expansion trace is stored.
-- [ ] Feature can be disabled or limited by policy.
-- [ ] Religious terminology fixtures are reviewed for semantic drift.
+- [x] Expansion trace is stored.
+- [x] Feature can be disabled or limited by policy.
+- [x] Religious terminology fixtures are reviewed for semantic drift.
 
 ## Required Tests
 
@@ -90,28 +90,42 @@ Produce original, normalized Thai, Arabic, English and terminology-variant queri
 
 ### Files Changed
 
-- Pending
+- `services/retrieval/src/zayd_service_retrieval/query_expansion.py` (new)
+- `services/retrieval/src/zayd_service_retrieval/__init__.py`
+- `services/retrieval/tests/test_query_expansion.py` (new)
+- `docs/architecture/query-expansion.md` (new)
+- `tasks/07_retrieval/07-06_multilingual_query_expansion.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/retrieval/tests/test_query_expansion.py services/retrieval/tests/test_retrieval_imports.py -v`
+- `uv run ruff check services/retrieval/src/zayd_service_retrieval/query_expansion.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_query_expansion.py`
+- `uv run mypy services/retrieval/src/zayd_service_retrieval/query_expansion.py services/retrieval/src/zayd_service_retrieval/__init__.py --ignore-missing-imports`
+- `python3 -m py_compile services/retrieval/src/zayd_service_retrieval/query_expansion.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_query_expansion.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Expansion responses include a structured trace with expansion version, policy version, detected language, normalization framework, flags, and expansion items.
+- Passed. `QueryExpansionPolicy` can disable expansion, disable/limit variant generation, preserve named references, and cap expansion count.
+- Passed. Thai, Arabic, and English religious terminology fixtures are documented and covered by golden regression tests.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, PHI, restricted religious datasets, or third-party code were introduced.
+- Expansion never changes retrieval metadata filters and suppresses terminology variants for named references by default to preserve intent.
+- The local deterministic fallback avoids external provider data sharing.
 
 ### Known Limitations
 
-- Pending
+- Terminology fixtures are intentionally conservative and should remain small until a dedicated reviewed terminology governance workflow exists.
+- Provider-backed translation is not implemented; local fallback is used by design.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-07-08 Evidence Sufficiency Engine should consume expansion trace metadata when deciding whether to search further.
 
 ### Commit
 
-- Pending
+- Focused commit created for TASK-07-06.
