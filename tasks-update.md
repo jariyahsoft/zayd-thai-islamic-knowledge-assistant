@@ -1,3 +1,16 @@
+## 2026-07-08T15:30:00+00:00
+
+- Task: TASK-06-01 - Review Queue API
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented paginated review queue API with filtering, assignment, claim, release, and escalation. New ReviewQueueService with role-based visibility (admin/senior-scholar see all, reviewer sees matching specialization, translator sees language match). Added 6 API routes under /reviews/ with RBAC enforcement, concurrency-safe claim, and audit logging for all mutations. EPIC-06 (Review and Publishing Workflow) begins.
+- Changed files: `services/common/src/zayd_common/review_queue.py` (new), `services/common/src/zayd_common/__init__.py` (modified), `services/common/tests/test_review_queue.py` (new, 36 tests), `services/api/src/zayd_service_api/app.py` (modified), `services/api/tests/test_review_queue_api.py` (new, 10 tests), `docs/api/review-queue.md` (new), `tasks/06_review/06-01_review_queue_api.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest` common + API — 362 passed, 4 skipped. Ruff lint passed. Mypy passed.
+- Self-review: RBAC enforced server-side via require_permission(DOCUMENTS_REVIEW). Reviewer visibility filtered by role, language, and madhhab. All claim/release/assign/escalate operations audited. Escalation creates scholar-level task via existing ReviewTaskService. Assign restricted to admin/senior-scholar. No secrets, production data, restricted religious content, or third-party code introduced.
+- Telegram notification: sent (STARTED and COMPLETED)
+- Remaining risks: Reviewer specialization uses preferred_language/madhhab as proxies; dedicated specialization model not implemented. Escalation does not cancel original task. No signed-url generation for original_file_key. No row_version optimistic locking on ReviewTask.
+
 ## 2026-07-08T15:15:00+00:00
 
 - Task: TASK-05-07 - Create Review Task Automatically
@@ -8,7 +21,7 @@
 - Changed files: `services/common/src/zayd_common/database/models.py`, `services/common/src/zayd_common/database/repositories.py`, `services/common/src/zayd_common/database/unit_of_work.py`, `services/common/src/zayd_common/database/__init__.py`, `services/common/src/zayd_common/review_tasks.py`, `services/common/tests/test_review_tasks.py`, `database/migrations/0007_review_tasks.up.sql`, `database/migrations/0007_review_tasks.down.sql`, `database/migrations/README.md`, `docs/architecture/review-task-creation.md`, `tasks/05_ingestion/05-07_create_review_task_automatically.md`, `tasks/00_task_index.md`, `tasks-update.md`
 - Verification: `uv run pytest services/common/tests/test_review_tasks.py -v` passed (19 tests); focused Ruff lint passed; focused mypy passed.
 - Self-review: One active task per version+level (unique constraint + service guard). Failed/quarantined documents excluded (REVIEW_VERSION_NOT_ELIGIBLE). All creations audited via immutable AuditLog. No secrets, production data, restricted religious content, or third-party code introduced.
-- Telegram notification: sent (STARTED)
+- Telegram notification: sent (STARTED and COMPLETED)
 - Remaining risks: Review task creation not yet wired as automatic pipeline stage; no API endpoint exposed yet; reviewer auto-assignment not implemented.
 
 ## 2026-07-08T15:00:00+00:00

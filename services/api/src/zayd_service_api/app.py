@@ -1,4 +1,5 @@
 import base64
+import re
 from collections.abc import Callable
 from datetime import date, datetime
 from typing import Annotated, Any
@@ -43,6 +44,13 @@ from zayd_common.parsing import (
     ParserRegistry,
 )
 from zayd_common.rbac import Permission, RbacError, RbacService, UserPrincipal
+from zayd_common.review_queue import (
+    ReviewQueueError,
+    ReviewQueueQuery,
+    ReviewQueueService,
+    ReviewTaskDetail,
+    ReviewTaskSummary,
+)
 from zayd_common.settings import ServiceSettings
 from zayd_common.sources import (
     SourceError,
@@ -414,6 +422,54 @@ class DocumentParseResponse(BaseModel):
     metadata: dict[str, object]
 
 
+# ---------------------------------------------------------------------------
+# Review Queue response models
+# ---------------------------------------------------------------------------
+
+
+class ReviewTaskSummaryResponse(BaseModel):
+    id: str
+    document_version_id: str
+    document_id: str
+    review_level: str
+    status: str
+    priority: str
+    category: str | None = None
+    language: str | None = None
+    madhhab: str | None = None
+    assigned_to: str | None = None
+    due_at: str | None = None
+    created_at: str
+    updated_at: str
+    document_title: str | None = None
+    document_type: str | None = None
+
+
+class ReviewTaskDetailResponse(ReviewTaskSummaryResponse):
+    created_by: str
+    original_file_key: str | None = None
+    extracted_text_preview: str | None = None
+    filename: str | None = None
+    content_type: str | None = None
+
+
+class ReviewQueueListResponse(BaseModel):
+    tasks: list[ReviewTaskSummaryResponse]
+    total_count: int
+    limit: int
+    offset: int
+    next_offset: int | None = None
+
+
+class ReviewTaskAssignRequest(BaseModel):
+    assignee_user_id: UUID
+
+
+class ReviewTaskActionResponse(BaseModel):
+    status: str
+    task: ReviewTaskSummaryResponse
+
+
 def _auth_response(result: AuthResult) -> AuthResponse:
     user = result.user
     tokens = result.tokens
@@ -460,6 +516,20 @@ def _audit_outcome(value: str | None) -> AuditOutcome | None:
     if value == "error":
         return "error"
     return None
+
+
+_ISO_DATETIME_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([+-]\d{2}:\d{2}|Z)?$"
+)
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    """Parse an ISO-8601 string to datetime, or return None."""
+    if value is None:
+        return None
+    if not _ISO_DATETIME_RE.match(value):
+        return None
+    return datetime.fromisoformat(value)
 
 
 def _source_response(source: SourcePublic) -> SourceResponse:
@@ -1557,5 +1627,215 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _license_policy_decision_response(decision)
+
+    # ------------------------------------------------------------------
+    # Review queue routes
+    # ------------------------------------------------------------------
+
+    def review_queue_service() -> ReviewQueueService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return ReviewQueueService(SQLAlchemyUnitOfWork(session_factory))
+
+    @app.exception_handler(ReviewQueueError)
+    async def review_queue_error_handler(
+        request: Request, exc: ReviewQueueError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    def _review_task_summary_response(summary: ReviewTaskSummary) -> ReviewTaskSummaryResponse:
+        return ReviewTaskSummaryResponse(
+            id=str(summary.id),
+            document_version_id=str(summary.document_version_id),
+            document_id=str(summary.document_id),
+            review_level=summary.review_level,
+            status=summary.status,
+            priority=summary.priority,
+            category=summary.category,
+            language=summary.language,
+            madhhab=summary.madhhab,
+            assigned_to=str(summary.assigned_to) if summary.assigned_to else None,
+            due_at=summary.due_at.isoformat() if summary.due_at else None,
+            created_at=summary.created_at.isoformat(),
+            updated_at=summary.updated_at.isoformat(),
+            document_title=summary.document_title,
+            document_type=summary.document_type,
+        )
+
+    def _review_task_detail_response(detail: ReviewTaskDetail) -> ReviewTaskDetailResponse:
+        return ReviewTaskDetailResponse(
+            id=str(detail.id),
+            document_version_id=str(detail.document_version_id),
+            document_id=str(detail.document_id),
+            review_level=detail.review_level,
+            status=detail.status,
+            priority=detail.priority,
+            category=detail.category,
+            language=detail.language,
+            madhhab=detail.madhhab,
+            assigned_to=str(detail.assigned_to) if detail.assigned_to else None,
+            due_at=detail.due_at.isoformat() if detail.due_at else None,
+            created_at=detail.created_at.isoformat(),
+            updated_at=detail.updated_at.isoformat(),
+            document_title=detail.document_title,
+            document_type=detail.document_type,
+            created_by=str(detail.created_by),
+            original_file_key=detail.original_file_key,
+            extracted_text_preview=detail.extracted_text_preview,
+            filename=detail.filename,
+            content_type=detail.content_type,
+        )
+
+    @app.get("/reviews/queue", response_model=ReviewQueueListResponse)
+    async def list_review_queue(
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ReviewQueueService, Depends(review_queue_service)],
+        language: str | None = None,
+        madhhab: str | None = None,
+        content_type: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
+        assigned_to: UUID | None = None,
+        review_level: str | None = None,
+        due_before: str | None = None,
+        due_after: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> ReviewQueueListResponse:
+        query = ReviewQueueQuery(
+            language=language,
+            madhhab=madhhab,
+            content_type=content_type,
+            status=status,
+            priority=priority,
+            assigned_to=assigned_to,
+            review_level=review_level,
+            due_before=_parse_iso_datetime(due_before),
+            due_after=_parse_iso_datetime(due_after),
+            limit=limit,
+            offset=offset,
+        )
+        result = service.list_queue(
+            query,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+        )
+        return ReviewQueueListResponse(
+            tasks=[_review_task_summary_response(t) for t in result.tasks],
+            total_count=result.total_count,
+            limit=result.limit,
+            offset=result.offset,
+            next_offset=result.next_offset,
+        )
+
+    @app.get("/reviews/{review_task_id}", response_model=ReviewTaskDetailResponse)
+    async def get_review_task_detail(
+        review_task_id: UUID,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ReviewQueueService, Depends(review_queue_service)],
+    ) -> ReviewTaskDetailResponse:
+        detail = service.get_task_detail(
+            review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+        )
+        return _review_task_detail_response(detail)
+
+    @app.post(
+        "/reviews/{review_task_id}/claim",
+        response_model=ReviewTaskActionResponse,
+    )
+    async def claim_review_task(
+        review_task_id: UUID,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ReviewQueueService, Depends(review_queue_service)],
+    ) -> ReviewTaskActionResponse:
+        summary = service.claim_task(
+            review_task_id,
+            actor_user_id=principal.id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ReviewTaskActionResponse(
+            status="ok", task=_review_task_summary_response(summary)
+        )
+
+    @app.post(
+        "/reviews/{review_task_id}/release",
+        response_model=ReviewTaskActionResponse,
+    )
+    async def release_review_task(
+        review_task_id: UUID,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ReviewQueueService, Depends(review_queue_service)],
+    ) -> ReviewTaskActionResponse:
+        summary = service.release_task(
+            review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ReviewTaskActionResponse(
+            status="ok", task=_review_task_summary_response(summary)
+        )
+
+    @app.post(
+        "/reviews/{review_task_id}/assign",
+        response_model=ReviewTaskActionResponse,
+    )
+    async def assign_review_task(
+        review_task_id: UUID,
+        payload: ReviewTaskAssignRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ReviewQueueService, Depends(review_queue_service)],
+    ) -> ReviewTaskActionResponse:
+        summary = service.assign_task(
+            review_task_id,
+            assignee_user_id=payload.assignee_user_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ReviewTaskActionResponse(
+            status="ok", task=_review_task_summary_response(summary)
+        )
+
+    @app.post(
+        "/reviews/{review_task_id}/escalate",
+        response_model=ReviewTaskActionResponse,
+    )
+    async def escalate_review_task(
+        review_task_id: UUID,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ReviewQueueService, Depends(review_queue_service)],
+    ) -> ReviewTaskActionResponse:
+        summary = service.escalate_task(
+            review_task_id,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ReviewTaskActionResponse(
+            status="ok", task=_review_task_summary_response(summary)
+        )
 
     return app

@@ -129,6 +129,15 @@ from .rbac import (
     UserPrincipal,
 )
 from .retrievability import can_activate_embedding, is_document_retrievable
+from .review_queue import (
+    REVIEW_QUEUE_POLICY_VERSION,
+    ReviewQueueError,
+    ReviewQueueQuery,
+    ReviewQueueResult,
+    ReviewQueueService,
+    ReviewTaskDetail,
+    ReviewTaskSummary,
+)
 from .review_tasks import (
     REVIEW_TASK_POLICY_VERSION,
     ReviewTaskCreationError,
@@ -290,6 +299,13 @@ __all__ = [
     "validate_confidence",
     "validate_extracted_document_type",
     "validate_extracted_madhhab",
+    "REVIEW_QUEUE_POLICY_VERSION",
+    "ReviewQueueError",
+    "ReviewQueueQuery",
+    "ReviewQueueResult",
+    "ReviewQueueService",
+    "ReviewTaskDetail",
+    "ReviewTaskSummary",
     "REVIEW_TASK_POLICY_VERSION",
     "ReviewTaskCreationError",
     "ReviewTaskService",
