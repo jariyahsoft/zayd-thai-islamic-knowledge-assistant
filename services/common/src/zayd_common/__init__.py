@@ -71,6 +71,21 @@ from .licenses import (
     PublicationAuthorization,
 )
 from .logging import get_logger
+from .metadata_extraction import (
+    DEFAULT_EXTRACTOR_NAME,
+    DEFAULT_EXTRACTOR_VERSION,
+    METADATA_EXTRACTION_POLICY_VERSION,
+    ExtractedChapter,
+    ExtractedField,
+    ExtractedReference,
+    MetadataExtractionError,
+    MetadataExtractionResult,
+    MetadataExtractionService,
+    RuleBasedExtractor,
+    validate_confidence,
+    validate_extracted_document_type,
+    validate_extracted_madhhab,
+)
 from .mfa import (
     PRIVILEGED_ROLE_NAMES,
     MfaChallenge,
@@ -255,4 +270,17 @@ __all__ = [
     "normalize_arabic",
     "normalize_text",
     "normalize_thai",
+    "METADATA_EXTRACTION_POLICY_VERSION",
+    "DEFAULT_EXTRACTOR_NAME",
+    "DEFAULT_EXTRACTOR_VERSION",
+    "ExtractedField",
+    "ExtractedChapter",
+    "ExtractedReference",
+    "MetadataExtractionError",
+    "MetadataExtractionResult",
+    "MetadataExtractionService",
+    "RuleBasedExtractor",
+    "validate_confidence",
+    "validate_extracted_document_type",
+    "validate_extracted_madhhab",
 ]

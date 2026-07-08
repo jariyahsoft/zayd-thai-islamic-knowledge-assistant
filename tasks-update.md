@@ -1,3 +1,16 @@
+## 2026-07-08T15:00:00+00:00
+
+- Task: TASK-05-06 - Metadata Extraction Service
+- Attempt: 2
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented configurable rule-based metadata extraction service for suggested title, author, translator, madhhab, document type, chapters, and references from parsed document text. All suggestions are marked UNVERIFIED and stored as version metadata without overwriting canonical Document fields. Includes MetadataExtractor protocol, RuleBasedExtractor with Thai/Arabic/English patterns, schema validation (confidence, madhhab, document type), prompt-version trace support, and serialization for persistence.
+- Changed files: `services/common/src/zayd_common/metadata_extraction.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_metadata_extraction.py`, `docs/architecture/metadata-extraction.md`, `tasks/05_ingestion/05-06_metadata_extraction_service.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_metadata_extraction.py -v` passed (32 tests); `uv run ruff check` passed; `uv run mypy` passed.
+- Self-review: All extracted fields default to UNVERIFIED. Extraction stores results in version metadata without modifying Document fields. Schema validation rejects out-of-range confidence, invalid madhhab, and invalid document type. No secrets, production data, restricted religious content, or third-party code introduced.
+- Telegram notification: sent (STARTED)
+- Remaining risks: AI/LLM extractor not yet implemented; publisher/edition detection not yet implemented; no API endpoint exposed yet.
+
 ## 2026-07-08T14:45:00+00:00
 
 - Task: TASK-05-05 - Thai and Arabic Text Normalization

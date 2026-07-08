@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -64,9 +64,9 @@ Use configurable AI/rule extractors to suggest title, author, translator, chapte
 
 ## Acceptance Criteria
 
-- [ ] All machine-generated fields are marked UNVERIFIED.
-- [ ] Extraction cannot publish or overwrite reviewed metadata automatically.
-- [ ] Structured output validation rejects malformed results.
+- [x] All machine-generated fields are marked UNVERIFIED.
+- [x] Extraction cannot publish or overwrite reviewed metadata automatically.
+- [x] Structured output validation rejects malformed results.
 
 ## Required Tests
 
@@ -92,28 +92,45 @@ Use configurable AI/rule extractors to suggest title, author, translator, chapte
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/metadata_extraction.py` — New module: MetadataExtractor protocol, RuleBasedExtractor, MetadataExtractionService, ExtractedField/Chapter/Reference result types, schema validation, serialization.
+- `services/common/src/zayd_common/__init__.py` — Exported metadata extraction types.
+- `services/common/tests/test_metadata_extraction.py` — 32 unit tests: schema validation (10), rule-based extraction golden fixtures (13), provider failure/fallback (2), service integration (3), prompt-version trace (2).
+- `docs/architecture/metadata-extraction.md` — Architecture documentation.
+- `tasks/05_ingestion/05-06_metadata_extraction_service.md` — Updated status and completion report.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_metadata_extraction.py -v` — 32 passed.
+- `uv run ruff check services/common/src/zayd_common/metadata_extraction.py services/common/tests/test_metadata_extraction.py` — All checks passed.
+- `uv run mypy services/common/src/zayd_common/metadata_extraction.py --ignore-missing-imports` — Success: no issues found.
 
 ### Acceptance Criteria Result
 
-- Pending
+- ✅ Verified. Every `ExtractedField` defaults to `verification_status="unverified"`. Test: `test_all_suggestions_unverified_by_default`.
+- ✅ Verified. Extraction stores results as version metadata (`metadata_json["metadata_extraction"]`) without modifying canonical Document fields. Test: `test_extract_and_persist`.
+- ✅ Verified. Schema validation (`validate_confidence`, `validate_extracted_madhhab`, `validate_extracted_document_type`) rejects out-of-range confidence, invalid madhhab, and invalid document type with `EXTRACTION_MALFORMED_OUTPUT`. Tests: `TestSchemaValidation` class (10 tests).
 
 ### Security and License Review
 
-- Pending
+- All extracted fields are UNVERIFIED and cannot overwrite reviewed metadata automatically.
+- Extraction operates on in-memory strings only; no filesystem access.
+- No production secrets, restricted religious content, PHI, third-party code, or new dependencies were introduced.
+- Extractor output is validated schematically before persistence.
 
 ### Known Limitations
 
-- Pending
+- Rule-based extractor uses simple heuristics; AI/LLM extractor not yet implemented.
+- Publisher and edition detection are not yet implemented in the rule-based extractor.
+- No API endpoint exposed yet — extraction is called programmatically from the ingestion pipeline.
+- Thai author detection patterns may not cover all possible formulations.
 
 ### Follow-up Tasks
 
-- Pending
+- Add AI/LLM extractor with prompt version tracking behind the MetadataExtractor protocol.
+- Add publisher, edition, and other field detection to the rule-based extractor.
+- Expose metadata extraction preview via API (GET /documents/{id}/metadata-suggestions).
+- Wire metadata extraction as automatic stage after parsing in the ingestion pipeline.
 
 ### Commit
 
-- Pending
+- Pending (task verified, ready for focused commit).
