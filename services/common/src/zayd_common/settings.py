@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 from urllib.parse import urlparse
 
 from pydantic import SecretStr, ValidationError, field_validator, model_validator
@@ -65,7 +65,14 @@ class ServiceSettings(BaseSettings):
     llm_api_key: SecretStr | None = None
     llm_model: str | None = None
     embedding_provider: EmbeddingProvider = "local"
+    embedding_base_url: str | None = None
+    embedding_api_key: SecretStr | None = None
     embedding_model: str | None = None
+    embedding_revision: str | None = None
+    embedding_dimensions: int = 128
+    embedding_batch_size: int = 32
+    embedding_timeout_seconds: int = 20
+    embedding_max_retries: int = 1
     default_language: Language = "th"
     default_madhhab: Madhhab = "shafii"
     enable_external_providers: bool = False
@@ -97,7 +104,14 @@ class ServiceSettings(BaseSettings):
     def validate_s3_endpoint(cls, value: str) -> str:
         return _parse_url(value, "S3_ENDPOINT")
 
-    @field_validator("s3_max_attempts", "s3_signed_url_ttl_seconds")
+    @field_validator(
+        "s3_max_attempts",
+        "s3_signed_url_ttl_seconds",
+        "embedding_dimensions",
+        "embedding_batch_size",
+        "embedding_timeout_seconds",
+        "embedding_max_retries",
+    )
     @classmethod
     def validate_positive_s3_ints(cls, value: int) -> int:
         if value < 1:
@@ -116,6 +130,13 @@ class ServiceSettings(BaseSettings):
     def validate_llm_base_url(cls, value: str) -> str:
         return _parse_url(value, "LLM_BASE_URL")
 
+    @field_validator("embedding_base_url")
+    @classmethod
+    def validate_embedding_base_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _parse_url(value, "EMBEDDING_BASE_URL")
+
     @model_validator(mode="after")
     def validate_runtime_rules(self) -> ServiceSettings:
         if not self.enable_external_providers:
@@ -129,6 +150,16 @@ class ServiceSettings(BaseSettings):
                 raise ValueError(
                     "LLM_BASE_URL must point to a local endpoint when "
                     "ENABLE_EXTERNAL_PROVIDERS=false",
+                )
+
+        if self.embedding_provider == "openai_compatible":
+            if self.embedding_base_url is None:
+                raise ValueError(
+                    "EMBEDDING_BASE_URL is required when EMBEDDING_PROVIDER=openai_compatible",
+                )
+            if self.embedding_model is None:
+                raise ValueError(
+                    "EMBEDDING_MODEL is required when EMBEDDING_PROVIDER=openai_compatible",
                 )
 
         if self.environment == "production":
@@ -151,7 +182,7 @@ class ServiceSettings(BaseSettings):
         try:
             return cls(
                 app_name=app_name,
-                environment=_get_env("APP_ENV", "local"),
+                environment=cast(Environment, _get_env("APP_ENV", "local")),
                 app_url=_get_env("APP_URL", "http://localhost:3100"),
                 database_url=_get_env(
                     "DATABASE_URL",
@@ -163,20 +194,36 @@ class ServiceSettings(BaseSettings):
                 s3_access_key=SecretStr(_get_env("S3_ACCESS_KEY", "minioadmin")),
                 s3_secret_key=SecretStr(_get_env("S3_SECRET_KEY", "minioadmin")),
                 s3_bucket=_get_env("S3_BUCKET", "zayd-private"),
-                s3_addressing_style=_get_env("S3_ADDRESSING_STYLE", "auto"),
+                s3_addressing_style=cast(
+                    S3AddressingStyle,
+                    _get_env("S3_ADDRESSING_STYLE", "auto"),
+                ),
                 s3_max_attempts=int(_get_env("S3_MAX_ATTEMPTS", "3")),
                 s3_signed_url_ttl_seconds=int(_get_env("S3_SIGNED_URL_TTL_SECONDS", "300")),
-                llm_provider=_get_env("LLM_PROVIDER", "openai_compatible"),
+                llm_provider=cast(
+                    LlmProvider,
+                    _get_env("LLM_PROVIDER", "openai_compatible"),
+                ),
                 llm_base_url=_get_env("LLM_BASE_URL", "http://ollama:11434"),
                 llm_api_key=_optional_secret("LLM_API_KEY"),
                 llm_model=_optional_str("LLM_MODEL"),
-                embedding_provider=_get_env("EMBEDDING_PROVIDER", "local"),
+                embedding_provider=cast(
+                    EmbeddingProvider,
+                    _get_env("EMBEDDING_PROVIDER", "local"),
+                ),
+                embedding_base_url=_optional_str("EMBEDDING_BASE_URL"),
+                embedding_api_key=_optional_secret("EMBEDDING_API_KEY"),
                 embedding_model=_optional_str("EMBEDDING_MODEL"),
-                default_language=_get_env("DEFAULT_LANGUAGE", "th"),
-                default_madhhab=_get_env("DEFAULT_MADHHAB", "shafii"),
+                embedding_revision=_optional_str("EMBEDDING_REVISION"),
+                embedding_dimensions=int(_get_env("EMBEDDING_DIMENSIONS", "128")),
+                embedding_batch_size=int(_get_env("EMBEDDING_BATCH_SIZE", "32")),
+                embedding_timeout_seconds=int(_get_env("EMBEDDING_TIMEOUT_SECONDS", "20")),
+                embedding_max_retries=int(_get_env("EMBEDDING_MAX_RETRIES", "1")),
+                default_language=cast(Language, _get_env("DEFAULT_LANGUAGE", "th")),
+                default_madhhab=cast(Madhhab, _get_env("DEFAULT_MADHHAB", "shafii")),
                 enable_external_providers=_get_bool("ENABLE_EXTERNAL_PROVIDERS", False),
                 enable_guest_mode=_get_bool("ENABLE_GUEST_MODE", True),
-                log_level=_get_env("LOG_LEVEL", "INFO"),
+                log_level=cast(LogLevel, _get_env("LOG_LEVEL", "INFO")),
                 auth_jwt_secret=SecretStr(
                     _get_env("AUTH_JWT_SECRET", "dev-jwt-secret-change-me"),
                 ),

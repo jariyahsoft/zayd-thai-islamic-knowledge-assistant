@@ -1,3 +1,17 @@
+## 2026-07-09T01:02:00+07:00
+
+- Task: TASK-07-02 - Embedding Provider Interface
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added a versioned embedding provider interface with a deterministic local adapter and an OpenAI-compatible adapter. Runtime configuration now tracks provider base URL, model, revision, dimensions, batch size, timeout, and retry settings. Dimension mismatches are validated before downstream write/search use, and retrieval service startup now reads runtime settings consistently.
+- Changed files: `services/common/src/zayd_common/embeddings.py` (new), `services/common/src/zayd_common/settings.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_embeddings.py` (new), `services/common/tests/test_settings_embeddings.py` (new), `services/retrieval/src/zayd_service_retrieval/service.py`, `docs/development/embedding-providers.md` (new), `tasks/07_retrieval/07-02_embedding_provider_interface.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: embedding/settings/retrieval tests passed with 10 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: The local provider keeps self-hosted mode free of proprietary dependencies. The OpenAI-compatible adapter uses bounded retry and finite timeout and fails closed on auth, transport, malformed payload, and dimension errors. No secrets or restricted content were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: The local adapter is a deterministic compatibility placeholder rather than a semantic embedding model. Vector persistence and re-embedding orchestration remain later tasks.
+- Commit: focused commit `feat(retrieval): add embedding provider interface`.
+
 ## 2026-07-09T00:38:39+07:00
 
 - Task: TASK-07-01 - Chunking Framework

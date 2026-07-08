@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Define embedding provider contracts and adapters for local and OpenAI-compatible
 
 ## Acceptance Criteria
 
-- [ ] Provider can be changed through configuration.
-- [ ] Dimension mismatches are detected before write/search.
-- [ ] Batching, timeout and retry behavior are documented and tested.
+- [x] Provider can be changed through configuration.
+- [x] Dimension mismatches are detected before write/search.
+- [x] Batching, timeout and retry behavior are documented and tested.
 
 ## Required Tests
 
@@ -90,28 +90,43 @@ Define embedding provider contracts and adapters for local and OpenAI-compatible
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/embeddings.py`
+- `services/common/src/zayd_common/settings.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/tests/test_embeddings.py`
+- `services/common/tests/test_settings_embeddings.py`
+- `docs/development/embedding-providers.md`
+- `tasks/07_retrieval/07-02_embedding_provider_interface.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_embeddings.py services/common/tests/test_settings_embeddings.py services/retrieval/tests/test_retrieval_imports.py -v`
+- `uv run ruff check services/common/src/zayd_common/embeddings.py services/common/src/zayd_common/settings.py services/common/src/zayd_common/__init__.py services/common/tests/test_embeddings.py services/common/tests/test_settings_embeddings.py services/retrieval/src/zayd_service_retrieval/service.py`
+- `uv run mypy services/common/src/zayd_common/embeddings.py services/common/src/zayd_common/settings.py services/retrieval/src/zayd_service_retrieval/service.py --ignore-missing-imports`
+- `python3 -m py_compile services/common/src/zayd_common/embeddings.py services/common/src/zayd_common/settings.py services/retrieval/src/zayd_service_retrieval/service.py services/common/tests/test_embeddings.py services/common/tests/test_settings_embeddings.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Embedding providers are selected from runtime configuration and support local or OpenAI-compatible adapters without changing call sites.
+- Passed. `EmbeddingService` validates provider dimensions for document and query embeddings before downstream write/search operations.
+- Passed. Documentation and tests cover batching, finite timeout, and bounded retry behavior for the OpenAI-compatible adapter.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, restricted religious datasets, or proprietary dependencies were introduced.
+- Local mode remains available with no external provider requirement, and OpenAI-compatible mode fails closed when configuration or transport guarantees are invalid.
 
 ### Known Limitations
 
-- Pending
+- The local provider is deterministic hashing for self-hosted compatibility, not a semantic model. Real vector storage and provider-backed re-embedding remain follow-up work.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-07-04 Vector Search with pgvector
+- TASK-07-05 Hybrid Search
 
 ### Commit
 
-- Pending
+- Focused commit `feat(retrieval): add embedding provider interface`
