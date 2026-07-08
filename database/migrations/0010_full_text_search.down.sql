@@ -1,0 +1,6 @@
+DROP INDEX IF EXISTS idx_source_licenses_retrieval_filters;
+DROP INDEX IF EXISTS idx_document_versions_published_filters;
+DROP INDEX IF EXISTS idx_documents_published_filters;
+DROP INDEX IF EXISTS idx_document_chunks_content_normalized_tsv;
+DROP INDEX IF EXISTS idx_document_chunks_content_normalized_trgm;
+DROP INDEX IF EXISTS idx_document_chunks_reference_lookup;

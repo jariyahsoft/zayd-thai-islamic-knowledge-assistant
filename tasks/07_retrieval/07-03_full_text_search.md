@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -63,9 +63,9 @@ Implement PostgreSQL full-text/exact search suitable for Thai, Arabic references
 
 ## Acceptance Criteria
 
-- [ ] Only published chunks are searched.
-- [ ] Exact canonical references receive deterministic handling.
-- [ ] Filters support language, madhhab, source type and license eligibility.
+- [x] Only published chunks are searched.
+- [x] Exact canonical references receive deterministic handling.
+- [x] Filters support language, madhhab, source type and license eligibility.
 
 ## Required Tests
 
@@ -91,28 +91,44 @@ Implement PostgreSQL full-text/exact search suitable for Thai, Arabic references
 
 ### Files Changed
 
-- Pending
+- `services/retrieval/src/zayd_service_retrieval/full_text_search.py`
+- `services/retrieval/src/zayd_service_retrieval/__init__.py`
+- `services/retrieval/tests/test_full_text_search.py`
+- `database/migrations/0010_full_text_search.up.sql`
+- `database/migrations/0010_full_text_search.down.sql`
+- `database/migrations/README.md`
+- `docs/architecture/full-text-search.md`
+- `tasks/07_retrieval/07-03_full_text_search.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/retrieval/tests/test_full_text_search.py services/retrieval/tests/test_retrieval_imports.py -v`
+- `uv run ruff check services/retrieval/src/zayd_service_retrieval/full_text_search.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/src/zayd_service_retrieval/service.py services/retrieval/tests/test_full_text_search.py database/migrations/README.md`
+- `uv run mypy services/retrieval/src/zayd_service_retrieval/full_text_search.py services/retrieval/src/zayd_service_retrieval/service.py --ignore-missing-imports`
+- `python3 -m py_compile services/retrieval/src/zayd_service_retrieval/full_text_search.py services/retrieval/src/zayd_service_retrieval/service.py services/retrieval/tests/test_full_text_search.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Search only returns chunks that remain published and whose document/version/source/license state is retrieval-eligible.
+- Passed. Exact canonical reference matches are scored deterministically ahead of full-text matches, with prefix handling preserved for structured references.
+- Passed. Query filters cover language, madhhab, source type, license status, and source reliability constraints.
 
 ### Security and License Review
 
-- Pending
+- Search visibility is enforced in the query path rather than post-filtered in application code.
+- The retrieval filter path fails closed for ineligible licenses, unpublished versions, unpublished chunks, and inactive sources.
 
 ### Known Limitations
 
-- Pending
+- SQLite tests validate behavior and scoring rules, while PostgreSQL-specific `tsvector` and trigram performance depends on applying the new migration in a Postgres environment.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-07-04 Vector Search with pgvector
+- TASK-07-05 Hybrid Search
 
 ### Commit
 
-- Pending
+- Focused commit `feat(retrieval): add full-text search service`

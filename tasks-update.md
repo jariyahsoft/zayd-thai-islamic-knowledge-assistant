@@ -1,3 +1,17 @@
+## 2026-07-09T01:40:00+07:00
+
+- Task: TASK-07-03 - Full-text Search
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added exact-reference and full-text retrieval in the retrieval service with deterministic reference scoring, published-only visibility gates, and structured metadata filters for madhhab, source type, license status, source language, and reliability. Added PostgreSQL-oriented search indexes and architecture documentation while keeping SQLite behavioral tests for repository verification.
+- Changed files: `services/retrieval/src/zayd_service_retrieval/full_text_search.py` (new), `services/retrieval/src/zayd_service_retrieval/__init__.py`, `services/retrieval/tests/test_full_text_search.py` (new), `database/migrations/0010_full_text_search.up.sql` (new), `database/migrations/0010_full_text_search.down.sql` (new), `database/migrations/README.md`, `docs/architecture/full-text-search.md` (new), `tasks/07_retrieval/07-03_full_text_search.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: full-text/retrieval tests passed with 5 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Search visibility constraints are expressed in the query itself, not post-processed, which matches the SRS requirement to enforce retrieval status and license filters inside data access. Exact references are deterministic, and non-published or license-ineligible chunks remain hidden. No secrets, restricted datasets, or third-party code were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: PostgreSQL performance and ranking quality will depend on applying migration `0010_full_text_search` in a Postgres environment; SQLite coverage here verifies behavior, not production query plans.
+- Commit: focused commit `feat(retrieval): add full-text search service`.
+
 ## 2026-07-09T01:02:00+07:00
 
 - Task: TASK-07-02 - Embedding Provider Interface
