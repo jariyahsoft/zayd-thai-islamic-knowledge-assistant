@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
+from zayd_common.chunking import CHUNKING_FRAMEWORK_VERSION, PARAGRAPH_STRATEGY_VERSION
 from zayd_common.database.models import (
     AuditLog,
     Base,
@@ -191,10 +192,11 @@ def test_publish_success_records_versions_and_exposes_chunks(db):
     assert result.published_version_id == version_id
     assert result.document_status == "published"
     assert result.version_status == "published"
-    assert result.chunk_count == 1
+    assert result.chunk_count == 2
     assert result.idempotent is False
     assert result.policy_version == DOCUMENT_PUBLISH_POLICY_VERSION
     assert result.chunking_strategy_version == CHUNKING_STRATEGY_VERSION
+    assert result.chunking_strategy_version == CHUNKING_FRAMEWORK_VERSION
     assert result.embedding_pipeline_version == EMBEDDING_PIPELINE_VERSION
     assert result.citation_pipeline_version == CITATION_PIPELINE_VERSION
     with db() as session:
@@ -203,6 +205,7 @@ def test_publish_success_records_versions_and_exposes_chunks(db):
         chunks = session.execute(
             select(DocumentChunk).where(DocumentChunk.document_version_id == version_id)
         ).scalars().all()
+        chunks = sorted(chunks, key=lambda chunk: chunk.chunk_index)
         logs = session.execute(
             select(AuditLog).where(AuditLog.action == "documents.publish")
         ).scalars().all()
@@ -213,10 +216,20 @@ def test_publish_success_records_versions_and_exposes_chunks(db):
     assert version.frozen_at is not None
     assert version.metadata_json["publishing"]["published_version_id"] == str(version_id)
     assert version.metadata_json["publishing"]["license_policy_version"]
-    assert len(chunks) == 1
-    assert chunks[0].is_published is True
+    assert len(chunks) == 2
+    assert all(chunk.is_published is True for chunk in chunks)
+    assert [chunk.chunking_strategy_version for chunk in chunks] == [
+        PARAGRAPH_STRATEGY_VERSION,
+        PARAGRAPH_STRATEGY_VERSION,
+    ]
+    assert [chunk.reference for chunk in chunks] == [
+        "doc-publish:v1:paragraph-1",
+        "doc-publish:v1:paragraph-2",
+    ]
+    assert chunks[0].metadata_json["document_version_id"] == str(version_id)
+    assert chunks[0].metadata_json["chunking_framework_version"] == CHUNKING_FRAMEWORK_VERSION
     assert chunks[0].metadata_json["embedding"]["pipeline_version"] == EMBEDDING_PIPELINE_VERSION
-    assert chunks[0].metadata_json["citation"]["canonical_reference"].endswith("chunk-1")
+    assert chunks[0].metadata_json["citation"]["canonical_reference"].endswith("paragraph-1")
     assert any(log.trace_id == "trace-publish" and log.outcome == "success" for log in logs)
 
 

@@ -42,11 +42,13 @@ Chunk content hashes include version ID, chunk index, canonical reference, and n
 The current versions are:
 
 - Publishing policy: `document-publish-v1`
-- Chunking strategy: `publish-chunker-v1`
+- Chunking framework: `retrieval-chunking-v1`
 - Embedding record pipeline: `embedding-record-v1`
 - Canonical citation pipeline: `canonical-citation-v1`
 - License policy engine: `license-policy-engine-v1`
 - Scholar approval policy: `scholar-approval-v1`
+
+Publishing now uses the retrieval chunking framework described in `docs/architecture/chunking.md`. Each chunk row records the selected semantic strategy version, and each chunk metadata object records the framework version, strategy name, normalization versions, citation placeholder, and embedding placeholder.
 
 Embedding and citation provider integrations are not executed in this task. Instead, each chunk records deterministic embedding and citation metadata with the pipeline version, canonical reference, and `pending_provider` embedding status. Later retrieval and citation tasks can replace those placeholders with provider-backed records without changing the publishing gate.
 

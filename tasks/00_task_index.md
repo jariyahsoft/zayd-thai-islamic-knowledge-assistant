@@ -86,9 +86,9 @@
 | TASK-06-03 | Scholar Approval Workflow | S | DONE | TASK-06-02 | `06_review/06-03_scholar_approval_workflow.md` |
 | TASK-06-04 | Document Publishing Service | S | DONE | TASK-06-03 | `06_review/06-04_document_publishing_service.md` |
 | TASK-06-05 | Suspend and Rollback Published Documents | S | DONE | TASK-06-04 | `06_review/06-05_suspend_and_rollback_published_documents.md` |
-| TASK-07-01 | Chunking Framework | S | READY | EPIC-06 complete | `07_retrieval/07-01_chunking_framework.md` |
-| TASK-07-02 | Embedding Provider Interface | A | TODO | TASK-07-01 | `07_retrieval/07-02_embedding_provider_interface.md` |
-| TASK-07-03 | Full-text Search | A | TODO | TASK-07-01 | `07_retrieval/07-03_full_text_search.md` |
+| TASK-07-01 | Chunking Framework | S | DONE | EPIC-06 complete | `07_retrieval/07-01_chunking_framework.md` |
+| TASK-07-02 | Embedding Provider Interface | A | READY | TASK-07-01 | `07_retrieval/07-02_embedding_provider_interface.md` |
+| TASK-07-03 | Full-text Search | A | READY | TASK-07-01 | `07_retrieval/07-03_full_text_search.md` |
 | TASK-07-04 | Vector Search with pgvector | S | TODO | TASK-07-02 | `07_retrieval/07-04_vector_search_with_pgvector.md` |
 | TASK-07-05 | Hybrid Search | S | TODO | TASK-07-03, TASK-07-04 | `07_retrieval/07-05_hybrid_search.md` |
 | TASK-07-06 | Multilingual Query Expansion | S | TODO | TASK-07-05 | `07_retrieval/07-06_multilingual_query_expansion.md` |

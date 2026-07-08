@@ -7,7 +7,6 @@ records pipeline versions, and exposes the version atomically for retrieval.
 from __future__ import annotations
 
 import hashlib
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -16,6 +15,12 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import delete, select
 
+from zayd_common.chunking import (
+    CHUNKING_FRAMEWORK_VERSION,
+    ChunkingError,
+    chunk_text_for_retrieval,
+    chunking_strategy_versions,
+)
 from zayd_common.database.models import (
     AuditLog,
     Document,
@@ -31,12 +36,11 @@ from zayd_common.license_policy import (
     LicensePolicyInput,
     evaluate_license_policy,
 )
-from zayd_common.normalization import NORMALIZATION_FRAMEWORK_VERSION, normalize_text
 from zayd_common.scholar_approval import SCHOLAR_APPROVAL_POLICY_VERSION
 from zayd_common.state_machines import DocumentStateMachine, TransitionMetadata
 
 DOCUMENT_PUBLISH_POLICY_VERSION = "document-publish-v1"
-CHUNKING_STRATEGY_VERSION = "publish-chunker-v1"
+CHUNKING_STRATEGY_VERSION = CHUNKING_FRAMEWORK_VERSION
 EMBEDDING_PIPELINE_VERSION = "embedding-record-v1"
 CITATION_PIPELINE_VERSION = "canonical-citation-v1"
 PUBLISHING_METADATA_KEY = "publishing"
@@ -60,7 +64,6 @@ _REQUIRED_BY_RISK: dict[str, tuple[str, ...]] = {
     "restricted": ("initial", "scholar", "board"),
 }
 _MAX_CHUNK_WORDS = 180
-_MIN_CHUNK_WORDS = 1
 
 
 class DocumentPublishingError(Exception):
@@ -285,6 +288,7 @@ class DocumentPublishingService:
                     "license_policy_version": license_decision.policy_version,
                     "scholar_approval_policy_version": SCHOLAR_APPROVAL_POLICY_VERSION,
                     "chunking_strategy_version": CHUNKING_STRATEGY_VERSION,
+                    "chunking_strategy_versions": list(chunking_strategy_versions()),
                     "embedding_pipeline_version": EMBEDDING_PIPELINE_VERSION,
                     "citation_pipeline_version": CITATION_PIPELINE_VERSION,
                 },
@@ -488,59 +492,47 @@ def _build_chunks(
     license_record: SourceLicense,
     published_at: datetime,
 ) -> list[DocumentChunk]:
-    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
-    chunks: list[str] = []
-    current: list[str] = []
-    current_word_count = 0
-    for paragraph in paragraphs or [text]:
-        words = paragraph.split()
-        if len(words) > _MAX_CHUNK_WORDS:
-            if current:
-                chunks.append("\n\n".join(current))
-                current = []
-                current_word_count = 0
-            for start in range(0, len(words), _MAX_CHUNK_WORDS):
-                chunks.append(" ".join(words[start : start + _MAX_CHUNK_WORDS]))
-            continue
-        if current and current_word_count + len(words) > _MAX_CHUNK_WORDS:
-            chunks.append("\n\n".join(current))
-            current = []
-            current_word_count = 0
-        current.append(paragraph)
-        current_word_count += len(words)
-    if current:
-        chunks.append("\n\n".join(current))
-
-    if not chunks:
+    try:
+        chunking_result = chunk_text_for_retrieval(
+            document_version_id=version.id,
+            canonical_id=document.canonical_id,
+            version_number=version.version_number,
+            text=text,
+            language=document.language,
+            document_type=document.document_type,
+            max_tokens=_MAX_CHUNK_WORDS,
+        )
+    except ChunkingError as exc:
         raise DocumentPublishingError(
             "DOCUMENT_PUBLISH_EMPTY_CONTENT",
             "Document version has no chunkable text.",
             status_code=409,
-        )
+        ) from exc
 
     built_chunks: list[DocumentChunk] = []
-    for index, content in enumerate(chunks):
-        normalized = normalize_text(content, language=document.language)
-        token_count = max(_MIN_CHUNK_WORDS, len(content.split()))
-        reference = _canonical_reference(document, version, index)
-        content_hash = _chunk_hash(version.id, index, normalized.normalized, reference)
+    for draft in chunking_result.chunks:
+        content_hash = _chunk_hash(
+            version.id,
+            draft.chunk_index,
+            draft.content_normalized,
+            draft.reference,
+        )
         built_chunks.append(
             DocumentChunk(
                 id=uuid4(),
                 document_version_id=version.id,
-                chunk_index=index,
-                content=content,
-                content_normalized=normalized.normalized,
-                token_count=token_count,
-                page_start=None,
-                page_end=None,
-                section=None,
-                reference=reference,
+                chunk_index=draft.chunk_index,
+                content=draft.content,
+                content_normalized=draft.content_normalized,
+                token_count=draft.token_count,
+                page_start=draft.page_start,
+                page_end=draft.page_end,
+                section=draft.section,
+                reference=draft.reference,
                 metadata_json={
+                    **draft.metadata,
                     "publishing_policy_version": DOCUMENT_PUBLISH_POLICY_VERSION,
-                    "normalization_framework_version": NORMALIZATION_FRAMEWORK_VERSION,
-                    "normalizer_version": normalized.normalizer_version,
-                    "normalization_steps": list(normalized.steps_applied),
+                    "document_version_id": str(version.id),
                     "embedding": {
                         "pipeline_version": EMBEDDING_PIPELINE_VERSION,
                         "record_status": "pending_provider",
@@ -550,21 +542,17 @@ def _build_chunks(
                     },
                     "citation": {
                         "pipeline_version": CITATION_PIPELINE_VERSION,
-                        "canonical_reference": reference,
+                        "canonical_reference": draft.reference,
                         "verified": False,
                     },
                     "published_at": published_at.isoformat(),
                 },
                 is_published=False,
-                chunking_strategy_version=CHUNKING_STRATEGY_VERSION,
+                chunking_strategy_version=draft.strategy_version,
                 content_hash=content_hash,
             )
         )
     return built_chunks
-
-
-def _canonical_reference(document: Document, version: DocumentVersion, chunk_index: int) -> str:
-    return f"{document.canonical_id}:v{version.version_number}:chunk-{chunk_index + 1}"
 
 
 def _chunk_hash(version_id: UUID, chunk_index: int, normalized: str, reference: str) -> str:
@@ -596,6 +584,7 @@ def _publishing_metadata(
         "source_license_version": license_record.license_version,
         "scholar_approval_policy_version": SCHOLAR_APPROVAL_POLICY_VERSION,
         "chunking_strategy_version": CHUNKING_STRATEGY_VERSION,
+        "chunking_strategy_versions": list(chunking_strategy_versions()),
         "embedding_pipeline_version": EMBEDDING_PIPELINE_VERSION,
         "citation_pipeline_version": CITATION_PIPELINE_VERSION,
     }

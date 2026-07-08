@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Implement versioned chunking strategies for Quran verse, hadith, fiqh issue, hea
 
 ## Acceptance Criteria
 
-- [ ] Every chunk maps to an immutable published document version.
-- [ ] Strategy and version are recorded.
-- [ ] Chunk boundaries preserve semantic units for supported content types.
+- [x] Every chunk maps to an immutable published document version.
+- [x] Strategy and version are recorded.
+- [x] Chunk boundaries preserve semantic units for supported content types.
 
 ## Required Tests
 
@@ -90,28 +90,45 @@ Implement versioned chunking strategies for Quran verse, hadith, fiqh issue, hea
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/chunking.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/src/zayd_common/document_publishing.py`
+- `services/common/tests/test_chunking.py`
+- `services/common/tests/test_document_publishing.py`
+- `docs/architecture/chunking.md`
+- `docs/architecture/publishing-pipeline.md`
+- `tasks/07_retrieval/07-01_chunking_framework.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_chunking.py -v`
+- `uv run pytest services/common/tests/test_chunking.py services/common/tests/test_document_publishing.py services/api/tests/test_document_review_api.py -v`
+- `uv run ruff check services/common/src/zayd_common/chunking.py services/common/src/zayd_common/document_publishing.py services/common/src/zayd_common/__init__.py services/common/tests/test_chunking.py services/common/tests/test_document_publishing.py`
+- `uv run mypy services/common/src/zayd_common/chunking.py services/common/src/zayd_common/document_publishing.py services/api/src/zayd_service_api/app.py --ignore-missing-imports`
+- `python3 -m py_compile services/common/src/zayd_common/chunking.py services/common/src/zayd_common/document_publishing.py services/common/tests/test_chunking.py services/common/tests/test_document_publishing.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Chunk drafts include immutable `document_version_id`, canonical references, page/section/context metadata, framework version, and per-strategy version. Publishing persists these into `document_chunks` before the atomic retrieval visibility flip.
+- Passed. Strategy versions are recorded on chunk rows and in chunk metadata; publishing metadata records the retrieval chunking framework and strategy version set.
+- Passed. Tests cover Quran verse, hadith record, fiqh issue, heading section, table, paragraph, and fixed-window overlap boundaries.
 
 ### Security and License Review
 
-- Pending
+- No secrets, credentials, production data, restricted religious datasets, PHI, signed URLs, or third-party code were introduced.
+- Chunking is deterministic local processing and remains behind existing publishing approval/license gates.
 
 ### Known Limitations
 
-- Pending
+- Quran, hadith, and fiqh boundary detection is rule-based and intentionally conservative until richer parser metadata or reviewed structured references are available.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-07-02 Embedding Provider Interface
+- TASK-07-03 Full-text Search
 
 ### Commit
 
-- Pending
+- Focused commit `feat(retrieval): add versioned chunking framework`

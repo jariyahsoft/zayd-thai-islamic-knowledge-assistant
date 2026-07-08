@@ -1,3 +1,17 @@
+## 2026-07-09T00:38:39+07:00
+
+- Task: TASK-07-01 - Chunking Framework
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented a versioned retrieval chunking framework with semantic strategies for Quran verse, hadith record, fiqh issue, heading section, table, paragraph, and fixed-window fallback. Integrated publishing to persist framework metadata, per-chunk strategy versions, canonical references, page/section/context data, normalization metadata, and deterministic chunk hashes before the existing atomic visibility flip. TASK-07-02 and TASK-07-03 are now READY.
+- Changed files: `services/common/src/zayd_common/chunking.py` (new), `services/common/src/zayd_common/__init__.py`, `services/common/src/zayd_common/document_publishing.py`, `services/common/tests/test_chunking.py` (new), `services/common/tests/test_document_publishing.py`, `docs/architecture/chunking.md` (new), `docs/architecture/publishing-pipeline.md`, `tasks/07_retrieval/07-01_chunking_framework.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: chunking unit tests passed with 9 passed; focused chunking/publishing/API regression suite passed with 33 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Every persisted chunk maps to an immutable document version and records the selected strategy version plus framework metadata. Publishing still enforces approval and license gates before chunk creation and only exposes chunks at the end of one transaction. No secrets, production data, PHI, signed URLs, credentials, restricted datasets, or third-party code were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: Semantic boundary detection is rule-based and conservative until parser metadata or reviewed structured references become richer.
+- Commit: focused commit `feat(retrieval): add versioned chunking framework`.
+
 ## 2026-07-09T00:12:58+07:00
 
 - Task: TASK-06-05 - Suspend and Rollback Published Documents
