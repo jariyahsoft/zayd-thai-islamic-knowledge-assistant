@@ -86,32 +86,50 @@ Implement local-provider adapters for Ollama and/or vLLM using the common LLM co
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/orchestrator/src/zayd_service_orchestrator/local_llm_adapters.py` — Ollama and vLLM adapters (98 lines)
+- `services/orchestrator/tests/test_local_llm_adapters.py` — 8 comprehensive tests
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py` — Exported local adapters
+- `docs/providers/local-llm.md` — Self-host documentation with model recommendations
 
 ### Commands and Tests Executed
 
-- Pending
+```bash
+uv run pytest services/orchestrator/tests/test_local_llm_adapters.py -v
+# 8 passed in 1.22s
+
+uv run pytest services/orchestrator/tests/ -v
+# 29 passed in 1.59s (all orchestrator tests)
+
+uv run mypy services/orchestrator/src/zayd_service_orchestrator/local_llm_adapters.py
+# Success: no issues found
+```
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Minimal self-host profile can operate without cloud LLM credentials — Ollama and vLLM require no API keys
+- [x] Unavailable local provider produces actionable health errors — Health checks return "unavailable" with clear messages
+- [x] Fallback configuration is supported — Registry allows multiple providers with fallback logic
 
 ### Security and License Review
 
-- Pending
+- No API keys required for local endpoints (Ollama)
+- Optional API key support for vLLM when needed
+- Health checks properly detect unavailable services
+- No production secrets committed
 
 ### Known Limitations
 
-- Pending
+- Local adapters assume OpenAI-compatible endpoints (Ollama and vLLM both support this)
+- Default timeouts are longer (60s) for local inference
+- Model selection is manual; no automatic model discovery
 
 ### Follow-up Tasks
 
-- Pending
+- Consider adding automatic model selection based on available Ollama models
+- Document recommended Thai-language models after testing
 
 ### Commit
 
-- Pending
+- `9c14e9c` — feat(orchestrator): add OpenAI-compatible and local LLM adapters
