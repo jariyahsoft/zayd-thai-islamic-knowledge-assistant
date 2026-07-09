@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -64,9 +64,9 @@ Verify citation existence, reference correctness, quoted-text fidelity, claim su
 
 ## Acceptance Criteria
 
-- [ ] Failed verification triggers revision or abstention.
-- [ ] Every cited claim has a machine-readable verification result.
-- [ ] Verifier cannot retrieve unpublished or invalidated evidence as valid.
+- [x] Failed verification triggers revision or abstention.
+- [x] Every cited claim has a machine-readable verification result.
+- [x] Verifier cannot retrieve unpublished or invalidated evidence as valid.
 
 ## Required Tests
 
@@ -89,32 +89,51 @@ Verify citation existence, reference correctness, quoted-text fidelity, claim su
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/orchestrator/src/zayd_service_orchestrator/citation_verification.py` (new)
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py`
+- `services/orchestrator/tests/test_citation_verification.py` (new)
+- `docs/architecture/citation-verification.md` (new)
+- `docs/architecture/answer-orchestrator.md`
+- `docs/architecture/citation-registry.md`
+- `tasks/08_orchestrator/08-08_citation_verification_engine.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/orchestrator/tests/test_citation_verification.py -q` — passed, 14 tests.
+- `uv run pytest services/orchestrator/tests/test_citation_verification.py services/orchestrator/tests/test_citation_registry.py services/orchestrator/tests/test_answer_orchestration.py services/orchestrator/tests/test_orchestrator_imports.py -q` — passed, 31 tests.
+- `uv run pytest services/orchestrator/tests -q` — passed, 107 tests.
+- `uv run ruff check services/orchestrator/src/zayd_service_orchestrator/citation_verification.py services/orchestrator/src/zayd_service_orchestrator/__init__.py services/orchestrator/tests/test_citation_verification.py` — passed.
+- `uv run ruff format --check ...` — passed.
+- `uv run mypy services/orchestrator/src/zayd_service_orchestrator/citation_verification.py services/orchestrator/tests/test_citation_verification.py` — passed.
+- `git diff --check` — passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Failed citation verification triggers orchestrator revision, then abstention when unrecovered (`test_revision_path_recovers_after_failed_verification`, `test_failed_verification_abstains_when_unrecovered`).
+- Passed. Every claim result includes machine-readable status, reason codes, check outcomes, and claim text hash.
+- Passed. Unpublished and invalidated citations fail closed with `CITATION_NOT_PUBLISHED` / `CITATION_INACTIVE` and cannot be treated as valid support.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, PHI, hidden chain-of-thought, restricted datasets, or third-party code were introduced.
+- Allowed-token, registry existence, active status, and publication checks prevent citation fabrication and unpublished evidence use.
+- Traces store claim hashes, IDs, tokens, scores, and reason codes rather than provider secrets or hidden reasoning.
 
 ### Known Limitations
 
-- Pending
+- Claim support is deterministic lexical/n-gram overlap, not full semantic entailment.
+- Production answer composition must supply citation token/content metadata or call `load_evidence_packs()`; lightweight fixtures still use the allowed-token fallback.
+- Prompt version management and streaming chat remain later tasks.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-08-09 Prompt Version Management (READY; depends only on TASK-08-06).
+- TASK-08-10 Streaming Chat API (blocked until TASK-08-08 and TASK-08-09 are both complete; 08-08 now complete).
 
 ### Commit
 
-- Pending
+- Focused commit `feat(orchestrator): add citation verification engine`.

@@ -87,12 +87,27 @@ Step traces must not include raw question text, full prompts, message payloads,
 answer text, hidden chain-of-thought, secrets, tokens, credentials, production
 payloads, or PHI.
 
+## Citation Verification
+
+Production answer composition should inject
+`CitationVerificationAnswerVerifier` so claim-level checks from
+`citation-verification-v1` run during the verify/revise loop. Failed
+verification triggers revision, then abstention if unrecovered.
+
+Retrieval candidates used with the claim-level verifier should carry:
+
+- `citation_token`
+- `citation_id`
+- `chunk_content`
+- publication and active status flags when available
+
+When that metadata is absent, the verifier falls back to the lightweight
+allowed-token subset check used by offline fixtures.
+
 ## Current Limitations
 
-- Citation verification is a deterministic local verifier for allowed citation
-  handles. Full citation registry and claim-support verification are future
-  TASK-08-07 and TASK-08-08 work.
 - The default template generator is deterministic for offline tests. Production
   model behavior should use the provider SDK through `LLMAnswerGenerator`.
 - The in-memory idempotency store is not durable and must be replaced by
   persistence in later API/conversation tasks.
+- Prompt version management remains TASK-08-09.

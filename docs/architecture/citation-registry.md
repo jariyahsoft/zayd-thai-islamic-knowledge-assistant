@@ -97,5 +97,6 @@ metadata or caller-supplied structured metadata, not model invention.
 ## Current Boundaries
 
 The registry owns citation identity, token mapping, and invalidation
-propagation. It does not decide whether a generated claim is supported by a
-registered citation; that belongs to the later citation verification engine.
+propagation. Claim-level support, quote fidelity, and madhhab consistency are
+enforced by `citation-verification-v1` (see
+`docs/architecture/citation-verification.md`).

@@ -1,3 +1,17 @@
+## 2026-07-09T13:49:53+07:00
+
+- Task: TASK-08-08 - Citation Verification Engine
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented `citation-verification-v1` with deterministic claim-level checks for allowed tokens, registry existence, active/published status, reference correctness, quote fidelity, claim support, and madhhab consistency. Optional LLM signals remain non-authoritative. Added answer-orchestrator verifier adapter so failed verification revises then abstains. TASK-08-09 is now READY.
+- Changed files: `services/orchestrator/src/zayd_service_orchestrator/citation_verification.py` (new), `services/orchestrator/src/zayd_service_orchestrator/__init__.py`, `services/orchestrator/tests/test_citation_verification.py` (new), `docs/architecture/citation-verification.md` (new), `docs/architecture/answer-orchestrator.md`, `docs/architecture/citation-registry.md`, `tasks/08_orchestrator/08-08_citation_verification_engine.md`, `tasks/08_orchestrator/08-09_prompt_version_management.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: citation verification tests passed with 14 passed; focused orchestrator/citation/answer regression passed with 31 passed; full orchestrator tests passed with 107 passed; focused Ruff lint passed; focused Ruff format check passed; focused mypy passed; `git diff --check` passed.
+- Self-review: Deterministic checks run before any optional model signal. Unpublished and invalidated citations fail closed. Every claim emits machine-readable status, reason codes, and check outcomes. No secrets, production data, PHI, restricted datasets, hidden chain-of-thought, or third-party code were introduced.
+- Telegram notification: disabled (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID not provided in invocation).
+- Remaining risks: Claim support is lexical/n-gram overlap, not full semantic entailment. Production composition must supply citation evidence metadata or use `load_evidence_packs()`. Streaming chat remains TASK-08-10 after TASK-08-09.
+- Commit: focused commit `feat(orchestrator): add citation verification engine`.
+
 ## 2026-07-09T13:29:20+07:00
 
 - Task: TASK-08-07 - Citation Registry
