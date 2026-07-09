@@ -1,5 +1,15 @@
 """Orchestrator service package."""
 
+from .local_llm_adapters import (
+    OllamaLLMAdapter,
+    OllamaLLMProvider,
+    VLLMLLMAdapter,
+    VLLMLLMProvider,
+)
+from .openai_llm_adapter import (
+    OpenAICompatibleLLMAdapter,
+    OpenAICompatibleLLMProvider,
+)
 from .provider_sdk import (
     PROVIDER_SDK_VERSION,
     AllowListedProviderRegistry,
@@ -62,6 +72,10 @@ __all__ = [
     "MockLLMProvider",
     "MockRerankerProvider",
     "MockVectorStoreProvider",
+    "OllamaLLMAdapter",
+    "OllamaLLMProvider",
+    "OpenAICompatibleLLMAdapter",
+    "OpenAICompatibleLLMProvider",
     "Provider",
     "ProviderCapabilities",
     "ProviderConfig",
@@ -75,6 +89,8 @@ __all__ = [
     "RerankResponse",
     "RerankResult",
     "RerankerProvider",
+    "VLLMLLMAdapter",
+    "VLLMLLMProvider",
     "VectorRecord",
     "VectorSearchRequest",
     "VectorSearchResult",
