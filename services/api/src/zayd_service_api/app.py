@@ -93,6 +93,7 @@ from zayd_common.conversations import (
     ConversationListResult,
     ConversationSummaryPublic,
 )
+from zayd_common.feedback import FeedbackError, FeedbackPublic, FeedbackService, FeedbackSubmit
 from zayd_common.saved_answers import (
     SavedAnswerError,
     SavedAnswerListResult,
@@ -297,6 +298,23 @@ class SavedAnswerListResponse(BaseModel):
 
 class SavedAnswerCreateRequest(BaseModel):
     answer_id: UUID
+
+
+class FeedbackSubmitRequest(BaseModel):
+    answer_id: UUID
+    category: str = Field(min_length=1, max_length=64)
+    notes: str | None = Field(default=None, max_length=2000)
+    citation_id: UUID | None = None
+
+
+class FeedbackResponse(BaseModel):
+    id: UUID
+    category: str
+    status: str
+    answer_id: UUID | None
+    citation_id: UUID | None
+    created_at: str
+    receipt_message: str
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -1377,6 +1395,18 @@ def _saved_answer_list_response(result: SavedAnswerListResult) -> SavedAnswerLis
     )
 
 
+def _feedback_response(feedback: FeedbackPublic) -> FeedbackResponse:
+    return FeedbackResponse(
+        id=feedback.id,
+        category=feedback.category,
+        status=feedback.status,
+        answer_id=feedback.answer_id,
+        citation_id=feedback.citation_id,
+        created_at=feedback.created_at.isoformat(),
+        receipt_message=feedback.receipt_message,
+    )
+
+
 def _public_source_warnings(source: SourcePublic) -> list[str]:
     warnings: list[str] = []
     if not source.is_active:
@@ -1624,6 +1654,11 @@ def create_app() -> FastAPI:
 
         return SavedAnswerService(SQLAlchemyUnitOfWork(session_factory))
 
+    def feedback_service() -> FeedbackService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return FeedbackService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -1827,6 +1862,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(SavedAnswerError)
     async def saved_answer_error_handler(
         request: Request, exc: SavedAnswerError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(FeedbackError)
+    async def feedback_error_handler(
+        request: Request, exc: FeedbackError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -2436,6 +2480,38 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return {"status": "ok"}
+
+    @app.post("/feedback", response_model=FeedbackResponse, status_code=201)
+    async def submit_feedback(
+        payload: FeedbackSubmitRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_CREATE))
+        ],
+        service: Annotated[FeedbackService, Depends(feedback_service)],
+    ) -> FeedbackResponse:
+        submitted = service.submit_feedback(
+            user_id=principal.id,
+            submission=FeedbackSubmit(
+                answer_id=payload.answer_id,
+                category=payload.category,
+                notes=payload.notes,
+                citation_id=payload.citation_id,
+            ),
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _feedback_response(submitted)
+
+    @app.get("/feedback/{feedback_id}", response_model=FeedbackResponse)
+    async def get_feedback(
+        feedback_id: UUID,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_CREATE))
+        ],
+        service: Annotated[FeedbackService, Depends(feedback_service)],
+    ) -> FeedbackResponse:
+        feedback = service.get_feedback(user_id=principal.id, feedback_id=feedback_id)
+        return _feedback_response(feedback)
 
     @app.get("/citations/{citation_id}", response_model=CitationDetailResponse)
     async def get_citation_detail(

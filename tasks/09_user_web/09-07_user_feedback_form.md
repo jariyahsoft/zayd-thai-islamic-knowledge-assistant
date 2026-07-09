@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Create an accessible feedback form with categorized issue types and optional not
 
 ## Acceptance Criteria
 
-- [ ] Internal traces are not exposed.
-- [ ] Submission is rate limited and confirms receipt.
-- [ ] Sensitive free text is handled under retention/privacy policy.
+- [x] Internal traces are not exposed.
+- [x] Submission is rate limited and confirms receipt.
+- [x] Sensitive free text is handled under retention/privacy policy.
 
 ## Required Tests
 
@@ -89,28 +89,56 @@ Create an accessible feedback form with categorized issue types and optional not
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/feedback.py` (new)
+- `services/common/tests/test_feedback.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_feedback_api.py` (new)
+- `packages/feedback/package.json` (new)
+- `packages/feedback/tsconfig.json` (new)
+- `packages/feedback/src/types.ts` (new)
+- `packages/feedback/src/labels.ts` (new)
+- `packages/feedback/src/validation.ts` (new)
+- `packages/feedback/src/api.ts` (new)
+- `packages/feedback/src/index.ts` (new)
+- `packages/feedback/src/feedback.test.ts` (new)
+- `apps/web/package.json`
+- `apps/web/app/chat/chat-interface.tsx`
+- `apps/web/app/chat/chat.test.ts`
+- `apps/web/app/globals.css`
+- `docs/user/report-answer.md` (new)
+- `docs/api/feedback.md` (new)
+- `tasks/09_user_web/09-07_user_feedback_form.md`
+- `tasks/11_feedback/11-01_feedback_api.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
+- `pnpm-lock.yaml`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_feedback.py services/api/tests/test_feedback_api.py -q` — 7 passed
+- `uv run ruff check` on feedback Python files — success
+- `pnpm --filter @zayd/feedback test` — 5 passed
+- `pnpm --filter @zayd/feedback typecheck` — success
+- `pnpm --filter @zayd/web test` — 27 passed
+- `pnpm --filter @zayd/web typecheck` — success
+- `pnpm --filter @zayd/web build` — success
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Public API/UI responses expose only receipt fields. Rate limit enforced at 10/hour/user. Audit logs store `notes_length` without note body; optional notes stored in `feedback.body` under existing retention policy.
 
 ### Security and License Review
 
-- Pending
+- No secrets or production data added. Submit/read requires `feedback.create` and owned-answer checks. Form uses text nodes only (no `dangerouslySetInnerHTML`). Internal trace/version metadata stays in audit logs only.
 
 ### Known Limitations
 
-- Pending
+- Report controls require signed-in users with persisted `answer_id`. Rate limiter is in-memory per API process. Reviewer queue UI remains TASK-11-02.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-11-02 — feedback review queue
 
 ### Commit
 
-- Pending
+- `feat(web): add user feedback form`

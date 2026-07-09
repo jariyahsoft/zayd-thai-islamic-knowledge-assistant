@@ -814,9 +814,70 @@ textarea {
   font: inherit;
 }
 
-.zayd-chat__save-actions {
+.zayd-chat__message-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.zayd-chat__save-actions,
+.zayd-chat__feedback-trigger {
   display: flex;
   justify-content: flex-end;
+}
+
+.zayd-chat__feedback-form {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  background: var(--zayd-surface);
+}
+
+.zayd-chat__feedback-heading {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.zayd-chat__feedback-intro {
+  margin: 0;
+  color: var(--zayd-muted);
+  font-size: 0.875rem;
+}
+
+.zayd-chat__feedback-label {
+  font-size: 0.875rem;
+}
+
+.zayd-chat__feedback-select,
+.zayd-chat__feedback-notes {
+  width: 100%;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--zayd-background);
+  color: var(--zayd-text);
+  font: inherit;
+}
+
+.zayd-chat__feedback-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.zayd-chat__feedback-error {
+  margin: 0;
+  color: var(--zayd-danger, #b42318);
+  font-size: 0.875rem;
+}
+
+.zayd-chat__feedback-receipt {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--zayd-accent, #0f766e) 12%, transparent);
+  font-size: 0.875rem;
 }
 
 @media (min-width: 40rem) {

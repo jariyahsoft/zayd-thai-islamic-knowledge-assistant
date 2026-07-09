@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Implement feedback submission and retrieval linked to question, answer, retrieva
 
 ## Acceptance Criteria
 
-- [ ] Feedback does not expose internal trace data to normal users.
-- [ ] Duplicate/spam controls and retention policy are applied.
-- [ ] Submission is auditable.
+- [x] Feedback does not expose internal trace data to normal users.
+- [x] Duplicate/spam controls and retention policy are applied.
+- [x] Submission is auditable.
 
 ## Required Tests
 
@@ -89,28 +89,36 @@ Implement feedback submission and retrieval linked to question, answer, retrieva
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/feedback.py` (new)
+- `services/common/tests/test_feedback.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_feedback_api.py` (new)
+- `docs/api/feedback.md` (new)
+- `tasks/11_feedback/11-01_feedback_api.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_feedback.py services/api/tests/test_feedback_api.py -q` — 7 passed
+- `uv run ruff check` on feedback Python files — success
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. `POST/GET /feedback` return public receipt shape only. Rate limit 10/hour/user. `feedback.submit` audit captures version metadata and `notes_length` without exposing note text to operators in audit summaries.
 
 ### Security and License Review
 
-- Pending
+- RBAC `feedback.create` enforced. Owned-answer validation before insert. No secrets or internal traces in public responses.
 
 ### Known Limitations
 
-- Pending
+- In-memory rate limiter; horizontal scaling needs shared limiter later. Review queue and incident workflows remain future tasks.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-11-02 — feedback review queue
 
 ### Commit
 
-- Pending
+- `feat(web): add user feedback form`

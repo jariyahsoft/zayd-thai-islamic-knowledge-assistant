@@ -110,15 +110,15 @@
 | TASK-09-04 | Madhhab and Answer Preferences | B | DONE | TASK-09-01 | `09_user_web/09-04_madhhab_and_answer_preferences.md` |
 | TASK-09-05 | Conversation History | A | DONE | TASK-03-01, TASK-09-02 | `09_user_web/09-05_conversation_history.md` |
 | TASK-09-06 | Saved Answers | B | DONE | TASK-09-03 | `09_user_web/09-06_saved_answers.md` |
-| TASK-09-07 | User Feedback Form | B | TODO | TASK-11-01 | `09_user_web/09-07_user_feedback_form.md` |
+| TASK-09-07 | User Feedback Form | B | DONE | TASK-11-01 | `09_user_web/09-07_user_feedback_form.md` |
 | TASK-10-01 | Reviewer Dashboard | A | TODO | EPIC-06 complete | `10_admin_reviewer/10-01_reviewer_dashboard.md` |
 | TASK-10-02 | Document Review Workspace | S | TODO | TASK-06-02, TASK-10-01 | `10_admin_reviewer/10-02_document_review_workspace.md` |
 | TASK-10-03 | Scholar Approval Workspace | A | TODO | TASK-06-03, TASK-10-02 | `10_admin_reviewer/10-03_scholar_approval_workspace.md` |
 | TASK-10-04 | Admin Dashboard | A | TODO | TASK-13-03 | `10_admin_reviewer/10-04_admin_dashboard.md` |
 | TASK-10-05 | Provider and Model Management UI | A | TODO | TASK-08-01, TASK-03-05 | `10_admin_reviewer/10-05_provider_and_model_management_ui.md` |
 | TASK-10-06 | User and Role Management UI | A | TODO | TASK-03-03 | `10_admin_reviewer/10-06_user_and_role_management_ui.md` |
-| TASK-11-01 | Feedback API | A | TODO | EPIC-08 complete | `11_feedback/11-01_feedback_api.md` |
-| TASK-11-02 | Feedback Review Queue | A | TODO | TASK-11-01 | `11_feedback/11-02_feedback_review_queue.md` |
+| TASK-11-01 | Feedback API | A | DONE | EPIC-08 complete | `11_feedback/11-01_feedback_api.md` |
+| TASK-11-02 | Feedback Review Queue | A | READY | TASK-11-01 | `11_feedback/11-02_feedback_review_queue.md` |
 | TASK-11-03 | Incident Management | S | TODO | TASK-11-02, TASK-06-05 | `11_feedback/11-03_incident_management.md` |
 | TASK-11-04 | Answer Invalidation | S | TODO | TASK-11-03, TASK-08-07 | `11_feedback/11-04_answer_invalidation.md` |
 | TASK-11-05 | Convert Incident to Regression Test | A | TODO | TASK-11-03, EPIC-12 | `11_feedback/11-05_convert_incident_to_regression_test.md` |

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactElement } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { FormEvent, ReactElement } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { CitationCardList } from "@zayd/citations";
 import { ArabicText } from "@zayd/ui";
 
@@ -11,6 +11,14 @@ import {
   fetchConversationDetail,
   type ConversationMessage,
 } from "@zayd/conversations";
+import {
+  FEEDBACK_CATEGORIES,
+  FEEDBACK_CATEGORY_LABELS,
+  FeedbackClientError,
+  submitFeedback,
+  validateFeedbackSubmission,
+  type FeedbackCategory,
+} from "@zayd/feedback";
 import {
   SavedAnswersClientError,
   fetchSavedAnswers,
@@ -47,13 +55,124 @@ function SafeText(props: {
   return <>{props.value}</>;
 }
 
+function FeedbackReportForm(props: {
+  readonly answerId: string;
+  readonly isSubmitting: boolean;
+  readonly onClose: () => void;
+  readonly onSubmit: (category: FeedbackCategory, notes: string) => void;
+}): ReactElement {
+  const formId = useId();
+  const categoryId = `${formId}-category`;
+  const notesId = `${formId}-notes`;
+  const [category, setCategory] = useState<FeedbackCategory>("incorrect_answer");
+  const [notes, setNotes] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const error = validateFeedbackSubmission({
+      answerId: props.answerId,
+      category,
+      notes: notes.trim() ? notes : undefined,
+    });
+    if (error) {
+      setValidationError(error.message);
+      return;
+    }
+    setValidationError(null);
+    props.onSubmit(category, notes);
+  };
+
+  return (
+    <form
+      className="zayd-chat__feedback-form"
+      aria-labelledby={`${formId}-heading`}
+      onSubmit={handleSubmit}
+    >
+      <h3 id={`${formId}-heading`} className="zayd-chat__feedback-heading">
+        รายงานปัญหาคำตอบ
+      </h3>
+      <p className="zayd-chat__feedback-intro">
+        เลือกประเภทปัญหาและเพิ่มคำอธิบายได้ตามต้องการ ทีมตรวจสอบจะได้รับรายงานโดยไม่เปิดเผยข้อมูลภายในระบบ
+      </p>
+
+      <label className="zayd-chat__feedback-label" htmlFor={categoryId}>
+        ประเภทปัญหา
+      </label>
+      <select
+        id={categoryId}
+        className="zayd-chat__feedback-select"
+        value={category}
+        required
+        disabled={props.isSubmitting}
+        onChange={(event) => {
+          setCategory(event.target.value as FeedbackCategory);
+        }}
+      >
+        {FEEDBACK_CATEGORIES.map((value) => (
+          <option key={value} value={value}>
+            {FEEDBACK_CATEGORY_LABELS[value]}
+          </option>
+        ))}
+      </select>
+
+      <label className="zayd-chat__feedback-label" htmlFor={notesId}>
+        คำอธิบายเพิ่มเติม (ไม่บังคับ)
+      </label>
+      <textarea
+        id={notesId}
+        className="zayd-chat__feedback-notes"
+        rows={3}
+        maxLength={2000}
+        value={notes}
+        disabled={props.isSubmitting}
+        onChange={(event) => {
+          setNotes(event.target.value);
+        }}
+        placeholder="อธิบายปัญหาเพิ่มเติมได้ที่นี่"
+      />
+
+      {validationError ? (
+        <p className="zayd-chat__feedback-error" role="alert">
+          {validationError}
+        </p>
+      ) : null}
+
+      <div className="zayd-chat__feedback-actions">
+        <button
+          type="button"
+          className="zayd-chat__save-button"
+          disabled={props.isSubmitting}
+          onClick={props.onClose}
+        >
+          ยกเลิก
+        </button>
+        <button
+          type="submit"
+          className="zayd-chat__button zayd-chat__button--primary"
+          disabled={props.isSubmitting}
+        >
+          ส่งรายงาน
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function MessageBubble(props: {
   readonly message: ChatMessage;
   readonly showArabic: boolean;
   readonly canSave: boolean;
   readonly isSaving: boolean;
+  readonly canReport: boolean;
+  readonly isFeedbackOpen: boolean;
+  readonly isSubmittingFeedback: boolean;
+  readonly feedbackReceipt: string | null;
   readonly onSave?: (answerId: string) => void;
   readonly onUnsave?: (savedAnswerId: string, answerId: string) => void;
+  readonly onOpenFeedback?: (answerId: string) => void;
+  readonly onCloseFeedback?: () => void;
+  readonly onSubmitFeedback?: (answerId: string, category: FeedbackCategory, notes: string) => void;
 }): ReactElement {
   const isUser = props.message.role === "user";
   const status = props.message.status;
@@ -89,31 +208,72 @@ function MessageBubble(props: {
         <CitationCardList citations={props.message.citations} />
       ) : null}
 
-      {props.canSave && props.message.answerId && status === "completed" ? (
-        <div className="zayd-chat__save-actions">
-          {props.message.savedAnswerId ? (
-            <button
-              type="button"
-              className="zayd-chat__save-button"
-              disabled={props.isSaving}
-              onClick={() => {
-                props.onUnsave?.(props.message.savedAnswerId as string, props.message.answerId as string);
-              }}
-            >
-              ยกเลิกการบันทึก
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="zayd-chat__save-button"
-              disabled={props.isSaving}
-              onClick={() => {
-                props.onSave?.(props.message.answerId as string);
-              }}
-            >
-              บันทึกคำตอบ
-            </button>
-          )}
+      {props.message.answerId && status === "completed" ? (
+        <div className="zayd-chat__message-actions">
+          {props.canSave ? (
+            <div className="zayd-chat__save-actions">
+              {props.message.savedAnswerId ? (
+                <button
+                  type="button"
+                  className="zayd-chat__save-button"
+                  disabled={props.isSaving}
+                  onClick={() => {
+                    props.onUnsave?.(
+                      props.message.savedAnswerId as string,
+                      props.message.answerId as string,
+                    );
+                  }}
+                >
+                  ยกเลิกการบันทึก
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="zayd-chat__save-button"
+                  disabled={props.isSaving}
+                  onClick={() => {
+                    props.onSave?.(props.message.answerId as string);
+                  }}
+                >
+                  บันทึกคำตอบ
+                </button>
+              )}
+            </div>
+          ) : null}
+
+          {props.canReport && !props.feedbackReceipt ? (
+            props.isFeedbackOpen ? (
+              <FeedbackReportForm
+                answerId={props.message.answerId}
+                isSubmitting={props.isSubmittingFeedback}
+                onClose={() => {
+                  props.onCloseFeedback?.();
+                }}
+                onSubmit={(category, notes) => {
+                  props.onSubmitFeedback?.(props.message.answerId as string, category, notes);
+                }}
+              />
+            ) : (
+              <div className="zayd-chat__feedback-trigger">
+                <button
+                  type="button"
+                  className="zayd-chat__save-button"
+                  disabled={props.isSubmittingFeedback}
+                  onClick={() => {
+                    props.onOpenFeedback?.(props.message.answerId as string);
+                  }}
+                >
+                  รายงานปัญหา
+                </button>
+              </div>
+            )
+          ) : null}
+
+          {props.feedbackReceipt ? (
+            <p className="zayd-chat__feedback-receipt" role="status" aria-live="polite">
+              {props.feedbackReceipt}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -183,6 +343,10 @@ export function ChatInterface(props: {
   const [retryQuestion, setRetryQuestion] = useState<string | null>(null);
   const [isSavingAnswer, setIsSavingAnswer] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [openFeedbackAnswerId, setOpenFeedbackAnswerId] = useState<string | null>(null);
+  const [feedbackReceipts, setFeedbackReceipts] = useState<Readonly<Record<string, string>>>({});
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const guestTokenRef = useRef<string | null>(null);
@@ -302,6 +466,39 @@ export function ChatInterface(props: {
         );
       } finally {
         setIsSavingAnswer(false);
+      }
+    },
+    [props.apiBaseUrl],
+  );
+
+  const handleSubmitFeedback = useCallback(
+    async (answerId: string, category: FeedbackCategory, notes: string) => {
+      const accessToken = readStoredAccessToken();
+      if (!accessToken) {
+        setFeedbackError("ต้องลงชื่อเข้าใช้ก่อนรายงานปัญหา");
+        return;
+      }
+      setIsSubmittingFeedback(true);
+      setFeedbackError(null);
+      try {
+        const receipt = await submitFeedback(props.apiBaseUrl, accessToken, {
+          answerId,
+          category,
+          notes: notes.trim() ? notes : undefined,
+        });
+        setFeedbackReceipts((current) => ({
+          ...current,
+          [answerId]: receipt.receiptMessage,
+        }));
+        setOpenFeedbackAnswerId(null);
+      } catch (error: unknown) {
+        setFeedbackError(
+          error instanceof FeedbackClientError
+            ? error.message
+            : "ไม่สามารถส่งรายงานได้",
+        );
+      } finally {
+        setIsSubmittingFeedback(false);
       }
     },
     [props.apiBaseUrl],
@@ -574,6 +771,11 @@ export function ChatInterface(props: {
           {saveError}
         </p>
       ) : null}
+      {feedbackError ? (
+        <p className="zayd-chat__session-error" role="alert">
+          {feedbackError}
+        </p>
+      ) : null}
 
       <div
         className="zayd-chat__messages"
@@ -592,11 +794,27 @@ export function ChatInterface(props: {
               showArabic={preferences.showArabic}
               canSave={readStoredAccessToken() !== null}
               isSaving={isSavingAnswer}
+              canReport={readStoredAccessToken() !== null}
+              isFeedbackOpen={message.answerId === openFeedbackAnswerId}
+              isSubmittingFeedback={isSubmittingFeedback}
+              feedbackReceipt={
+                message.answerId ? (feedbackReceipts[message.answerId] ?? null) : null
+              }
               onSave={(answerId) => {
                 void handleSaveAnswer(answerId);
               }}
               onUnsave={(savedAnswerId, answerId) => {
                 void handleUnsaveAnswer(savedAnswerId, answerId);
+              }}
+              onOpenFeedback={(answerId) => {
+                setFeedbackError(null);
+                setOpenFeedbackAnswerId(answerId);
+              }}
+              onCloseFeedback={() => {
+                setOpenFeedbackAnswerId(null);
+              }}
+              onSubmitFeedback={(answerId, category, notes) => {
+                void handleSubmitFeedback(answerId, category, notes);
               }}
             />
           ))

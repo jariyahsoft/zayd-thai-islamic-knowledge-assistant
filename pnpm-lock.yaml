@@ -110,6 +110,9 @@ importers:
       '@zayd/conversations':
         specifier: workspace:*
         version: link:../../packages/conversations
+      '@zayd/feedback':
+        specifier: workspace:*
+        version: link:../../packages/feedback
       '@zayd/preferences':
         specifier: workspace:*
         version: link:../../packages/preferences
@@ -155,6 +158,8 @@ importers:
   packages/contracts: {}
 
   packages/conversations: {}
+
+  packages/feedback: {}
 
   packages/plugin-sdk: {}
 

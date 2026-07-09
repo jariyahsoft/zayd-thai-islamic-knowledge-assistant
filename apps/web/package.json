@@ -13,6 +13,7 @@
     "@zayd/api-client": "workspace:*",
     "@zayd/citations": "workspace:*",
     "@zayd/conversations": "workspace:*",
+    "@zayd/feedback": "workspace:*",
     "@zayd/preferences": "workspace:*",
     "@zayd/saved-answers": "workspace:*",
     "@zayd/config": "workspace:*",

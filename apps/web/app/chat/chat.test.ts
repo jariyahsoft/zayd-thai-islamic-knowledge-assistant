@@ -277,6 +277,14 @@ describe("XSS-safe rendering contract", () => {
     expect(source).toContain('aria-live="polite"');
   });
 
+  it("includes accessible feedback report form controls", () => {
+    const source = readFileSync(join(chatDir, "chat-interface.tsx"), "utf8");
+    expect(source).toContain("รายงานปัญหา");
+    expect(source).toContain("submitFeedback");
+    expect(source).toContain('role="status"');
+    expect(source).toContain("ประเภทปัญหา");
+  });
+
   it("escapes malicious markup by rendering plain text nodes only", () => {
     const payload = '<img src=x onerror="alert(1)">';
     const rendered = payload;

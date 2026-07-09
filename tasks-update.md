@@ -1,3 +1,16 @@
+## 2026-07-09T17:20:00+07:00
+
+- Task: TASK-09-07 - User Feedback Form (includes TASK-11-01 Feedback API prerequisite)
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Added `FeedbackService` with categorized submission, owned-answer checks, rate limiting, and audit metadata; `POST/GET /feedback` APIs; `@zayd/feedback` client package; accessible chat report form with Thai category labels and receipt confirmation; user and API docs.
+- Changed files: feedback service/API/tests, `packages/feedback/*`, web chat integration/CSS, `docs/user/report-answer.md`, `docs/api/feedback.md`, task index/status updates, `tasks-update.md`, `pnpm-lock.yaml`
+- Verification: Python feedback tests — 7 passed; ruff on feedback files — success; `@zayd/feedback` vitest — 5 passed; `@zayd/web` vitest — 27 passed; feedback/web typecheck and web build — success
+- Self-review: Public responses omit internal traces. Audit logs avoid note bodies. Guests cannot report. Signed-in users see form only on completed answers with `answer_id`.
+- Remaining risks: In-memory rate limiter is per process. Reviewer queue (TASK-11-02) not yet built. Free-text retention policy is operational follow-up.
+- Commit: `feat(web): add user feedback form`
+
 ## 2026-07-09T17:15:00+07:00
 
 - Task: TASK-09-06 - Saved Answers
