@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Classify language, intent, topic, madhhab, risk hints and current-information re
 
 ## Acceptance Criteria
 
-- [ ] Output conforms to a versioned structured schema.
-- [ ] Rule decisions and LLM fallbacks are traceable.
-- [ ] Ambiguous cases do not fabricate a madhhab or topic.
+- [x] Output conforms to a versioned structured schema.
+- [x] Rule decisions and LLM fallbacks are traceable.
+- [x] Ambiguous cases do not fabricate a madhhab or topic.
 
 ## Required Tests
 
@@ -86,31 +86,57 @@ Classify language, intent, topic, madhhab, risk hints and current-information re
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/orchestrator/src/zayd_service_orchestrator/question_classification.py` — Question classifier with rule-based and LLM fallback (417 lines)
+- `services/orchestrator/tests/test_question_classification.py` — 22 comprehensive tests covering golden set, rule/LLM fallback, and edge cases
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py` — Exported classification classes
+- `docs/architecture/question-classification.md` — Architecture documentation with design principles, algorithm details, and integration guide
 
 ### Commands and Tests Executed
 
-- Pending
+```bash
+uv run pytest services/orchestrator/tests/test_question_classification.py -v
+# 22 passed in 0.97s
+
+uv run pytest services/orchestrator/tests/ -v
+# 51 passed in 1.67s (all orchestrator tests)
+
+uv run mypy services/orchestrator/src/zayd_service_orchestrator/question_classification.py
+# Success: no issues found
+
+uv run ruff check services/orchestrator/src/zayd_service_orchestrator/question_classification.py
+# All checks passed!
+```
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Output conforms to a versioned structured schema — Uses `classification-v1` schema with typed enums
+- [x] Rule decisions and LLM fallbacks are traceable — Every result includes method (rule/llm/hybrid), confidence, and trace metadata
+- [x] Ambiguous cases do not fabricate a madhhab or topic — Returns `unspecified` madhhab and `general` intent when no clear match
 
 ### Security and License Review
 
-- Pending
+- Deterministic rules for safety-critical decisions (risk level, restricted content)
+- No secrets or production data committed
+- Fail-safe design: continues with rules when LLM unavailable
+- No prompt injection: question text treated as data, not instructions
+- Audit trail: all decisions traceable through trace metadata
 
 ### Known Limitations
 
-- Pending
+- LLM fallback currently returns hybrid result with rule data and LLM trace; JSON parsing not yet implemented
+- Thai/Arabic keyword coverage is comprehensive but not exhaustive
+- Language detection uses character ratios, may misclassify very short texts
+- Personal advice detection is generic and may overlap with other intents
 
 ### Follow-up Tasks
 
-- Pending
+- Implement structured output parsing from LLM (use response_format="json")
+- Expand Thai and Arabic keyword dictionaries based on production data
+- Tune confidence thresholds for LLM fallback based on real usage
+- Add multi-madhhab detection for questions explicitly asking for multiple views
+- Implement reviewer correction workflow to improve rule patterns
 
 ### Commit
 

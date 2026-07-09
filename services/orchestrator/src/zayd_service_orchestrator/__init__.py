@@ -49,14 +49,26 @@ from .provider_sdk import (
     VectorSearchResult,
     VectorStoreProvider,
 )
+from .question_classification import (
+    CLASSIFICATION_SCHEMA_VERSION,
+    ClassificationResult,
+    Intent,
+    Language,
+    Madhhab,
+    QuestionClassifier,
+    RiskLevel,
+)
 from .service import get_health
 
 __all__ = [
+    "CLASSIFICATION_SCHEMA_VERSION",
     "PROVIDER_SDK_VERSION",
     "AllowListedProviderRegistry",
+    "ClassificationResult",
     "EmbeddingProvider",
     "EmbeddingRequest",
     "EmbeddingResult",
+    "Intent",
     "KnowledgeDocument",
     "KnowledgeProvider",
     "KnowledgeSearchRequest",
@@ -67,6 +79,8 @@ __all__ = [
     "LLMRequest",
     "LLMResponse",
     "LLMUsage",
+    "Language",
+    "Madhhab",
     "MockEmbeddingProvider",
     "MockKnowledgeProvider",
     "MockLLMProvider",
@@ -85,10 +99,12 @@ __all__ = [
     "ProviderSDKError",
     "ProviderStoragePolicy",
     "ProviderValidationResult",
+    "QuestionClassifier",
     "RerankRequest",
     "RerankResponse",
     "RerankResult",
     "RerankerProvider",
+    "RiskLevel",
     "VLLMLLMAdapter",
     "VLLMLLMProvider",
     "VectorRecord",
