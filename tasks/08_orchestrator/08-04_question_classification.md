@@ -140,4 +140,4 @@ uv run ruff check services/orchestrator/src/zayd_service_orchestrator/question_c
 
 ### Commit
 
-- Pending
+- `432b41b` — feat(orchestrator): add question classification with rules and LLM fallback
