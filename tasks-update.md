@@ -1,3 +1,16 @@
+## 2026-07-09T16:05:00+07:00
+
+- Task: TASK-08-10 - Streaming Chat API
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Exposed governed SSE chat streaming via `POST /chat/stream`, reconnect via `GET /chat/streams/{stream_id}`, and cancellation via `DELETE /chat/streams/{stream_id}`. Added `ChatStreamingService` with status/final_answer/complete events, verified-only citations, guest quota and RBAC enforcement, reconnect snapshots, disconnect cancellation, and per-identity rate limiting.
+- Changed files: `services/orchestrator/src/zayd_service_orchestrator/chat_streaming.py` (new), `services/orchestrator/tests/test_chat_streaming.py` (new), `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_streaming_chat_api.py` (new), `docs/api/streaming-chat.md` (new), `tasks/08_orchestrator/08-10_streaming_chat_api.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: streaming chat service/API tests passed with 9 passed; focused mypy on `chat_streaming.py` passed; focused ruff fix/format applied.
+- Self-review: No chain-of-thought or system prompts are streamed. Final answers emit only after verification with verified citations only. Disconnect and explicit cancel paths emit terminal cancelled events.
+- Remaining risks: Reconnect history is in-memory per process. Default API composition still uses mock LLM with empty retrieval until production provider/retrieval wiring lands. TASK-09-02 remains blocked on TASK-09-01.
+- Commit: focused commit pending `feat(api): add streaming chat sse endpoints`.
+
 ## 2026-07-09T15:30:00+07:00
 
 - Task: TASK-08-09 - Prompt Version Management

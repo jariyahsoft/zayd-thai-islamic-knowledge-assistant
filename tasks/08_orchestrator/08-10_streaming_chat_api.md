@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -64,9 +64,9 @@ Expose SSE endpoints for accepted status events and final verified answer/citati
 
 ## Acceptance Criteria
 
-- [ ] Internal chain-of-thought is never streamed.
-- [ ] Citations are emitted only after verification.
-- [ ] Client disconnect cancels or safely detaches processing.
+- [x] Internal chain-of-thought is never streamed.
+- [x] Citations are emitted only after verification.
+- [x] Client disconnect cancels or safely detaches processing.
 
 ## Required Tests
 
@@ -92,28 +92,43 @@ Expose SSE endpoints for accepted status events and final verified answer/citati
 
 ### Files Changed
 
-- Pending
+- `services/orchestrator/src/zayd_service_orchestrator/chat_streaming.py` (new)
+- `services/orchestrator/tests/test_chat_streaming.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_streaming_chat_api.py` (new)
+- `docs/api/streaming-chat.md` (new)
+- `tasks/08_orchestrator/08-10_streaming_chat_api.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/orchestrator/tests/test_chat_streaming.py services/api/tests/test_streaming_chat_api.py -q` — 9 passed
+- `uv run mypy services/orchestrator/src/zayd_service_orchestrator/chat_streaming.py` — success
+- `uv run ruff check --fix` and `uv run ruff format` on focused streaming files
 
 ### Acceptance Criteria Result
 
-- Pending
+- SSE events expose only safe status stages and verified `final_answer` payloads; no chain-of-thought or system prompt bodies are streamed.
+- `final_answer` is emitted only after orchestration completes verification, and citations are filtered to `verification_status=verified`.
+- Client disconnect and explicit `DELETE /chat/streams/{stream_id}` cancel active processing and emit `cancelled` terminal events.
 
 ### Security and License Review
 
-- Pending
+- Authenticated chat requires `conversations.manage_own`; guest access consumes quota before stream start.
+- Per-identity stream rate limiting returns `429 CHAT_RATE_LIMITED`.
+- No secrets, production data, or hidden reasoning traces were added.
 
 ### Known Limitations
 
-- Pending
+- Stream reconnect history is in-memory and process-local until durable conversation streaming state is added.
+- Default API composition still uses `MockLLMProvider` with an empty retriever; production wiring must supply governed retrieval and provider configuration.
+- Thread CRUD endpoints from SRS §25.2 remain future chat-history tasks.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-09-02 Chat Interface can consume the SSE contract documented in `docs/api/streaming-chat.md`.
 
 ### Commit
 
-- Pending
+- Pending focused commit `feat(api): add streaming chat sse endpoints`

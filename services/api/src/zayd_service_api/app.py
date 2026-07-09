@@ -890,6 +890,107 @@ def _prompt_comparison_response(result: PromptComparison) -> PromptComparisonRes
     )
 
 
+def build_chat_streaming_service(
+    *,
+    session_factory: Any,
+    prompt_registry_service: PromptRegistryService,
+) -> ChatStreamingService:
+    from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+    registry = prompt_registry_service
+    try:
+        prompt, policy_version_id, model_configuration_id = registry.resolve_answer_dependencies(
+            prompt_name=DEFAULT_ANSWER_PROMPT_NAME,
+            policy_name="answer-safety",
+        )
+    except PromptRegistryError:
+        bootstrap_registry_defaults(registry)
+        prompt, policy_version_id, model_configuration_id = registry.resolve_answer_dependencies(
+            prompt_name=DEFAULT_ANSWER_PROMPT_NAME,
+            policy_name="answer-safety",
+        )
+    orchestrator = build_managed_answer_orchestrator(
+        prompt_registry=OrchestratorPromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
+        retriever=StaticAnswerRetriever(candidates=()),
+        llm_provider=MockLLMProvider(),
+    )
+    orchestrator.prompt_version_id = prompt.id
+    orchestrator.policy_version_id = policy_version_id
+    orchestrator.model_configuration_id = model_configuration_id
+    return ChatStreamingService(
+        uow_factory=lambda: SQLAlchemyUnitOfWork(session_factory),
+        orchestrator=orchestrator,
+        prompt_registry_factory=lambda: PromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
+    )
+
+
+def _build_chat_request(
+    *,
+    payload: ChatStreamRequest,
+    request: Request,
+    authorization: str | None,
+    auth_service: AuthService,
+    rbac_service: RbacService,
+    guest_service: GuestService,
+) -> ChatRequest:
+    trace_id = request.headers.get("x-request-id")
+    if payload.guest_token:
+        snapshot = guest_service.consume_quota(token=payload.guest_token, trace_id=trace_id)
+        return ChatRequest(
+            question=payload.question,
+            guest_session_id=snapshot["id"],
+            conversation_id=payload.conversation_id,
+            requested_madhhab=payload.requested_madhhab,
+            answer_length=payload.answer_length,
+            no_history=payload.no_history,
+            trace_id=trace_id,
+        )
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+        claims = auth_service.verify_access_token(token)
+        rbac_service.require_permission(
+            user_id=claims.user_id,
+            permission=Permission.CONVERSATIONS_MANAGE_OWN,
+            trace_id=trace_id,
+        )
+        return ChatRequest(
+            question=payload.question,
+            actor_user_id=claims.user_id,
+            conversation_id=payload.conversation_id,
+            requested_madhhab=payload.requested_madhhab,
+            answer_length=payload.answer_length,
+            no_history=payload.no_history,
+            trace_id=trace_id,
+        )
+    raise ChatStreamingError(
+        "CHAT_AUTH_REQUIRED",
+        "Authentication or guest token is required.",
+        status_code=401,
+    )
+
+
+def _assert_chat_stream_access(
+    *,
+    authorization: str | None,
+    auth_service: AuthService,
+    rbac_service: RbacService,
+    guest_service: GuestService,
+) -> None:
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.removeprefix("Bearer ").strip()
+        claims = auth_service.verify_access_token(token)
+        rbac_service.require_permission(
+            user_id=claims.user_id,
+            permission=Permission.CONVERSATIONS_MANAGE_OWN,
+        )
+        return
+    raise ChatStreamingError(
+        "CHAT_AUTH_REQUIRED",
+        "Authentication is required.",
+        status_code=401,
+    )
+
+
 def _prompt_create_from_request(payload: PromptCreateRequest) -> PromptCreate:
     return PromptCreate(
         name=payload.name,
@@ -1183,32 +1284,9 @@ def create_app() -> FastAPI:
         )
 
     def chat_streaming_service() -> ChatStreamingService:
-        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
-
-        registry = prompt_registry_service()
-        try:
-            prompt, policy_version_id, model_configuration_id = registry.resolve_answer_dependencies(
-                prompt_name=DEFAULT_ANSWER_PROMPT_NAME,
-                policy_name="answer-safety",
-            )
-        except PromptRegistryError:
-            bootstrap_registry_defaults(registry)
-            prompt, policy_version_id, model_configuration_id = registry.resolve_answer_dependencies(
-                prompt_name=DEFAULT_ANSWER_PROMPT_NAME,
-                policy_name="answer-safety",
-            )
-        orchestrator = build_managed_answer_orchestrator(
-            prompt_registry=OrchestratorPromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
-            retriever=StaticAnswerRetriever(candidates=()),
-            llm_provider=MockLLMProvider(),
-        )
-        orchestrator.prompt_version_id = prompt.id
-        orchestrator.policy_version_id = policy_version_id
-        orchestrator.model_configuration_id = model_configuration_id
-        return ChatStreamingService(
-            uow_factory=lambda: SQLAlchemyUnitOfWork(session_factory),
-            orchestrator=orchestrator,
-            prompt_registry_factory=lambda: PromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
+        return build_chat_streaming_service(
+            session_factory=session_factory,
+            prompt_registry_service=prompt_registry_service(),
         )
 
     def get_current_claims(
@@ -1344,6 +1422,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(PromptRegistryError)
     async def prompt_registry_error_handler(
         request: Request, exc: PromptRegistryError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(ChatStreamingError)
+    async def chat_streaming_error_handler(
+        request: Request, exc: ChatStreamingError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -1716,6 +1803,113 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _auth_response(result)
+
+    @app.post("/chat/stream")
+    async def stream_chat(
+        payload: ChatStreamRequest,
+        request: Request,
+        chat_service: Annotated[ChatStreamingService, Depends(chat_streaming_service)],
+        guest_service: Annotated[GuestService, Depends(guest_service)],
+        auth_service: Annotated[AuthService, Depends(auth_service)],
+        rbac_service: Annotated[RbacService, Depends(rbac_service)],
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> StreamingResponse:
+        chat_request = _build_chat_request(
+            payload=payload,
+            request=request,
+            authorization=authorization,
+            auth_service=auth_service,
+            rbac_service=rbac_service,
+            guest_service=guest_service,
+        )
+        handle = chat_service.start_stream(chat_request)
+
+        async def event_stream() -> Any:
+            try:
+                async for event in handle.events:
+                    yield sse_encode(event)
+            except asyncio.CancelledError:
+                handle.cancel()
+                raise
+            finally:
+                if not handle.task.done():
+                    handle.cancel()
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+                "X-Stream-Id": handle.stream_id,
+            },
+        )
+
+    @app.get("/chat/streams/{stream_id}")
+    async def reconnect_chat_stream(
+        stream_id: str,
+        chat_service: Annotated[ChatStreamingService, Depends(chat_streaming_service)],
+        auth_service: Annotated[AuthService, Depends(auth_service)],
+        rbac_service: Annotated[RbacService, Depends(rbac_service)],
+        guest_service: Annotated[GuestService, Depends(guest_service)],
+        authorization: Annotated[str | None, Header()] = None,
+        last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
+    ) -> StreamingResponse:
+        _assert_chat_stream_access(
+            authorization=authorization,
+            auth_service=auth_service,
+            rbac_service=rbac_service,
+            guest_service=guest_service,
+        )
+        snapshot = chat_service.get_snapshot(
+            stream_id=stream_id,
+            last_event_id=last_event_id,
+        )
+        if not snapshot.events and not snapshot.completed:
+            raise ChatStreamingError(
+                "CHAT_STREAM_NOT_FOUND",
+                "Chat stream not found.",
+                status_code=404,
+            )
+
+        async def replay_stream() -> Any:
+            for event in snapshot.events:
+                yield sse_encode(event)
+
+        return StreamingResponse(
+            replay_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+                "X-Stream-Id": stream_id,
+            },
+        )
+
+    @app.delete("/chat/streams/{stream_id}")
+    async def cancel_chat_stream(
+        stream_id: str,
+        chat_service: Annotated[ChatStreamingService, Depends(chat_streaming_service)],
+        auth_service: Annotated[AuthService, Depends(auth_service)],
+        rbac_service: Annotated[RbacService, Depends(rbac_service)],
+        guest_service: Annotated[GuestService, Depends(guest_service)],
+        authorization: Annotated[str | None, Header()] = None,
+    ) -> dict[str, str]:
+        _assert_chat_stream_access(
+            authorization=authorization,
+            auth_service=auth_service,
+            rbac_service=rbac_service,
+            guest_service=guest_service,
+        )
+        if not chat_service.cancel_stream(stream_id=stream_id):
+            raise ChatStreamingError(
+                "CHAT_STREAM_NOT_FOUND",
+                "Active chat stream not found.",
+                status_code=404,
+            )
+        return {"status": "ok"}
 
     @app.get("/auth/mfa/status", response_model=MfaStatusResponse)
     async def mfa_status(
