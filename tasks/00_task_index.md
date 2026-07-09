@@ -93,8 +93,8 @@
 | TASK-07-05 | Hybrid Search | S | DONE | TASK-07-03, TASK-07-04 | `07_retrieval/07-05_hybrid_search.md` |
 | TASK-07-06 | Multilingual Query Expansion | S | DONE | TASK-07-05 | `07_retrieval/07-06_multilingual_query_expansion.md` |
 | TASK-07-07 | Reranker Interface | A | DONE | TASK-07-05 | `07_retrieval/07-07_reranker_interface.md` |
-| TASK-07-08 | Evidence Sufficiency Engine | S | READY | TASK-07-06, TASK-07-07 | `07_retrieval/07-08_evidence_sufficiency_engine.md` |
-| TASK-08-01 | Provider SDK | S | TODO | EPIC-07 complete | `08_orchestrator/08-01_provider_sdk.md` |
+| TASK-07-08 | Evidence Sufficiency Engine | S | DONE | TASK-07-06, TASK-07-07 | `07_retrieval/07-08_evidence_sufficiency_engine.md` |
+| TASK-08-01 | Provider SDK | S | READY | EPIC-07 complete | `08_orchestrator/08-01_provider_sdk.md` |
 | TASK-08-02 | OpenAI-compatible LLM Adapter | A | TODO | TASK-08-01 | `08_orchestrator/08-02_openai_compatible_llm_adapter.md` |
 | TASK-08-03 | Local Ollama and vLLM Adapter | A | TODO | TASK-08-01 | `08_orchestrator/08-03_local_ollama_and_vllm_adapter.md` |
 | TASK-08-04 | Question Classification | S | TODO | TASK-08-02 or TASK-08-03 | `08_orchestrator/08-04_question_classification.md` |

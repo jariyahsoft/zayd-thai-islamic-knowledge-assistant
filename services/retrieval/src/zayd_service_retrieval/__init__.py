@@ -1,5 +1,15 @@
 """Retrieval service package."""
 
+from .evidence_sufficiency import (
+    EVIDENCE_SUFFICIENCY_RULES_VERSION,
+    EvidenceCandidate,
+    EvidenceSufficiencyDecision,
+    EvidenceSufficiencyError,
+    EvidenceSufficiencyEvaluator,
+    EvidenceSufficiencyRequest,
+    EvidenceSufficiencyService,
+    EvidenceSufficiencyThresholds,
+)
 from .full_text_search import (
     FULL_TEXT_RETRIEVER_VERSION,
     FullTextSearchError,
@@ -61,7 +71,15 @@ __all__ = [
     "LOCAL_RERANKER_VERSION",
     "RERANKER_INTERFACE_VERSION",
     "DEFAULT_HYBRID_WEIGHTS_VERSION",
+    "EVIDENCE_SUFFICIENCY_RULES_VERSION",
     "VECTOR_RETRIEVER_VERSION",
+    "EvidenceCandidate",
+    "EvidenceSufficiencyDecision",
+    "EvidenceSufficiencyError",
+    "EvidenceSufficiencyEvaluator",
+    "EvidenceSufficiencyRequest",
+    "EvidenceSufficiencyService",
+    "EvidenceSufficiencyThresholds",
     "FullTextSearchError",
     "FullTextSearchQuery",
     "FullTextSearchResponse",

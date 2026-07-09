@@ -1,3 +1,17 @@
+## 2026-07-09T10:03:20+07:00
+
+- Task: TASK-07-08 - Evidence Sufficiency Engine
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added deterministic evidence sufficiency evaluation with versioned thresholds, canonical `EvidenceStatus` outcomes, reason codes, high-confidence/search-more/abstain flags, optional non-authoritative LLM evaluator signal, conflict detection, and retrieval-run trace persistence. EPIC-07 is now complete and TASK-08-01 is READY.
+- Changed files: `services/retrieval/src/zayd_service_retrieval/evidence_sufficiency.py` (new), `services/retrieval/src/zayd_service_retrieval/__init__.py`, `services/retrieval/tests/test_evidence_sufficiency.py` (new), `docs/architecture/evidence-sufficiency.md` (new), `tasks/07_retrieval/07-08_evidence_sufficiency_engine.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: evidence-sufficiency tests passed with 6 passed; retrieval regression tests passed with 34 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: The rule engine does not depend on a single similarity score, fails closed for invalid thresholds, and prevents insufficient/partial/conflicting evidence from being treated as high-confidence. Optional LLM evaluator output is explicitly non-authoritative. No secrets, production data, restricted datasets, PHI, or third-party code were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: Conflict detection depends on explicit metadata signals until later citation/source-governance tasks add richer contradiction metadata. Freshness policy is not yet modeled beyond versioned thresholds.
+- Commit: focused commit `feat(retrieval): add evidence sufficiency engine`.
+
 ## 2026-07-09T07:04:41+07:00
 
 - Task: TASK-07-07 - Reranker Interface

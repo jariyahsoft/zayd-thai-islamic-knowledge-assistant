@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -64,9 +64,9 @@ Implement deterministic sufficiency rules using result count, scores, source app
 
 ## Acceptance Criteria
 
-- [ ] Returns SUFFICIENT, PARTIALLY_SUFFICIENT, INSUFFICIENT or CONFLICTING with reason codes.
-- [ ] Insufficient evidence cannot silently proceed as high-confidence answer.
-- [ ] Rules and thresholds are versioned.
+- [x] Returns SUFFICIENT, PARTIALLY_SUFFICIENT, INSUFFICIENT or CONFLICTING with reason codes.
+- [x] Insufficient evidence cannot silently proceed as high-confidence answer.
+- [x] Rules and thresholds are versioned.
 
 ## Required Tests
 
@@ -93,28 +93,43 @@ Implement deterministic sufficiency rules using result count, scores, source app
 
 ### Files Changed
 
-- Pending
+- `services/retrieval/src/zayd_service_retrieval/evidence_sufficiency.py` (new)
+- `services/retrieval/src/zayd_service_retrieval/__init__.py`
+- `services/retrieval/tests/test_evidence_sufficiency.py` (new)
+- `docs/architecture/evidence-sufficiency.md` (new)
+- `tasks/07_retrieval/07-08_evidence_sufficiency_engine.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/retrieval/tests/test_evidence_sufficiency.py -v`
+- `uv run pytest services/retrieval/tests/test_full_text_search.py services/retrieval/tests/test_vector_search.py services/retrieval/tests/test_hybrid_search.py services/retrieval/tests/test_query_expansion.py services/retrieval/tests/test_reranker.py services/retrieval/tests/test_evidence_sufficiency.py services/retrieval/tests/test_retrieval_imports.py -v`
+- `uv run ruff check services/retrieval/src/zayd_service_retrieval/evidence_sufficiency.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_evidence_sufficiency.py`
+- `uv run mypy services/retrieval/src/zayd_service_retrieval/evidence_sufficiency.py services/retrieval/src/zayd_service_retrieval/__init__.py --ignore-missing-imports`
+- `python3 -m py_compile services/retrieval/src/zayd_service_retrieval/evidence_sufficiency.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_evidence_sufficiency.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. The service returns all four canonical `EvidenceStatus` values with deterministic reason codes and trace metadata.
+- Passed. `INSUFFICIENT`, `PARTIALLY_SUFFICIENT`, and `CONFLICTING` all set `allow_high_confidence_answer = false`; insufficient evidence also sets `should_abstain = true`.
+- Passed. Rules and thresholds are configured through versioned `EvidenceSufficiencyThresholds`.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, PHI, restricted religious datasets, or third-party code were introduced.
+- Evidence evaluation consumes retrieval/reranker candidates only and does not create new candidates or bypass publication/license filters.
+- Optional LLM evaluator output is non-authoritative; evaluator failure is recorded without changing the rule-based decision.
 
 ### Known Limitations
 
-- Pending
+- Conflict detection depends on explicit metadata signals (`conflict_signal`, `conflict_group`, `stance`) until citation and source-governance tasks add richer contradiction metadata.
+- Freshness rules are represented by versioned thresholds but no time-sensitive source freshness policy exists yet.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-08-06 Answer Orchestration Workflow should enforce `allow_high_confidence_answer`, `should_search_more`, and `should_abstain`.
 
 ### Commit
 
-- Pending
+- Focused commit created for TASK-07-08.
