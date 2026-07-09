@@ -1,15 +1,16 @@
 import type { ReactElement } from "react";
 
+import { getPublicEnv } from "@zayd/config/env/public";
+
 import { UserAppClient } from "../user-app-client.js";
+import { ChatInterface } from "./chat-interface.js";
 
 export default function ChatPage(): ReactElement {
+  const apiBaseUrl = getPublicEnv().NEXT_PUBLIC_API_BASE_URL;
+
   return (
     <UserAppClient activeNav="chat">
-      <section className="zayd-panel">
-        <h2>ถามคำถาม</h2>
-        <p>หน้าสนทนาจะเชื่อมต่อกับ SSE streaming chat ใน TASK-09-02</p>
-      </section>
-      <div className="zayd-screen-placeholder">พื้นที่แชทจะอยู่ที่นี่</div>
+      <ChatInterface apiBaseUrl={apiBaseUrl} />
     </UserAppClient>
   );
 }

@@ -1,3 +1,16 @@
+## 2026-07-09T16:35:00+07:00
+
+- Task: TASK-09-02 - Chat Interface
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Wired `/chat` to the SSE streaming API with guest session bootstrap, message list, Thai progress stages, verified answer display, stop/retry controls, and safe text-only rendering. Restored missing `packages/config/src/env/public.ts` required by web apps. TASK-09-03 and TASK-09-05 are now READY.
+- Changed files: `packages/config/src/env/public.ts` (new), `apps/web/app/chat/page.tsx`, `apps/web/app/chat/chat-interface.tsx` (new), `apps/web/app/chat/chat-stream.ts` (new), `apps/web/app/chat/chat-types.ts` (new), `apps/web/app/chat/chat-ui.ts` (new), `apps/web/app/chat/chat.test.ts` (new), `apps/web/app/globals.css`, `docs/frontend/chat.md` (new), task index/status updates, `tasks-update.md`
+- Verification: `corepack pnpm --filter @zayd/web test` — 17 passed; `corepack pnpm --filter @zayd/web typecheck` — success; `corepack pnpm --filter @zayd/web build` — success
+- Self-review: No `dangerouslySetInnerHTML`. Abstention, errors, and cancellation paths handled. Guest stop uses fetch abort. Accessibility basics include labels, `aria-live`, and keyboard submit.
+- Remaining risks: Citation UI is a simple list until TASK-09-03. Madhhab/answer-length prefs await TASK-09-04. Full authenticated cancel via DELETE requires stored bearer token.
+- Commit: `feat(web): add streaming chat interface`
+
 ## 2026-07-09T16:20:00+07:00
 
 - Task: TASK-09-01 - User Application Shell

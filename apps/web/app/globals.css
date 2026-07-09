@@ -187,6 +187,188 @@ textarea {
   color: var(--zayd-muted);
 }
 
+.zayd-chat {
+  display: grid;
+  gap: 1rem;
+}
+
+.zayd-chat__intro {
+  margin: 0;
+}
+
+.zayd-chat__session-error {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #c24141;
+  background: color-mix(in srgb, #c24141 12%, var(--zayd-surface));
+  color: var(--zayd-text);
+}
+
+.zayd-chat__messages {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 14rem;
+  max-height: 55dvh;
+  overflow-y: auto;
+  padding: 0.25rem;
+}
+
+.zayd-chat__empty {
+  margin: 0;
+  text-align: center;
+  color: var(--zayd-muted);
+  padding: 2rem 1rem;
+}
+
+.zayd-chat__message {
+  background: var(--zayd-surface);
+  border: 1px solid var(--zayd-border);
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  box-shadow: var(--zayd-shadow);
+}
+
+.zayd-chat__message--user {
+  margin-left: 1.5rem;
+  background: var(--zayd-accent-soft);
+}
+
+.zayd-chat__message-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.zayd-chat__message-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--zayd-muted);
+}
+
+.zayd-chat__message-status--abstained {
+  color: #9a6700;
+}
+
+.zayd-chat__message-status--error {
+  color: #c24141;
+}
+
+.zayd-chat__warning {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #9a6700 10%, var(--zayd-surface));
+  font-size: 0.9rem;
+}
+
+.zayd-chat__limitations {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--zayd-muted);
+  font-size: 0.9rem;
+}
+
+.zayd-chat__citations {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--zayd-border);
+}
+
+.zayd-chat__citations-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--zayd-muted);
+}
+
+.zayd-chat__citations ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.zayd-chat__citation-meta {
+  color: var(--zayd-muted);
+  font-size: 0.85rem;
+}
+
+.zayd-chat__progress {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: var(--zayd-accent-soft);
+  color: var(--zayd-accent);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.zayd-chat__composer {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 1rem;
+  background: var(--zayd-surface);
+  box-shadow: var(--zayd-shadow);
+}
+
+.zayd-chat__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.zayd-chat__input {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: var(--zayd-bg);
+  color: var(--zayd-text);
+}
+
+.zayd-chat__input:focus-visible {
+  outline: 2px solid var(--zayd-accent);
+  outline-offset: 2px;
+}
+
+.zayd-chat__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zayd-chat__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.zayd-chat__button {
+  border-radius: 999px;
+  border: 1px solid var(--zayd-border);
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+
+.zayd-chat__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.zayd-chat__button--primary {
+  background: var(--zayd-accent);
+  border-color: var(--zayd-accent);
+  color: #fffdf9;
+  font-weight: 600;
+}
+
+.zayd-chat__button--secondary {
+  background: var(--zayd-surface);
+  color: var(--zayd-text);
+}
+
 @media (min-width: 40rem) {
   .zayd-user-shell__header,
   .zayd-user-shell__main {

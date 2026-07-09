@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Build thread creation, message list, streaming progress, answer display, retry a
 
 ## Acceptance Criteria
 
-- [ ] UI handles success, abstention, provider errors and cancellation.
-- [ ] No unsafe raw HTML is rendered.
-- [ ] Keyboard and screen-reader basics work.
+- [x] UI handles success, abstention, provider errors and cancellation.
+- [x] No unsafe raw HTML is rendered.
+- [x] Keyboard and screen-reader basics work.
 
 ## Required Tests
 
@@ -90,28 +90,45 @@ Build thread creation, message list, streaming progress, answer display, retry a
 
 ### Files Changed
 
-- Pending
+- `packages/config/src/env/public.ts` (new — restores missing public env helper referenced by apps)
+- `apps/web/app/chat/page.tsx`
+- `apps/web/app/chat/chat-interface.tsx` (new)
+- `apps/web/app/chat/chat-stream.ts` (new)
+- `apps/web/app/chat/chat-types.ts` (new)
+- `apps/web/app/chat/chat-ui.ts` (new)
+- `apps/web/app/chat/chat.test.ts` (new)
+- `apps/web/app/globals.css`
+- `docs/frontend/chat.md` (new)
+- `tasks/09_user_web/09-02_chat_interface.md`
+- `tasks/09_user_web/09-03_citation_cards_and_source_detail.md`
+- `tasks/09_user_web/09-05_conversation_history.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `corepack pnpm --filter @zayd/web test` — 17 passed (includes 12 chat tests)
+- `corepack pnpm --filter @zayd/web typecheck` — success
+- `corepack pnpm --filter @zayd/web build` — success
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Chat UI streams answers via SSE, shows Thai progress stages, handles `final_answer`, abstention (`complete.status=abstained`), HTTP provider errors, and client-side cancellation via `AbortController`. Rendering uses text nodes only (no `dangerouslySetInnerHTML`). Composer includes labels, `aria-live` regions, keyboard submit (Enter), and stop/retry controls.
 
 ### Security and License Review
 
-- Pending
+- No secrets or production data added. Guest tokens stored in `localStorage` only. Answer text and citations render as plain React text; Arabic uses isolated RTL spans. No hidden prompts or chain-of-thought exposed.
 
 ### Known Limitations
 
-- Pending
+- Guest stop uses fetch abort (DELETE cancel requires bearer auth). Madhhab/answer-length preferences await TASK-09-04. Conversation history list awaits TASK-09-05. Citation cards are minimal list items until TASK-09-03.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-09-03 — citation cards and source detail
+- TASK-09-04 — madhhab and answer preferences in settings
+- TASK-09-05 — conversation history screen
 
 ### Commit
 
-- Pending
+- `feat(web): add streaming chat interface`
