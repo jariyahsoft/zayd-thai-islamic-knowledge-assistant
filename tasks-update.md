@@ -1,3 +1,17 @@
+## 2026-07-09T13:15:44+07:00
+
+- Task: TASK-08-07 - Citation Registry
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented `citation-registry-v1` with deterministic canonical citation IDs, typed Quran/hadith/book/document metadata validation, active-only LLM token issuance and resolution, chunk metadata registration, safe trace outputs, append-only audit records, and invalidation propagation into retrieval results and downstream answers. TASK-08-08 is now READY.
+- Changed files: `services/orchestrator/src/zayd_service_orchestrator/citation_registry.py` (new), `services/orchestrator/src/zayd_service_orchestrator/__init__.py`, `services/orchestrator/tests/test_citation_registry.py` (new), `docs/architecture/citation-registry.md` (new), `tasks/08_orchestrator/08-07_citation_registry.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: citation registry tests passed with 7 passed; focused orchestrator/citation/import regression passed with 17 passed; full orchestrator tests passed with 93 passed; focused Ruff lint passed; focused Ruff format check passed; focused mypy passed; `git diff --check` passed.
+- Self-review: Stable UUIDv5 IDs are scoped to document version and canonical reference, database uniqueness prevents duplicate canonical rows, and same-reference/different-chunk collisions fail closed. `CIT-<uuid>` tokens are resolved only against registered rows and active issuance rejects missing or invalidated citations. Invalidation preserves history, marks records inactive, annotates retrieval results, invalidates downstream answers, and records sanitized audit impact counts. No secrets, production data, PHI, restricted datasets, hidden chain-of-thought, or third-party code were introduced.
+- Telegram notification: sent (STARTED and COMPLETED).
+- Remaining risks: Claim-level support checking remains TASK-08-08. RBAC belongs at the API/service boundary that calls the registry; this task records actor-aware audits but adds no endpoint.
+- Commit: focused commit `feat(orchestrator): add citation registry`.
+
 ## 2026-07-09T12:45:22+07:00
 
 - Task: TASK-08-06 - Answer Orchestration Workflow

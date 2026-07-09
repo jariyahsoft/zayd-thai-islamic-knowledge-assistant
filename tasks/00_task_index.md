@@ -100,8 +100,8 @@
 | TASK-08-04 | Question Classification | S | DONE | TASK-08-02 or TASK-08-03 | `08_orchestrator/08-04_question_classification.md` |
 | TASK-08-05 | Risk Policy Engine | S | DONE | TASK-08-04 | `08_orchestrator/08-05_risk_policy_engine.md` |
 | TASK-08-06 | Answer Orchestration Workflow | S | DONE | TASK-07-08, TASK-08-05 | `08_orchestrator/08-06_answer_orchestration_workflow.md` |
-| TASK-08-07 | Citation Registry | S | TODO | TASK-06-04 | `08_orchestrator/08-07_citation_registry.md` |
-| TASK-08-08 | Citation Verification Engine | S | TODO | TASK-08-06, TASK-08-07 | `08_orchestrator/08-08_citation_verification_engine.md` |
+| TASK-08-07 | Citation Registry | S | DONE | TASK-06-04 | `08_orchestrator/08-07_citation_registry.md` |
+| TASK-08-08 | Citation Verification Engine | S | READY | TASK-08-06, TASK-08-07 | `08_orchestrator/08-08_citation_verification_engine.md` |
 | TASK-08-09 | Prompt Version Management | A | TODO | TASK-08-06 | `08_orchestrator/08-09_prompt_version_management.md` |
 | TASK-08-10 | Streaming Chat API | A | TODO | TASK-08-08, TASK-08-09 | `08_orchestrator/08-10_streaming_chat_api.md` |
 | TASK-09-01 | User Application Shell | A | TODO | EPIC-01 complete | `09_user_web/09-01_user_application_shell.md` |

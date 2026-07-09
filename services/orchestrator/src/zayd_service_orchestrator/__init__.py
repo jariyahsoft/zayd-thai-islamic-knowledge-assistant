@@ -29,6 +29,19 @@ from .answer_orchestration import (
     StructuredAnswer,
     TemplateAnswerGenerator,
 )
+from .citation_registry import (
+    CITATION_REGISTRY_VERSION,
+    CITATION_TOKEN_PREFIX,
+    CitationInvalidationResult,
+    CitationPublic,
+    CitationRegistrationRequest,
+    CitationRegistrationResult,
+    CitationRegistryError,
+    CitationRegistryService,
+    CitationType,
+    citation_id_from_token,
+    citation_token,
+)
 from .local_llm_adapters import (
     OllamaLLMAdapter,
     OllamaLLMProvider,
@@ -102,6 +115,8 @@ from .service import get_health
 __all__ = [
     "ANSWER_ORCHESTRATOR_VERSION",
     "ANSWER_SCHEMA_VERSION",
+    "CITATION_REGISTRY_VERSION",
+    "CITATION_TOKEN_PREFIX",
     "CLASSIFICATION_SCHEMA_VERSION",
     "DEFAULT_PROMPT_VERSION",
     "PROVIDER_SDK_VERSION",
@@ -120,6 +135,13 @@ __all__ = [
     "AnswerVerificationStatus",
     "AnswerVerifier",
     "APPROVED_POLICY_STATUSES",
+    "CitationInvalidationResult",
+    "CitationPublic",
+    "CitationRegistrationRequest",
+    "CitationRegistrationResult",
+    "CitationRegistryError",
+    "CitationRegistryService",
+    "CitationType",
     "ClassificationResult",
     "ConfidenceLevel",
     "DeterministicAnswerVerifier",
@@ -185,5 +207,7 @@ __all__ = [
     "VectorSearchRequest",
     "VectorSearchResult",
     "VectorStoreProvider",
+    "citation_id_from_token",
+    "citation_token",
     "get_health",
 ]
