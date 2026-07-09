@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@zayd/api-client": "workspace:*",
+    "@zayd/citations": "workspace:*",
     "@zayd/config": "workspace:*",
     "@zayd/contracts": "workspace:*",
     "@zayd/ui": "workspace:*",

@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Create distinct citation cards for Quran, hadith and books plus a source-detail 
 
 ## Acceptance Criteria
 
-- [ ] AI explanation is visually separated from source text.
-- [ ] Invalidated/suspended sources show clear warnings.
-- [ ] RTL/LTR content is rendered correctly.
+- [x] AI explanation is visually separated from source text.
+- [x] Invalidated/suspended sources show clear warnings.
+- [x] RTL/LTR content is rendered correctly.
 
 ## Required Tests
 
@@ -90,28 +90,59 @@ Create distinct citation cards for Quran, hadith and books plus a source-detail 
 
 ### Files Changed
 
-- Pending
+- `services/orchestrator/src/zayd_service_orchestrator/citation_registry.py`
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py`
+- `services/orchestrator/tests/test_citation_detail.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_citations_api.py` (new)
+- `packages/citations/package.json`
+- `packages/citations/tsconfig.json`
+- `packages/citations/src/types.ts` (new)
+- `packages/citations/src/labels.ts` (new)
+- `packages/citations/src/api.ts` (new)
+- `packages/citations/src/safe-text.tsx` (new)
+- `packages/citations/src/source-warning.tsx` (new)
+- `packages/citations/src/citation-card.tsx` (new)
+- `packages/citations/src/citation-detail.tsx` (new)
+- `packages/citations/src/index.tsx` (new)
+- `packages/citations/src/citations.test.ts` (new)
+- `apps/web/package.json`
+- `apps/web/app/chat/chat-interface.tsx`
+- `apps/web/app/citations/[citationId]/page.tsx` (new)
+- `apps/web/app/citations/citations.test.ts` (new)
+- `apps/web/app/globals.css`
+- `docs/frontend/citations.md` (new)
+- `tasks/09_user_web/09-03_citation_cards_and_source_detail.md`
+- `tasks/09_user_web/09-06_saved_answers.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/orchestrator/tests/test_citation_detail.py services/api/tests/test_citations_api.py -q` — 8 passed
+- `corepack pnpm --filter @zayd/citations test` — 9 passed
+- `corepack pnpm --filter @zayd/web test` — 19 passed
+- `corepack pnpm --filter @zayd/citations typecheck` — success
+- `corepack pnpm --filter @zayd/web build` — success
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Chat answers keep AI explanation in the message body while `CitationCardList` renders governed source references separately with an explicit notice. `CitationDetailView` shows original Arabic (`dir=rtl`) and Thai translation in dedicated blocks. Warning banners surface `citation_invalidated`, `source_suspended`, and `document_version_unavailable`.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, or restricted religious content added. Public APIs expose only governed registry metadata and reviewed chunk text. UI uses text nodes/`ArabicText` only; no `dangerouslySetInnerHTML`.
 
 ### Known Limitations
 
-- Pending
+- Streaming chat still emits placeholder short `citation_id` values until orchestrator maps answers to registry tokens; cards show detail links only for UUID/`CIT-{uuid}` references.
+- Source detail page does not yet include full document browser or license viewer.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-09-06 — saved answers can reuse citation cards
+- Orchestrator follow-up — emit registry `CIT-{uuid}` tokens in streaming `final_answer`
 
 ### Commit
 
-- Pending
+- `feat(web): add citation cards and source detail`

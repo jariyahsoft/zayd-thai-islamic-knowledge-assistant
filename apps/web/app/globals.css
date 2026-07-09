@@ -369,6 +369,204 @@ textarea {
   color: var(--zayd-text);
 }
 
+.zayd-citation-list {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--zayd-border);
+}
+
+.zayd-citation-list__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--zayd-muted);
+}
+
+.zayd-citation-list__grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.zayd-citation-list__notice {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  color: var(--zayd-muted);
+}
+
+.zayd-citation-card {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: var(--zayd-bg);
+  text-decoration: none;
+  color: inherit;
+}
+
+.zayd-citation-card--link {
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.zayd-citation-card--link:hover,
+.zayd-citation-card--link:focus-visible {
+  border-color: var(--zayd-accent);
+  box-shadow: var(--zayd-shadow);
+  outline: none;
+}
+
+.zayd-citation-card--quran {
+  border-left: 4px solid #1f4d3a;
+}
+
+.zayd-citation-card--hadith {
+  border-left: 4px solid #9a6700;
+}
+
+.zayd-citation-card--book {
+  border-left: 4px solid #1d4f91;
+}
+
+.zayd-citation-card--document {
+  border-left: 4px solid var(--zayd-muted);
+}
+
+.zayd-citation-card__kind {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--zayd-muted);
+}
+
+.zayd-citation-card__title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.zayd-citation-card__meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--zayd-muted);
+}
+
+.zayd-citation-card__action {
+  font-size: 0.82rem;
+  color: var(--zayd-accent);
+  font-weight: 600;
+}
+
+.zayd-citation-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.zayd-citation-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.zayd-citation-detail__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.zayd-citation-detail__kind {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--zayd-muted);
+}
+
+.zayd-citation-detail__title {
+  margin: 0;
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.zayd-citation-detail__status,
+.zayd-citation-detail__ai-notice,
+.zayd-citation-detail__error {
+  margin: 0;
+}
+
+.zayd-citation-detail__ai-notice {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--zayd-accent-soft);
+  color: var(--zayd-text);
+  font-size: 0.9rem;
+}
+
+.zayd-citation-detail__error {
+  color: #c24141;
+}
+
+.zayd-citation-warnings {
+  border: 1px solid #c24141;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, #c24141 10%, var(--zayd-surface));
+}
+
+.zayd-citation-warnings__title {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+
+.zayd-citation-warnings ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.zayd-citation-detail__metadata {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.zayd-citation-detail__metadata-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 8rem) 1fr;
+  gap: 0.5rem;
+}
+
+.zayd-citation-detail__metadata-row dt {
+  margin: 0;
+  color: var(--zayd-muted);
+  font-size: 0.9rem;
+}
+
+.zayd-citation-detail__metadata-row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.zayd-citation-detail__source-block {
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--zayd-bg);
+}
+
+.zayd-citation-detail__source-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--zayd-muted);
+}
+
+.zayd-citation-detail__source-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.zayd-citation-detail__source-text--rtl {
+  text-align: right;
+}
+
 @media (min-width: 40rem) {
   .zayd-user-shell__header,
   .zayd-user-shell__main {

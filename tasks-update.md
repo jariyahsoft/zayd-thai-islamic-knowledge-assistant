@@ -1,3 +1,16 @@
+## 2026-07-09T16:45:00+07:00
+
+- Task: TASK-09-03 - Citation Cards and Source Detail
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added public `GET /citations/{citation_id}` and `GET /sources/{source_id}` APIs, `@zayd/citations` card/detail components with Quran/hadith/book variants, warning banners for invalidated/suspended sources, RTL/LTR source text blocks, chat integration, and `/citations/[citationId]` detail page. TASK-09-06 is now READY.
+- Changed files: citation registry detail reader, API routes/tests, `packages/citations/*`, `apps/web/app/citations/*`, chat interface integration, styles, `docs/frontend/citations.md`, task index/status updates, `tasks-update.md`
+- Verification: Python citation tests — 8 passed; `@zayd/citations` vitest — 9 passed; `@zayd/web` vitest — 19 passed; citations/web typecheck and web build — success
+- Self-review: AI explanation stays in chat answer body; source quotations render in separate cards/detail blocks. No unsafe HTML rendering. Warnings shown for invalidated citations and suspended sources.
+- Remaining risks: Streaming answers still use placeholder short citation IDs until orchestrator emits registry tokens; detail links appear only for resolvable UUID/`CIT-{uuid}` refs.
+- Commit: `feat(web): add citation cards and source detail`
+
 ## 2026-07-09T16:35:00+07:00
 
 - Task: TASK-09-02 - Chat Interface

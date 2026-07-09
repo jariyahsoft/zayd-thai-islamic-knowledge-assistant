@@ -2,6 +2,7 @@
 
 import type { ReactElement } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CitationCardList } from "@zayd/citations";
 import { ArabicText } from "@zayd/ui";
 
 import type { ChatMessage, ChatStreamStage, ParsedChatEvent } from "./chat-types.js";
@@ -60,17 +61,7 @@ function MessageBubble(props: { readonly message: ChatMessage }): ReactElement {
       ) : null}
 
       {props.message.citations && props.message.citations.length > 0 ? (
-        <div className="zayd-chat__citations">
-          <h3 className="zayd-chat__citations-title">อ้างอิงที่ตรวจสอบแล้ว</h3>
-          <ul>
-            {props.message.citations.map((citation) => (
-              <li key={citation.citation_id}>
-                <SafeText value={citation.display} />
-                <span className="zayd-chat__citation-meta"> ({citation.source_type})</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <CitationCardList citations={props.message.citations} />
       ) : null}
 
       {status === "streaming" ? (

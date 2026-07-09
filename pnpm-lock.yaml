@@ -98,6 +98,9 @@ importers:
       '@zayd/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@zayd/citations':
+        specifier: workspace:*
+        version: link:../../packages/citations
       '@zayd/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -125,7 +128,14 @@ importers:
 
   packages/auth: {}
 
-  packages/citations: {}
+  packages/citations:
+    dependencies:
+      '@zayd/ui':
+        specifier: workspace:*
+        version: link:../ui
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
 
   packages/config:
     dependencies:

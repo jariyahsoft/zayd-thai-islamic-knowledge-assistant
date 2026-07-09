@@ -14,9 +14,11 @@ from zayd_common.database.models import (
     Answer,
     AuditLog,
     Citation,
+    Document,
     DocumentChunk,
     DocumentVersion,
     RetrievalResult,
+    Source,
 )
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -126,6 +128,45 @@ class CitationInvalidationResult:
     invalidated_at: datetime
     registry_version: str
     trace: dict[str, object]
+
+
+@dataclass(frozen=True)
+class CitationSourceSummary:
+    """Safe source metadata for citation detail views."""
+
+    id: UUID
+    name: str
+    source_type: str
+    language: str
+    is_active: bool
+    reliability_level: int
+
+
+@dataclass(frozen=True)
+class CitationDocumentSummary:
+    """Safe document metadata for citation detail views."""
+
+    id: UUID
+    title: str
+    author: str | None
+    translator: str | None
+    publisher: str | None
+    edition: str | None
+    language: str
+    document_type: str
+    version_status: str
+
+
+@dataclass(frozen=True)
+class CitationDetailPublic:
+    """Read-only citation detail for user-facing source views."""
+
+    citation: CitationPublic
+    source_text: str | None
+    source: CitationSourceSummary | None
+    document: CitationDocumentSummary | None
+    warnings: tuple[str, ...]
+    registry_version: str = CITATION_REGISTRY_VERSION
 
 
 class CitationRegistryService:
@@ -303,6 +344,62 @@ class CitationRegistryService:
                 )
             self.uow.commit()
             return public
+
+    def get_citation_detail(self, citation_id: UUID) -> CitationDetailPublic:
+        """Return governed citation detail for user-facing source views."""
+        with self.uow:
+            session = self._session()
+            citation = session.get(Citation, citation_id)
+            if citation is None:
+                raise CitationRegistryError(
+                    "CITATION_NOT_REGISTERED",
+                    "Citation is not registered.",
+                    status_code=404,
+                )
+            chunk = session.get(DocumentChunk, citation.chunk_id)
+            version = session.get(DocumentVersion, citation.document_version_id)
+            document = session.get(Document, version.document_id) if version is not None else None
+            source = session.get(Source, document.source_id) if document is not None else None
+            public = _public(citation)
+            warnings = _detail_warnings(
+                citation=public,
+                source=source,
+                version=version,
+            )
+            detail = CitationDetailPublic(
+                citation=public,
+                source_text=chunk.content if chunk is not None else None,
+                source=(
+                    CitationSourceSummary(
+                        id=source.id,
+                        name=source.name,
+                        source_type=source.source_type,
+                        language=source.language,
+                        is_active=source.is_active,
+                        reliability_level=source.reliability_level,
+                    )
+                    if source is not None
+                    else None
+                ),
+                document=(
+                    CitationDocumentSummary(
+                        id=document.id,
+                        title=document.title,
+                        author=document.author,
+                        translator=document.translator,
+                        publisher=document.publisher,
+                        edition=document.edition,
+                        language=document.language,
+                        document_type=document.document_type,
+                        version_status=version.status,
+                    )
+                    if document is not None and version is not None
+                    else None
+                ),
+                warnings=warnings,
+            )
+            self.uow.commit()
+            return detail
 
     def llm_tokens_for_citations(self, citation_ids: tuple[UUID, ...]) -> tuple[str, ...]:
         """Return LLM-visible tokens only for active registered citations."""
@@ -526,6 +623,22 @@ def _metadata_text(metadata: Mapping[str, Any], key: str) -> str | None:
     if value is None:
         return None
     return _optional_text(str(value))
+
+
+def _detail_warnings(
+    *,
+    citation: CitationPublic,
+    source: Source | None,
+    version: DocumentVersion | None,
+) -> tuple[str, ...]:
+    warnings: list[str] = []
+    if not citation.active:
+        warnings.append("citation_invalidated")
+    if source is not None and not source.is_active:
+        warnings.append("source_suspended")
+    if version is not None and version.status in {"suspended", "archived", "rejected"}:
+        warnings.append("document_version_unavailable")
+    return tuple(dict.fromkeys(warnings))
 
 
 def _public(citation: Citation) -> CitationPublic:

@@ -104,10 +104,14 @@ from zayd_service_orchestrator import (
     ChatRequest,
     ChatStreamingError,
     ChatStreamingService,
+    CitationDetailPublic,
+    CitationRegistryError,
+    CitationRegistryService,
     MockLLMProvider,
     PromptRegistryService as OrchestratorPromptRegistryService,
     StaticAnswerRetriever,
     build_managed_answer_orchestrator,
+    citation_id_from_token,
     sse_encode,
 )
 
@@ -275,6 +279,55 @@ class ChatStreamRequest(BaseModel):
     guest_token: str | None = Field(default=None, min_length=20, max_length=256)
 
 
+class CitationRecordResponse(BaseModel):
+    id: str
+    token: str
+    canonical_reference: str
+    document_version_id: str
+    chunk_id: str
+    citation_type: str
+    display_title: str
+    arabic_text: str | None
+    thai_translation: str | None
+    hadith_grade: str | None
+    volume: str | None
+    page: str | None
+    verified: bool
+    active: bool
+    invalidated_at: str | None
+    registry_version: str
+
+
+class CitationSourceSummaryResponse(BaseModel):
+    id: str
+    name: str
+    source_type: str
+    language: str
+    is_active: bool
+    reliability_level: int
+
+
+class CitationDocumentSummaryResponse(BaseModel):
+    id: str
+    title: str
+    author: str | None
+    translator: str | None
+    publisher: str | None
+    edition: str | None
+    language: str
+    document_type: str
+    version_status: str
+
+
+class CitationDetailResponse(BaseModel):
+    citation: CitationRecordResponse
+    source_text: str | None
+    source: CitationSourceSummaryResponse | None
+    document: CitationDocumentSummaryResponse | None
+    warnings: list[str]
+    registry_version: str
+
+
 class DocumentApprovalAuthorizationRequest(BaseModel):
     document_created_by: UUID
 
@@ -384,6 +437,11 @@ class SourceResponse(BaseModel):
 
 class SourceListResponse(BaseModel):
     sources: list[SourceResponse]
+
+
+class PublicSourceDetailResponse(BaseModel):
+    source: SourceResponse
+    warnings: list[str]
 
 
 class LicenseCreateRequest(BaseModel):
@@ -1044,6 +1102,78 @@ def _source_response(source: SourcePublic) -> SourceResponse:
     )
 
 
+def _parse_citation_ref(value: str) -> UUID:
+    normalized = value.strip()
+    if normalized.startswith("CIT-"):
+        return citation_id_from_token(normalized)
+    return UUID(normalized)
+
+
+def _citation_record_response(citation: CitationDetailPublic) -> CitationRecordResponse:
+    record = citation.citation
+    return CitationRecordResponse(
+        id=str(record.id),
+        token=record.token,
+        canonical_reference=record.canonical_reference,
+        document_version_id=str(record.document_version_id),
+        chunk_id=str(record.chunk_id),
+        citation_type=record.citation_type.value,
+        display_title=record.display_title,
+        arabic_text=record.arabic_text,
+        thai_translation=record.thai_translation,
+        hadith_grade=record.hadith_grade,
+        volume=record.volume,
+        page=record.page,
+        verified=record.verified,
+        active=record.active,
+        invalidated_at=record.invalidated_at.isoformat() if record.invalidated_at else None,
+        registry_version=record.registry_version,
+    )
+
+
+def _citation_detail_response(detail: CitationDetailPublic) -> CitationDetailResponse:
+    return CitationDetailResponse(
+        citation=_citation_record_response(detail),
+        source_text=detail.source_text,
+        source=(
+            CitationSourceSummaryResponse(
+                id=str(detail.source.id),
+                name=detail.source.name,
+                source_type=detail.source.source_type,
+                language=detail.source.language,
+                is_active=detail.source.is_active,
+                reliability_level=detail.source.reliability_level,
+            )
+            if detail.source is not None
+            else None
+        ),
+        document=(
+            CitationDocumentSummaryResponse(
+                id=str(detail.document.id),
+                title=detail.document.title,
+                author=detail.document.author,
+                translator=detail.document.translator,
+                publisher=detail.document.publisher,
+                edition=detail.document.edition,
+                language=detail.document.language,
+                document_type=detail.document.document_type,
+                version_status=detail.document.version_status,
+            )
+            if detail.document is not None
+            else None
+        ),
+        warnings=list(detail.warnings),
+        registry_version=detail.registry_version,
+    )
+
+
+def _public_source_warnings(source: SourcePublic) -> list[str]:
+    warnings: list[str] = []
+    if not source.is_active:
+        warnings.append("source_suspended")
+    return warnings
+
+
 def _license_create(payload: LicenseCreateRequest) -> LicenseCreate:
     return LicenseCreate(
         license_name=payload.license_name,
@@ -1264,6 +1394,11 @@ def create_app() -> FastAPI:
 
         return PromptRegistryService(SQLAlchemyUnitOfWork(session_factory))
 
+    def citation_registry_service() -> CitationRegistryService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return CitationRegistryService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -1431,6 +1566,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(ChatStreamingError)
     async def chat_streaming_error_handler(
         request: Request, exc: ChatStreamingError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(CitationRegistryError)
+    async def citation_registry_error_handler(
+        request: Request, exc: CitationRegistryError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -1910,6 +2054,25 @@ def create_app() -> FastAPI:
                 status_code=404,
             )
         return {"status": "ok"}
+
+    @app.get("/citations/{citation_id}", response_model=CitationDetailResponse)
+    async def get_citation_detail(
+        citation_id: str,
+        service: Annotated[CitationRegistryService, Depends(citation_registry_service)],
+    ) -> CitationDetailResponse:
+        detail = service.get_citation_detail(_parse_citation_ref(citation_id))
+        return _citation_detail_response(detail)
+
+    @app.get("/sources/{source_id}", response_model=PublicSourceDetailResponse)
+    async def get_public_source_detail(
+        source_id: UUID,
+        service: Annotated[SourceService, Depends(source_service)],
+    ) -> PublicSourceDetailResponse:
+        source = service.get_by_id(source_id=source_id)
+        return PublicSourceDetailResponse(
+            source=_source_response(source),
+            warnings=_public_source_warnings(source),
+        )
 
     @app.get("/auth/mfa/status", response_model=MfaStatusResponse)
     async def mfa_status(

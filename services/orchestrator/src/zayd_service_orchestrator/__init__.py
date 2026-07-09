@@ -32,6 +32,7 @@ from .answer_orchestration import (
 from .citation_registry import (
     CITATION_REGISTRY_VERSION,
     CITATION_TOKEN_PREFIX,
+    CitationDetailPublic,
     CitationInvalidationResult,
     CitationPublic,
     CitationRegistrationRequest,
@@ -206,6 +207,7 @@ __all__ = [
     "CitationRegistrationRequest",
     "CitationRegistrationResult",
     "CitationRegistryError",
+    "CitationDetailPublic",
     "CitationRegistryService",
     "CitationType",
     "CitationVerificationAnswerVerifier",
