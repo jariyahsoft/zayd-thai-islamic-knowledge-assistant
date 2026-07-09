@@ -1,3 +1,16 @@
+## 2026-07-09T16:20:00+07:00
+
+- Task: TASK-09-01 - User Application Shell
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Built the mobile-first user PWA shell in `apps/web` with bottom navigation, Thai typography tokens, light/dark theme switching, isolated Arabic RTL rendering, placeholder core screens, manifest/icons, and shared shell primitives in `@zayd/ui`. TASK-09-02 and TASK-09-04 are now READY.
+- Changed files: `packages/ui/src/index.tsx`, `packages/ui/src/theme.ts` (new), `packages/ui/src/arabic-text.tsx` (new), `packages/ui/src/pwa.ts` (new), `packages/ui/src/user-app-shell.tsx` (new), `packages/ui/src/user-app-shell.test.tsx` (new), `apps/web/app/globals.css` (new), `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/app/user-app-client.tsx` (new), `apps/web/app/manifest.ts` (new), `apps/web/app/chat/page.tsx` (new), `apps/web/app/history/page.tsx` (new), `apps/web/app/settings/page.tsx` (new), `apps/web/app/shell.test.ts` (new), `apps/web/public/icons/icon-192.svg` (new), `apps/web/public/icons/icon-512.svg` (new), `docs/frontend/user-app.md` (new), task index/status updates, `tasks-update.md`
+- Verification: `packages/ui` vitest — 5 passed; `apps/web` shell vitest — 4 passed; `packages/ui` tsc — success; pre-existing `apps/web/app/env.client.test.ts` still depends on workspace package resolution in this environment.
+- Self-review: Shell uses safe placeholder copy, no secrets, and no hidden traces. Arabic rendering is isolated with `dir=rtl` and `unicode-bidi: isolate`. PWA manifest passes installability validation.
+- Remaining risks: No service worker/offline mode yet. Tailwind from SRS is deferred in favor of tokenized CSS consistent with current apps. Religious demo strings remain placeholders pending human review.
+- Commit: focused commit pending `feat(web): add user application shell`.
+
 ## 2026-07-09T16:05:00+07:00
 
 - Task: TASK-08-10 - Streaming Chat API

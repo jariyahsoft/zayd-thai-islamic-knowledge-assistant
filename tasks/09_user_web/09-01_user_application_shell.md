@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Create responsive Next.js/PWA shell with mobile-first navigation, Thai typograph
 
 ## Acceptance Criteria
 
-- [ ] Core screens work on supported mobile widths.
-- [ ] Thai and Arabic text do not overflow or reverse incorrectly.
-- [ ] PWA manifest and installability checks pass.
+- [x] Core screens work on supported mobile widths.
+- [x] Thai and Arabic text do not overflow or reverse incorrectly.
+- [x] PWA manifest and installability checks pass.
 
 ## Required Tests
 
@@ -89,28 +89,60 @@ Create responsive Next.js/PWA shell with mobile-first navigation, Thai typograph
 
 ### Files Changed
 
-- Pending
+- `packages/ui/src/index.tsx`
+- `packages/ui/src/theme.ts` (new)
+- `packages/ui/src/arabic-text.tsx` (new)
+- `packages/ui/src/pwa.ts` (new)
+- `packages/ui/src/user-app-shell.tsx` (new)
+- `packages/ui/src/user-app-shell.test.tsx` (new)
+- `apps/web/app/globals.css` (new)
+- `apps/web/app/layout.tsx`
+- `apps/web/app/page.tsx`
+- `apps/web/app/user-app-client.tsx` (new)
+- `apps/web/app/manifest.ts` (new)
+- `apps/web/app/chat/page.tsx` (new)
+- `apps/web/app/history/page.tsx` (new)
+- `apps/web/app/settings/page.tsx` (new)
+- `apps/web/app/shell.test.ts` (new)
+- `apps/web/public/icons/icon-192.svg` (new)
+- `apps/web/public/icons/icon-512.svg` (new)
+- `docs/frontend/user-app.md` (new)
+- `tasks/09_user_web/09-01_user_application_shell.md`
+- `tasks/09_user_web/09-02_chat_interface.md`
+- `tasks/09_user_web/09-04_madhhab_and_answer_preferences.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `vitest run` in `packages/ui` — 5 passed
+- `vitest run app/shell.test.ts` in `apps/web` — 4 passed
+- `tsc --noEmit` in `packages/ui` — success
+- `tsc --noEmit` in `apps/web` — success for new shell files; pre-existing `env.client.test.ts` workspace resolution remains environment-dependent
 
 ### Acceptance Criteria Result
 
-- Pending
+- Core screens (`/`, `/chat`, `/history`, `/settings`) render inside a mobile-first shell with bottom navigation and responsive CSS tokens.
+- Thai text uses a Thai-first font stack with `overflow-wrap: anywhere`; Arabic snippets use isolated RTL rendering via `ArabicText`.
+- `createUserAppManifest()` passes installability validation and ships SVG icons plus `app/manifest.ts`.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, or hidden model traces added.
+- Demo Arabic/Thai copy is neutral placeholder text pending human religious-content review.
+- SVG icons are simple monogram assets with no restricted religious imagery.
 
 ### Known Limitations
 
-- Pending
+- Service worker/offline caching is not implemented; installability is manifest-based for this task.
+- Chat, history, and settings screens are placeholders until TASK-09-02, TASK-09-04, and TASK-09-05.
+- Tailwind CSS from SRS §7.1 is deferred; the shell uses tokenized CSS to match current app patterns.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-09-02 Chat Interface is now READY.
+- TASK-09-04 Madhhab and Answer Preferences is now READY.
 
 ### Commit
 
-- Pending
+- Pending focused commit `feat(web): add user application shell`

@@ -1,0 +1,196 @@
+:root {
+  color-scheme: light;
+  --zayd-bg: #f7f4ef;
+  --zayd-surface: #fffdf9;
+  --zayd-text: #1f2933;
+  --zayd-muted: #5f6b76;
+  --zayd-accent: #1f4d3a;
+  --zayd-accent-soft: #d8ebe1;
+  --zayd-border: #d9d2c5;
+  --zayd-shadow: 0 12px 30px rgba(31, 77, 58, 0.08);
+  --zayd-font-thai:
+    "Sarabun", "Noto Sans Thai", "IBM Plex Sans Thai", system-ui, sans-serif;
+  --zayd-font-latin: "IBM Plex Sans", system-ui, sans-serif;
+  --zayd-shell-max-width: 48rem;
+  --zayd-shell-nav-height: 4.5rem;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --zayd-bg: #101816;
+  --zayd-surface: #16221d;
+  --zayd-text: #f4f7f5;
+  --zayd-muted: #b4c0b9;
+  --zayd-accent: #7fd3a6;
+  --zayd-accent-soft: #20352c;
+  --zayd-border: #2d4037;
+  --zayd-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--zayd-bg);
+  color: var(--zayd-text);
+  font-family: var(--zayd-font-thai);
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.zayd-user-shell {
+  min-height: 100dvh;
+  max-width: var(--zayd-shell-max-width);
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto 1fr var(--zayd-shell-nav-height);
+  background: linear-gradient(180deg, var(--zayd-bg), var(--zayd-surface));
+}
+
+.zayd-user-shell__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 0.5rem;
+}
+
+.zayd-user-shell__brand {
+  min-width: 0;
+}
+
+.zayd-user-shell__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--zayd-muted);
+  font-family: var(--zayd-font-latin);
+}
+
+.zayd-user-shell__title {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.zayd-user-shell__theme-toggle {
+  border: 1px solid var(--zayd-border);
+  background: var(--zayd-surface);
+  color: var(--zayd-text);
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  box-shadow: var(--zayd-shadow);
+}
+
+.zayd-user-shell__main {
+  padding: 0.5rem 1rem calc(var(--zayd-shell-nav-height) + 1rem);
+  overflow-wrap: anywhere;
+}
+
+.zayd-user-shell__nav {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--zayd-border);
+  background: color-mix(in srgb, var(--zayd-surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.zayd-user-shell__nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: var(--zayd-muted);
+  overflow-wrap: anywhere;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+.zayd-user-shell__nav-link.is-active {
+  background: var(--zayd-accent-soft);
+  color: var(--zayd-accent);
+  font-weight: 600;
+}
+
+.zayd-panel {
+  background: var(--zayd-surface);
+  border: 1px solid var(--zayd-border);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: var(--zayd-shadow);
+}
+
+.zayd-panel + .zayd-panel {
+  margin-top: 1rem;
+}
+
+.zayd-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.zayd-panel p {
+  margin: 0;
+  color: var(--zayd-muted);
+}
+
+.zayd-typography-demo {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.zayd-typography-demo__thai,
+.zayd-typography-demo__arabic {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.zayd-typography-demo__arabic {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--zayd-accent-soft);
+}
+
+.zayd-screen-placeholder {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--zayd-muted);
+}
+
+@media (min-width: 40rem) {
+  .zayd-user-shell__header,
+  .zayd-user-shell__main {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}

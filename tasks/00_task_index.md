@@ -104,10 +104,10 @@
 | TASK-08-08 | Citation Verification Engine | S | DONE | TASK-08-06, TASK-08-07 | `08_orchestrator/08-08_citation_verification_engine.md` |
 | TASK-08-09 | Prompt Version Management | A | DONE | TASK-08-06 | `08_orchestrator/08-09_prompt_version_management.md` |
 | TASK-08-10 | Streaming Chat API | A | DONE | TASK-08-08, TASK-08-09 | `08_orchestrator/08-10_streaming_chat_api.md` |
-| TASK-09-01 | User Application Shell | A | TODO | EPIC-01 complete | `09_user_web/09-01_user_application_shell.md` |
-| TASK-09-02 | Chat Interface | A | TODO | TASK-08-10, TASK-09-01 | `09_user_web/09-02_chat_interface.md` |
+| TASK-09-01 | User Application Shell | A | DONE | EPIC-01 complete | `09_user_web/09-01_user_application_shell.md` |
+| TASK-09-02 | Chat Interface | A | READY | TASK-08-10, TASK-09-01 | `09_user_web/09-02_chat_interface.md` |
 | TASK-09-03 | Citation Cards and Source Detail | A | TODO | TASK-08-07, TASK-09-02 | `09_user_web/09-03_citation_cards_and_source_detail.md` |
-| TASK-09-04 | Madhhab and Answer Preferences | B | TODO | TASK-09-01 | `09_user_web/09-04_madhhab_and_answer_preferences.md` |
+| TASK-09-04 | Madhhab and Answer Preferences | B | READY | TASK-09-01 | `09_user_web/09-04_madhhab_and_answer_preferences.md` |
 | TASK-09-05 | Conversation History | A | TODO | TASK-03-01, TASK-09-02 | `09_user_web/09-05_conversation_history.md` |
 | TASK-09-06 | Saved Answers | B | TODO | TASK-09-03 | `09_user_web/09-06_saved_answers.md` |
 | TASK-09-07 | User Feedback Form | B | TODO | TASK-11-01 | `09_user_web/09-07_user_feedback_form.md` |
