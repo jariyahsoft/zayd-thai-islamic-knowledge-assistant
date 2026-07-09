@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -88,31 +88,83 @@ Define stable contracts for LLM, embedding, knowledge, reranker and vector-store
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+**Python Implementation:**
+- `services/orchestrator/src/zayd_service_orchestrator/provider_sdk.py` (new) — Provider SDK v1 contracts, allow-listed registry, deterministic mock providers for LLM, embedding, knowledge, reranker, and vector store
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py` (modified) — Export provider SDK
+- `services/orchestrator/tests/test_provider_sdk.py` (new) — Contract compliance, registry allow-list, mock provider determinism, and configuration validation tests
+- `services/orchestrator/README.md` (updated) — Document provider SDK usage
+
+**TypeScript Implementation:**
+- `packages/provider-sdk/src/index.ts` (new) — Provider SDK v1 TypeScript contracts, allow-listed registry, error types
+- `packages/provider-sdk/src/index.test.ts` (new) — TypeScript contract compliance and registry tests
+- `packages/provider-sdk/README.md` (updated) — Document TypeScript provider contracts
+
+**Documentation:**
+- `docs/development/provider-sdk.md` (new) — Provider SDK architecture, allow-list loading, mock providers, security rules, and versioning
 
 ### Commands and Tests Executed
 
-- Pending
+```bash
+# Python tests
+uv run pytest services/orchestrator/tests/test_provider_sdk.py -v
+# Result: 6 passed
+
+uv run pytest services/orchestrator/tests/ -v
+# Result: 7 passed (includes import test)
+
+# Python quality checks
+uv run ruff check services/orchestrator/src/zayd_service_orchestrator/provider_sdk.py services/orchestrator/tests/test_provider_sdk.py
+# Result: All checks passed!
+
+uv run ruff format --check services/orchestrator/src/zayd_service_orchestrator/provider_sdk.py
+# Result: 1 file already formatted
+
+uv run mypy services/orchestrator/src/zayd_service_orchestrator/provider_sdk.py --ignore-missing-imports
+# Result: Success: no issues found
+
+python3 -m py_compile services/orchestrator/src/zayd_service_orchestrator/provider_sdk.py
+# Result: Python compile passed
+
+git diff --check
+# Result: No whitespace errors
+```
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] **Core business logic imports interfaces, not vendor SDKs** — The orchestrator service imports stable contracts from `zayd_service_orchestrator.provider_sdk` and business logic will use Protocol types (`LLMProvider`, `EmbeddingProvider`, `KnowledgeProvider`, `RerankerProvider`, `VectorStoreProvider`) instead of vendor SDK imports.
+
+- [x] **Providers are loaded through an explicit allow-list** — `AllowListedProviderRegistry` enforces explicit registration before loading. Unknown providers fail with `PROVIDER_NOT_ALLOWED`, and disabled providers fail with `PROVIDER_DISABLED`. Tests verify registry behavior.
+
+- [x] **Mock providers support deterministic tests** — Implemented deterministic mock providers (`MockLLMProvider`, `MockEmbeddingProvider`, `MockKnowledgeProvider`, `MockRerankerProvider`, `MockVectorStoreProvider`) that return stable outputs based on input hashing, support all protocol methods, and enable contract tests without external dependencies.
 
 ### Security and License Review
 
-- Pending
+**Security:**
+- Provider configurations store only secret references (`secret_ref`), never raw secret values
+- Provider traces exclude credentials, API keys, and hidden chain-of-thought
+- Configuration validation enforces timeout bounds (1–120000ms) and retry limits (0–5)
+- Mock providers do not call external systems or require secrets
+- Registry prevents arbitrary provider execution through explicit allow-list enforcement
+
+**License:**
+- All implementation code is new and follows existing Apache-2.0 license
+- No third-party provider SDK dependencies introduced
+- No secrets, production data, restricted religious content, or PHI introduced
 
 ### Known Limitations
 
-- Pending
+- TypeScript tests could not be executed due to Node.js tooling unavailable in current environment; TypeScript implementation verified through static analysis and manual code review
+- Mock providers are deterministic stubs for testing; production adapters for OpenAI, Anthropic, vLLM, etc. remain future plugin work (EPIC-08 follow-up tasks)
+- Vector store interface supports pgvector operations but production vector-store plugin adapters remain future work
+- Storage policy enforcement (persistent vs cache-only, data sharing restrictions) is declared in contracts but orchestration-level enforcement remains deferred to later tasks
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-08-02: Answer Orchestrator (will consume LLMProvider interface)
+- Later EPIC-08 tasks: Production provider adapters for OpenAI, Anthropic, local embedding models, external knowledge APIs
+- Plugin system tasks: Loading provider plugins from `plugins/` directory with manifest validation
 
 ### Commit
 
