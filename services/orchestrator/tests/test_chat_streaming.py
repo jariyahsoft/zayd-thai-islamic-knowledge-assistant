@@ -4,10 +4,11 @@ import asyncio
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from zayd_common.auth import AuthService
-from zayd_common.database.models import Base
+from zayd_common.conversations import NO_HISTORY_BODY, ConversationHistoryService
+from zayd_common.database.models import Base, Conversation, Message
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.prompt_registry import PromptRegistryService, bootstrap_registry_defaults
 from zayd_service_orchestrator.answer_orchestration import (
@@ -24,6 +25,7 @@ from zayd_service_orchestrator.chat_streaming import (
     ChatStatusStage,
     ChatStreamingError,
     ChatStreamingService,
+    _hash_body,
     sse_encode,
 )
 from zayd_service_orchestrator.question_classification import QuestionClassifier
@@ -35,7 +37,7 @@ from zayd_service_retrieval.evidence_sufficiency import (
 
 
 @pytest.fixture
-def streaming_service() -> tuple[ChatStreamingService, PromptRegistryService]:
+def streaming_service() -> tuple[ChatStreamingService, PromptRegistryService, sessionmaker]:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -73,7 +75,7 @@ def streaming_service() -> tuple[ChatStreamingService, PromptRegistryService]:
         orchestrator=orchestrator,
         prompt_registry_factory=lambda: PromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
     )
-    return service, registry
+    return service, registry, session_factory
 
 
 def _candidate(*, source_id, rank: int) -> EvidenceCandidate:
@@ -102,9 +104,9 @@ async def _collect_events(handle) -> list[str]:
 
 @pytest.mark.asyncio
 async def test_sse_contract_emits_status_and_verified_final_answer(
-    streaming_service: tuple[ChatStreamingService, PromptRegistryService],
+    streaming_service: tuple[ChatStreamingService, PromptRegistryService, sessionmaker],
 ) -> None:
-    service, _registry = streaming_service
+    service, _registry, _session_factory = streaming_service
     handle = service.start_stream(
         ChatRequest(
             question="ละหมาดคืออะไร",
@@ -125,9 +127,9 @@ async def test_sse_contract_emits_status_and_verified_final_answer(
 
 @pytest.mark.asyncio
 async def test_disconnect_cancels_active_stream(
-    streaming_service: tuple[ChatStreamingService, PromptRegistryService],
+    streaming_service: tuple[ChatStreamingService, PromptRegistryService, sessionmaker],
 ) -> None:
-    service, _registry = streaming_service
+    service, _registry, _session_factory = streaming_service
     handle = service.start_stream(
         ChatRequest(
             question="ละหมาดคืออะไร",
@@ -146,9 +148,9 @@ async def test_disconnect_cancels_active_stream(
 
 @pytest.mark.asyncio
 async def test_rate_limit_blocks_excessive_streams(
-    streaming_service: tuple[ChatStreamingService, PromptRegistryService],
+    streaming_service: tuple[ChatStreamingService, PromptRegistryService, sessionmaker],
 ) -> None:
-    service, _registry = streaming_service
+    service, _registry, _session_factory = streaming_service
     actor_id = uuid4()
     for _ in range(CHAT_RATE_LIMIT_MAX_STREAMS):
         handle = service.start_stream(ChatRequest(question="test", actor_user_id=actor_id))
@@ -160,9 +162,9 @@ async def test_rate_limit_blocks_excessive_streams(
 
 @pytest.mark.asyncio
 async def test_reconnect_snapshot_replays_events_after_last_event_id(
-    streaming_service: tuple[ChatStreamingService, PromptRegistryService],
+    streaming_service: tuple[ChatStreamingService, PromptRegistryService, sessionmaker],
 ) -> None:
-    service, _registry = streaming_service
+    service, _registry, _session_factory = streaming_service
     handle = service.start_stream(
         ChatRequest(
             question="ละหมาดคืออะไร",
@@ -208,3 +210,52 @@ def test_verified_citations_exclude_unverified_entries() -> None:
     payload = _answer_json(answer, no_history=False)
     assert len(payload["citations"]) == 1
     assert payload["citations"][0]["citation_id"] == "c1"
+
+
+@pytest.mark.asyncio
+async def test_no_history_persists_redacted_bodies_only(
+    streaming_service: tuple[ChatStreamingService, PromptRegistryService, sessionmaker],
+) -> None:
+    service, _registry, session_factory = streaming_service
+    actor_id = uuid4()
+    question = "ละหมาดคืออะไร"
+    handle = service.start_stream(
+        ChatRequest(
+            question=question,
+            actor_user_id=actor_id,
+            no_history=True,
+        )
+    )
+    await _collect_events(handle)
+
+    with session_factory() as session:
+        conversation = session.scalar(select(Conversation).where(Conversation.user_id == actor_id))
+        assert conversation is not None
+        messages = session.scalars(
+            select(Message).where(Message.conversation_id == conversation.id)
+        ).all()
+    assert messages
+    assert all(message.body == NO_HISTORY_BODY for message in messages)
+    user_message = next(message for message in messages if message.sender_type == "user")
+    assert user_message.metadata_json["no_history"] is True
+    assert user_message.body_hash == _hash_body(question)
+
+
+@pytest.mark.asyncio
+async def test_no_history_threads_are_excluded_from_history_list(
+    streaming_service: tuple[ChatStreamingService, PromptRegistryService, sessionmaker],
+) -> None:
+    service, _registry, session_factory = streaming_service
+    actor_id = uuid4()
+    handle = service.start_stream(
+        ChatRequest(
+            question="คำถามลับ",
+            actor_user_id=actor_id,
+            no_history=True,
+        )
+    )
+    await _collect_events(handle)
+
+    history = ConversationHistoryService(SQLAlchemyUnitOfWork(session_factory))
+    result = history.list_conversations(user_id=actor_id)
+    assert result.total_count == 0

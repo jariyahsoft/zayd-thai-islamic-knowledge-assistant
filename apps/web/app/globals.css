@@ -636,6 +636,111 @@ textarea {
   color: #c24141;
 }
 
+.zayd-history {
+  display: grid;
+  gap: 1rem;
+}
+
+.zayd-history__guest,
+.zayd-history__note,
+.zayd-history__status,
+.zayd-history__empty {
+  margin: 0;
+  color: var(--zayd-muted);
+}
+
+.zayd-history__error {
+  margin: 0;
+  color: #c24141;
+}
+
+.zayd-history__search {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.zayd-history__search-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.zayd-history__search-row {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr auto;
+}
+
+.zayd-history__search-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--zayd-surface);
+  color: var(--zayd-text);
+}
+
+.zayd-history__search-input:focus-visible {
+  outline: 2px solid var(--zayd-accent);
+  outline-offset: 2px;
+}
+
+.zayd-history__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.zayd-history__button {
+  min-height: 2.5rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.9rem;
+  background: var(--zayd-surface);
+  color: var(--zayd-text);
+  font: inherit;
+}
+
+.zayd-history__button--danger {
+  border-color: #e7b4b4;
+  color: #a12828;
+}
+
+.zayd-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.zayd-history__item {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.9rem;
+  background: var(--zayd-surface);
+}
+
+.zayd-history__title {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.zayd-history__title:hover,
+.zayd-history__title:focus-visible {
+  color: var(--zayd-accent);
+}
+
+.zayd-history__preview,
+.zayd-history__meta {
+  margin: 0.35rem 0 0;
+  color: var(--zayd-muted);
+  font-size: 0.9rem;
+}
+
 @media (min-width: 40rem) {
   .zayd-user-shell__header,
   .zayd-user-shell__main {

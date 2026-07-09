@@ -86,6 +86,13 @@ from zayd_common.sources import (
     SourceSearchQuery,
     SourceService,
 )
+from zayd_common.conversations import (
+    ConversationDetailPublic,
+    ConversationHistoryError,
+    ConversationHistoryService,
+    ConversationListResult,
+    ConversationSummaryPublic,
+)
 from zayd_common.user_preferences import (
     UserPreferencesError,
     UserPreferencesPublic,
@@ -207,6 +214,56 @@ class UserPreferencesPatchRequest(BaseModel):
     answer_length: str | None = Field(default=None, pattern=r"^(short|normal|detailed)$")
     show_arabic: bool | None = None
     history_mode: str | None = Field(default=None, pattern=r"^(enabled|disabled)$")
+
+
+class ConversationSummaryResponse(BaseModel):
+    id: UUID
+    title: str | None
+    language: str
+    madhhab: str
+    message_count: int
+    preview: str | None
+    created_at: str
+    updated_at: str
+
+
+class ConversationListResponse(BaseModel):
+    conversations: list[ConversationSummaryResponse]
+    total_count: int
+    limit: int
+    offset: int
+    next_offset: int | None = None
+
+
+class ConversationAnswerResponse(BaseModel):
+    id: str
+    summary: str
+    answer_th: str
+    madhhab: str
+    risk_level: str
+    confidence: str
+    evidence_sufficient: bool
+    citations: list[dict[str, str]]
+    limitations: list[str]
+    warning: str | None = None
+    status: str | None = None
+
+
+class ConversationMessageResponse(BaseModel):
+    id: UUID
+    sender_type: str
+    body: str
+    created_at: str
+    answer: ConversationAnswerResponse | None = None
+
+
+class ConversationDetailResponse(BaseModel):
+    conversation: ConversationSummaryResponse
+    messages: list[ConversationMessageResponse]
+
+
+class ConversationDeleteAllResponse(BaseModel):
+    deleted_count: int
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -1202,6 +1259,63 @@ def _preferences_response(preferences: UserPreferencesPublic) -> UserPreferences
     )
 
 
+def _conversation_summary_response(
+    summary: ConversationSummaryPublic,
+) -> ConversationSummaryResponse:
+    return ConversationSummaryResponse(
+        id=summary.id,
+        title=summary.title,
+        language=summary.language,
+        madhhab=summary.madhhab,
+        message_count=summary.message_count,
+        preview=summary.preview,
+        created_at=summary.created_at.isoformat(),
+        updated_at=summary.updated_at.isoformat(),
+    )
+
+
+def _conversation_detail_response(detail: ConversationDetailPublic) -> ConversationDetailResponse:
+    return ConversationDetailResponse(
+        conversation=_conversation_summary_response(detail.conversation),
+        messages=[
+            ConversationMessageResponse(
+                id=message.id,
+                sender_type=message.sender_type,
+                body=message.body,
+                created_at=message.created_at.isoformat(),
+                answer=(
+                    ConversationAnswerResponse(
+                        id=message.answer["id"],
+                        summary=message.answer.get("summary", ""),
+                        answer_th=message.answer.get("answer_th", ""),
+                        madhhab=message.answer.get("madhhab", "shafii"),
+                        risk_level=message.answer.get("risk_level", "low"),
+                        confidence=message.answer.get("confidence", "medium"),
+                        evidence_sufficient=bool(message.answer.get("evidence_sufficient")),
+                        citations=list(message.answer.get("citations", [])),
+                        limitations=list(message.answer.get("limitations", [])),
+                        warning=message.answer.get("warning"),
+                        status=message.answer.get("status"),
+                    )
+                    if message.answer is not None
+                    else None
+                ),
+            )
+            for message in detail.messages
+        ],
+    )
+
+
+def _conversation_list_response(result: ConversationListResult) -> ConversationListResponse:
+    return ConversationListResponse(
+        conversations=[_conversation_summary_response(item) for item in result.conversations],
+        total_count=result.total_count,
+        limit=result.limit,
+        offset=result.offset,
+        next_offset=result.next_offset,
+    )
+
+
 def _public_source_warnings(source: SourcePublic) -> list[str]:
     warnings: list[str] = []
     if not source.is_active:
@@ -1439,6 +1553,11 @@ def create_app() -> FastAPI:
 
         return UserPreferencesService(SQLAlchemyUnitOfWork(session_factory))
 
+    def conversation_history_service() -> ConversationHistoryService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return ConversationHistoryService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -1624,6 +1743,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(UserPreferencesError)
     async def user_preferences_error_handler(
         request: Request, exc: UserPreferencesError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(ConversationHistoryError)
+    async def conversation_history_error_handler(
+        request: Request, exc: ConversationHistoryError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -2129,6 +2257,66 @@ def create_app() -> FastAPI:
                 status_code=404,
             )
         return {"status": "ok"}
+
+    @app.get("/chat/conversations", response_model=ConversationListResponse)
+    async def list_chat_conversations(
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.CONVERSATIONS_MANAGE_OWN))
+        ],
+        service: Annotated[ConversationHistoryService, Depends(conversation_history_service)],
+        q: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> ConversationListResponse:
+        result = service.list_conversations(
+            user_id=principal.id,
+            query=q,
+            limit=limit,
+            offset=offset,
+        )
+        return _conversation_list_response(result)
+
+    @app.get("/chat/conversations/{conversation_id}", response_model=ConversationDetailResponse)
+    async def get_chat_conversation(
+        conversation_id: UUID,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.CONVERSATIONS_MANAGE_OWN))
+        ],
+        service: Annotated[ConversationHistoryService, Depends(conversation_history_service)],
+    ) -> ConversationDetailResponse:
+        detail = service.get_conversation(user_id=principal.id, conversation_id=conversation_id)
+        return _conversation_detail_response(detail)
+
+    @app.delete("/chat/conversations/{conversation_id}")
+    async def delete_chat_conversation(
+        conversation_id: UUID,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.CONVERSATIONS_MANAGE_OWN))
+        ],
+        service: Annotated[ConversationHistoryService, Depends(conversation_history_service)],
+    ) -> dict[str, str]:
+        service.delete_conversation(
+            user_id=principal.id,
+            conversation_id=conversation_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return {"status": "ok"}
+
+    @app.post("/chat/conversations/delete-all", response_model=ConversationDeleteAllResponse)
+    async def delete_all_chat_conversations(
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.CONVERSATIONS_MANAGE_OWN))
+        ],
+        service: Annotated[ConversationHistoryService, Depends(conversation_history_service)],
+    ) -> ConversationDeleteAllResponse:
+        result = service.delete_all_conversations(
+            user_id=principal.id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return ConversationDeleteAllResponse(deleted_count=result.deleted_count)
 
     @app.get("/citations/{citation_id}", response_model=CitationDetailResponse)
     async def get_citation_detail(

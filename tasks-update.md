@@ -1,3 +1,16 @@
+## 2026-07-09T17:10:00+07:00
+
+- Task: TASK-09-05 - Conversation History
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added conversation history APIs (`GET/DELETE /chat/conversations`, `POST /chat/conversations/delete-all`), `ConversationHistoryService` with ownership checks and soft-delete audit logging, no-history persistence filtering, `@zayd/conversations` client package, `/history` UI with search/delete/delete-all, and chat reopen via `/chat?conversation={id}`.
+- Changed files: conversation history service/API/tests, chat streaming ownership/title/no-history tests, `packages/conversations/*`, web history/chat integration, `docs/user/conversation-history.md`, task index/status updates, `tasks-update.md`
+- Verification: Python conversation tests — 14 passed; `@zayd/conversations` vitest — 1 passed; `@zayd/web` vitest — 24 passed; conversations/web typecheck and web build — success
+- Self-review: Users only see owned threads. Deletes are soft with audit summaries. No-history threads are redacted and excluded from history APIs while retaining security metadata. Guests see sign-in guidance instead of server history.
+- Remaining risks: Guest history and hard-delete retention policy remain future operational work. Search is basic title/question matching only.
+- Commit: `feat(web): add conversation history`
+
 ## 2026-07-09T17:00:00+07:00
 
 - Task: TASK-09-04 - Madhhab and Answer Preferences

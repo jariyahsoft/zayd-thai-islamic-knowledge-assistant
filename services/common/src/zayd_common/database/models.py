@@ -1122,6 +1122,7 @@ class Message(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Answer(Base):

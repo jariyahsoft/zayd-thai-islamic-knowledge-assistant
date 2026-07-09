@@ -108,7 +108,7 @@
 | TASK-09-02 | Chat Interface | A | DONE | TASK-08-10, TASK-09-01 | `09_user_web/09-02_chat_interface.md` |
 | TASK-09-03 | Citation Cards and Source Detail | A | DONE | TASK-08-07, TASK-09-02 | `09_user_web/09-03_citation_cards_and_source_detail.md` |
 | TASK-09-04 | Madhhab and Answer Preferences | B | DONE | TASK-09-01 | `09_user_web/09-04_madhhab_and_answer_preferences.md` |
-| TASK-09-05 | Conversation History | A | READY | TASK-03-01, TASK-09-02 | `09_user_web/09-05_conversation_history.md` |
+| TASK-09-05 | Conversation History | A | DONE | TASK-03-01, TASK-09-02 | `09_user_web/09-05_conversation_history.md` |
 | TASK-09-06 | Saved Answers | B | READY | TASK-09-03 | `09_user_web/09-06_saved_answers.md` |
 | TASK-09-07 | User Feedback Form | B | TODO | TASK-11-01 | `09_user_web/09-07_user_feedback_form.md` |
 | TASK-10-01 | Reviewer Dashboard | A | TODO | EPIC-06 complete | `10_admin_reviewer/10-01_reviewer_dashboard.md` |

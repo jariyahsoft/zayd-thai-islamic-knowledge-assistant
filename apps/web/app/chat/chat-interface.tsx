@@ -7,6 +7,11 @@ import { ArabicText } from "@zayd/ui";
 
 import type { ChatMessage, ChatStreamStage, ParsedChatEvent } from "./chat-types.js";
 import {
+  ConversationsClientError,
+  fetchConversationDetail,
+  type ConversationMessage,
+} from "@zayd/conversations";
+import {
   ChatClientError,
   consumeChatStream,
   ensureGuestSession,
@@ -96,11 +101,42 @@ function MessageBubble(props: {
   );
 }
 
-export function ChatInterface(props: { readonly apiBaseUrl: string }): ReactElement {
+function mapHistoryMessage(message: ConversationMessage): ChatMessage {
+  if (message.senderType === "user") {
+    return {
+      id: message.id,
+      role: "user",
+      content: message.body,
+    };
+  }
+  return {
+    id: message.id,
+    role: "assistant",
+    content: message.answer?.answerTh ?? message.body,
+    status:
+      message.answer?.status === "abstained"
+        ? "abstained"
+        : message.answer?.status === "cancelled"
+          ? "cancelled"
+          : message.answer?.status === "failed"
+            ? "error"
+            : "completed",
+    citations: message.answer?.citations,
+    limitations: message.answer?.limitations,
+    warning: message.answer?.warning,
+  };
+}
+
+export function ChatInterface(props: {
+  readonly apiBaseUrl: string;
+  readonly initialConversationId?: string | null;
+}): ReactElement {
   const { preferences } = usePreferences();
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(
+    props.initialConversationId ?? null,
+  );
   const [stage, setStage] = useState<ChatStreamStage | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -110,6 +146,40 @@ export function ChatInterface(props: { readonly apiBaseUrl: string }): ReactElem
   const abortRef = useRef<AbortController | null>(null);
   const guestTokenRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const conversationToOpen = props.initialConversationId;
+    if (!conversationToOpen || preferences.historyMode === "disabled") {
+      return;
+    }
+    const accessToken = readStoredAccessToken();
+    if (!accessToken) {
+      return;
+    }
+    let cancelled = false;
+    fetchConversationDetail(props.apiBaseUrl, accessToken, conversationToOpen)
+      .then((detail) => {
+        if (cancelled) {
+          return;
+        }
+        setConversationId(detail.conversation.id);
+        setMessages(detail.messages.map(mapHistoryMessage));
+        setSessionError(null);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setSessionError(
+          error instanceof ConversationsClientError
+            ? error.message
+            : "ไม่สามารถเปิดประวัติการสนทนานี้ได้",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.apiBaseUrl, props.initialConversationId, preferences.historyMode]);
 
   useEffect(() => {
     let cancelled = false;

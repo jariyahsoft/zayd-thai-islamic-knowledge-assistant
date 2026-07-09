@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from zayd_common.conversations import NO_HISTORY_BODY, truncate_conversation_title
 from zayd_common.database.models import Answer, Conversation, Message, RetrievalRun
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.prompt_registry import PromptRegistryService
@@ -325,17 +326,36 @@ class ChatStreamingService:
                     id=conversation_id,
                     user_id=request.actor_user_id,
                     guest_session_id=str(request.guest_session_id) if request.guest_session_id else None,
-                    title=None,
+                    title=(
+                        None
+                        if request.no_history
+                        else truncate_conversation_title(request.question)
+                    ),
                     language="th",
                     madhhab=request.requested_madhhab or "shafii",
                 )
                 session.add(conversation)
+            else:
+                if conversation.deleted_at is not None:
+                    raise ChatStreamingError(
+                        "CONVERSATION_NOT_FOUND",
+                        "Conversation was not found.",
+                        status_code=404,
+                    )
+                if request.actor_user_id is not None and conversation.user_id != request.actor_user_id:
+                    raise ChatStreamingError(
+                        "CONVERSATION_FORBIDDEN",
+                        "Conversation belongs to another user.",
+                        status_code=403,
+                    )
+                if conversation.title is None and not request.no_history:
+                    conversation.title = truncate_conversation_title(request.question)
             session.add(
                 Message(
                     id=message_id,
                     conversation_id=conversation_id,
                     sender_type="user",
-                    body=request.question if not request.no_history else "[no-history]",
+                    body=request.question if not request.no_history else NO_HISTORY_BODY,
                     body_hash=_hash_body(request.question),
                     metadata_json={
                         "answer_length": request.answer_length,
@@ -372,7 +392,7 @@ class ChatStreamingService:
                         id=uuid4(),
                         conversation_id=conversation_id,
                         sender_type="assistant",
-                        body=result.answer.answer_th if not request.no_history else "[no-history]",
+                        body=result.answer.answer_th if not request.no_history else NO_HISTORY_BODY,
                         body_hash=_hash_body(result.answer.answer_th),
                         metadata_json={
                             "answer_id": str(answer_id),
@@ -504,8 +524,8 @@ def sse_encode(event: ChatEvent) -> str:
 
 def _answer_json(answer: StructuredAnswer, *, no_history: bool) -> dict[str, Any]:
     return {
-        "summary": answer.summary if not no_history else "[no-history]",
-        "answer_th": answer.answer_th if not no_history else "[no-history]",
+        "summary": answer.summary if not no_history else NO_HISTORY_BODY,
+        "answer_th": answer.answer_th if not no_history else NO_HISTORY_BODY,
         "madhhab": answer.madhhab,
         "risk_level": answer.risk_level,
         "confidence": answer.confidence.value,

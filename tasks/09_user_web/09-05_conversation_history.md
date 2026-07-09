@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Implement list, search, open, delete, delete-all and no-history mode.
 
 ## Acceptance Criteria
 
-- [ ] Users access only their own threads.
-- [ ] Deletion/retention behavior follows policy.
-- [ ] No-history mode avoids persistent message storage except required abuse/security metadata.
+- [x] Users access only their own threads.
+- [x] Deletion/retention behavior follows policy.
+- [x] No-history mode avoids persistent message storage except required abuse/security metadata.
 
 ## Required Tests
 
@@ -90,28 +90,58 @@ Implement list, search, open, delete, delete-all and no-history mode.
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/conversations.py` (new)
+- `services/common/src/zayd_common/database/models.py`
+- `services/common/tests/test_conversations.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_conversation_history_api.py` (new)
+- `services/orchestrator/src/zayd_service_orchestrator/chat_streaming.py`
+- `services/orchestrator/tests/test_chat_streaming.py`
+- `packages/conversations/package.json` (new)
+- `packages/conversations/tsconfig.json` (new)
+- `packages/conversations/src/types.ts` (new)
+- `packages/conversations/src/api.ts` (new)
+- `packages/conversations/src/index.ts` (new)
+- `packages/conversations/src/conversations.test.ts` (new)
+- `apps/web/package.json`
+- `apps/web/app/history/page.tsx`
+- `apps/web/app/history/history-list.tsx` (new)
+- `apps/web/app/history/history.test.ts` (new)
+- `apps/web/app/chat/page.tsx`
+- `apps/web/app/chat/chat-interface.tsx`
+- `apps/web/app/globals.css`
+- `docs/user/conversation-history.md` (new)
+- `tasks/09_user_web/09-05_conversation_history.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
+- `pnpm-lock.yaml`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_conversations.py services/api/tests/test_conversation_history_api.py services/orchestrator/tests/test_chat_streaming.py -q` — 14 passed
+- `pnpm --filter @zayd/conversations test` — 1 passed
+- `pnpm --filter @zayd/web test` — 24 passed
+- `pnpm --filter @zayd/conversations typecheck` — success
+- `pnpm --filter @zayd/web typecheck` — success
+- `pnpm --filter @zayd/web build` — success
+- `uv run ruff check` on conversation Python files — success
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. History APIs enforce `conversations.manage_own` and ownership checks with 404 for foreign threads. Soft-delete plus audit logging follow repository retention patterns. No-history mode redacts persisted bodies, excludes threads from history APIs, and keeps hashes/metadata for security review.
 
 ### Security and License Review
 
-- Pending
+- No secrets or production data added. Delete mutations audit without message bodies. History UI uses text-only rendering. Guests are blocked from server history with clear local/no-history messaging.
 
 ### Known Limitations
 
-- Pending
+- Guest server-side history remains out of scope. Conversation search is title/first-question only. Hard-delete/TTL retention policy is operational follow-up outside this task.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-09-06 — saved answers (already READY)
 
 ### Commit
 
-- Pending
+- `feat(web): add conversation history`
