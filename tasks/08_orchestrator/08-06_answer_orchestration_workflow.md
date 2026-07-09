@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -65,10 +65,10 @@ Implement a traceable state machine: classify, retrieve, evaluate sufficiency, e
 
 ## Acceptance Criteria
 
-- [ ] Every step records status and safe trace metadata.
-- [ ] Retries do not create duplicate persisted answers.
-- [ ] Cancellation stops provider work where supported.
-- [ ] Insufficient/conflicting evidence follows policy.
+- [x] Every step records status and safe trace metadata.
+- [x] Retries do not create duplicate persisted answers.
+- [x] Cancellation stops provider work where supported.
+- [x] Insufficient/conflicting evidence follows policy.
 
 ## Required Tests
 
@@ -95,28 +95,71 @@ Implement a traceable state machine: classify, retrieve, evaluate sufficiency, e
 
 ### Files Changed
 
-- Pending
+- `services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py`
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py`
+- `services/orchestrator/tests/test_answer_orchestration.py`
+- `docs/architecture/answer-orchestrator.md`
+- `tasks/08_orchestrator/08-06_answer_orchestration_workflow.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+```bash
+uv run pytest services/orchestrator/tests/test_answer_orchestration.py -q
+# 9 passed
+
+uv run pytest services/orchestrator/tests/test_answer_orchestration.py services/orchestrator/tests/test_risk_policy_engine.py services/orchestrator/tests/test_orchestrator_imports.py -q
+# 36 passed
+
+uv run pytest services/orchestrator/tests -q
+# 86 passed
+
+uv run ruff check services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/__init__.py services/orchestrator/tests/test_answer_orchestration.py
+# All checks passed
+
+uv run ruff format --check services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/__init__.py services/orchestrator/tests/test_answer_orchestration.py
+# 3 files already formatted
+
+uv run mypy services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/__init__.py services/orchestrator/tests/test_answer_orchestration.py
+# Success
+
+git diff --check
+# Passed
+```
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Every step records status and safe trace metadata.
+- [x] Retries do not create duplicate persisted answers.
+- [x] Cancellation stops provider work where supported.
+- [x] Insufficient/conflicting evidence follows policy.
 
 ### Security and License Review
 
-- Pending
+The state machine applies deterministic risk policy and evidence sufficiency
+before generation, returns restricted/escalated/abstained responses without
+provider generation where required, and verifies draft citations before return.
+Safe step traces omit raw questions, prompts, message payloads, answer text,
+hidden chain-of-thought, secrets, tokens, credentials, production payloads, and
+PHI. No restricted datasets, production data, or third-party code were added.
 
 ### Known Limitations
 
-- Pending
+- Citation verification is a local deterministic allowed-citation check until
+  TASK-08-07 and TASK-08-08 add the citation registry and claim-support verifier.
+- The included in-memory idempotency store is for local/test composition; durable
+  answer persistence belongs to later API and conversation-history tasks.
+- The template generator is deterministic offline behavior; production model
+  generation should use `LLMAnswerGenerator` through approved provider config.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-08-07 should add citation registry persistence and canonical citation IDs.
+- TASK-08-08 should replace local draft verification with full citation and
+  claim-support verification.
+- TASK-08-09 should move prompt versions into managed prompt configuration.
 
 ### Commit
 
-- Pending
+- Pending focused commit.

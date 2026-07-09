@@ -1,3 +1,17 @@
+## 2026-07-09T12:45:22+07:00
+
+- Task: TASK-08-06 - Answer Orchestration Workflow
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented `answer-orchestrator-v1` as a traceable state machine for validate, idempotency, classify, policy, retrieve, evidence, expanded retrieval, generate, verify, revise, abstain/escalate/restrict, and return. Added stable structured answer schema, safe step traces, timeout/cancellation behavior, retry/idempotency handling, deterministic verification, local template and LLM-backed generators, and architecture documentation.
+- Changed files: `services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py` (new), `services/orchestrator/src/zayd_service_orchestrator/__init__.py`, `services/orchestrator/tests/test_answer_orchestration.py` (new), `docs/architecture/answer-orchestrator.md` (new), `tasks/08_orchestrator/08-06_answer_orchestration_workflow.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: answer-orchestration tests passed with 9 passed; focused orchestrator/risk/import regression passed with 36 passed; full orchestrator tests passed with 86 passed; focused Ruff lint passed; focused Ruff format check passed; focused mypy passed; `git diff --check` passed.
+- Self-review: Deterministic policy and evidence gates run before generation. Restricted policy returns before retrieval/generation; insufficient evidence searches more then abstains; conflicting evidence escalates; generated drafts require deterministic verification and revision before return. Safe traces strip raw question/prompt/message/answer text and secret-like fields. No secrets, production data, PHI, restricted datasets, hidden chain-of-thought, or third-party code were introduced.
+- Telegram notification: sent (STARTED and COMPLETED).
+- Remaining risks: Citation verification is an allowed-citation local check until TASK-08-07/TASK-08-08 add the registry and claim-support verifier. Idempotency persistence is in-memory for composition/tests; durable persistence belongs to later API/conversation tasks. Prompt management remains TASK-08-09.
+- Commit: pending focused commit.
+
 ## 2026-07-09T12:32:23+07:00
 
 - Task: TASK-08-05 - Risk Policy Engine
