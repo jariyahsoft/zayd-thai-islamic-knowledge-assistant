@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Protocol
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from zayd_common.enums import EvidenceStatus
 from zayd_service_retrieval.evidence_sufficiency import (
@@ -17,6 +17,7 @@ from zayd_service_retrieval.evidence_sufficiency import (
     EvidenceSufficiencyRequest,
     EvidenceSufficiencyService,
 )
+from zayd_common.prompt_registry import PromptDefinition, prompt_body_only
 
 from .provider_sdk import LLMMessage, LLMProvider, LLMRequest, ProviderSDKError
 from .question_classification import ClassificationResult, QuestionClassifier
@@ -296,24 +297,31 @@ class LLMAnswerGenerator:
         self,
         llm_provider: LLMProvider,
         *,
+        prompt_record: PromptDefinition | None = None,
         prompt_version: str = DEFAULT_PROMPT_VERSION,
     ) -> None:
         self.llm_provider = llm_provider
-        self.prompt_version = prompt_version
+        self.prompt_record = prompt_record
+        self.prompt_version = prompt_record.version if prompt_record else prompt_version
 
     async def generate(self, context: AnswerGenerationContext) -> GeneratedAnswerDraft:
         evidence_summary = "\n".join(
             f"- {candidate.canonical_reference}: {candidate.source_type}"
             for candidate in context.candidates[:5]
         )
+        system_prompt = (
+            prompt_body_only(self.prompt_record.prompt_body)
+            if self.prompt_record
+            else (
+                "Create a concise Thai Islamic knowledge answer using only the "
+                "provided evidence handles. Do not issue a fatwa."
+            )
+        )
         request = LLMRequest(
             messages=(
                 LLMMessage(
                     role="system",
-                    content=(
-                        "Create a concise Thai Islamic knowledge answer using only the "
-                        "provided evidence handles. Do not issue a fatwa."
-                    ),
+                    content=system_prompt,
                 ),
                 LLMMessage(
                     role="user",
@@ -430,6 +438,9 @@ class AnswerOrchestrator:
         verifier: AnswerVerifier | None = None,
         store: AnswerOrchestrationStore | None = None,
         prompt_version: str = DEFAULT_PROMPT_VERSION,
+        prompt_version_id: UUID | None = None,
+        policy_version_id: UUID | None = None,
+        model_configuration_id: UUID | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.classifier = classifier
@@ -440,6 +451,9 @@ class AnswerOrchestrator:
         self.verifier = verifier or DeterministicAnswerVerifier()
         self.store = store or InMemoryAnswerOrchestrationStore()
         self.prompt_version = prompt_version
+        self.prompt_version_id = prompt_version_id
+        self.policy_version_id = policy_version_id
+        self.model_configuration_id = model_configuration_id
         self.clock = clock or (lambda: datetime.now(UTC))
 
     async def answer(self, request: AnswerOrchestrationRequest) -> AnswerOrchestrationResult:
@@ -1065,6 +1079,11 @@ class AnswerOrchestrator:
             "policy_action": policy_decision.action.value,
             "risk_level": policy_decision.risk_level.value,
             "prompt_version": self.prompt_version,
+            "prompt_version_id": str(self.prompt_version_id) if self.prompt_version_id else None,
+            "policy_version_id": str(self.policy_version_id) if self.policy_version_id else None,
+            "model_configuration_id": (
+                str(self.model_configuration_id) if self.model_configuration_id else None
+            ),
         }
         if evidence_decision is not None:
             trace.update(

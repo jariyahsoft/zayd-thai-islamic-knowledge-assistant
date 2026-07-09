@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -63,9 +63,9 @@ Store prompt templates as versioned records/artifacts with purpose, schema, owne
 
 ## Acceptance Criteria
 
-- [ ] Every generated answer records prompt versions.
-- [ ] Draft prompts cannot be activated without permission.
-- [ ] Rollback and comparison are supported.
+- [x] Every generated answer records prompt versions.
+- [x] Draft prompts cannot be activated without permission.
+- [x] Rollback and comparison are supported.
 
 ## Required Tests
 
@@ -91,28 +91,54 @@ Store prompt templates as versioned records/artifacts with purpose, schema, owne
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/prompt_registry.py` (new)
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/src/zayd_common/database/models.py`
+- `services/common/src/zayd_common/database/repositories.py`
+- `services/common/src/zayd_common/database/unit_of_work.py`
+- `services/common/tests/test_prompt_registry.py` (new)
+- `services/orchestrator/src/zayd_service_orchestrator/prompt_orchestrator.py` (new)
+- `services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py`
+- `services/orchestrator/src/zayd_service_orchestrator/chat_streaming.py`
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py`
+- `services/orchestrator/tests/test_prompt_orchestration.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_prompt_api.py` (new)
+- `docs/governance/prompt-management.md` (new)
+- `tasks/08_orchestrator/08-09_prompt_version_management.md`
+- `tasks/08_orchestrator/08-10_streaming_chat_api.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_prompt_registry.py services/api/tests/test_prompt_api.py services/orchestrator/tests/test_prompt_orchestration.py -q` — 12 passed
+- `uv run pytest services/orchestrator/tests/test_answer_orchestration.py services/orchestrator/tests/test_orchestrator_imports.py -q` — 10 passed
+- `uv run mypy services/common/src/zayd_common/prompt_registry.py services/orchestrator/src/zayd_service_orchestrator/prompt_orchestrator.py` — success
+- `uv run ruff check --fix` and `uv run ruff format` on focused prompt files
 
 ### Acceptance Criteria Result
 
-- Pending
+- Generated answers record `prompt_version`, `prompt_version_id`, `policy_version_id`, and `model_configuration_id` in orchestration trace and persisted answer rows.
+- Prompt creation always stores `draft`; activation requires `prompts.manage` via approve API and audit logging.
+- Rollback and compare endpoints are implemented with version diff reporting and prior-version reactivation.
 
 ### Security and License Review
 
-- Pending
+- RBAC enforced on all `/admin/prompts` mutations via `prompts.manage`.
+- Audit append-only records written for create, approve, and rollback actions.
+- No secrets, production data, hidden chain-of-thought, or restricted religious content added.
 
 ### Known Limitations
 
-- Pending
+- Prompt artifact storage is database-backed; external prompt file bundles under `prompts/` remain a later packaging concern.
+- Bootstrap defaults seed a development LLM provider/model pair when none exists.
+- Religious wording inside default prompt bodies still requires human content review before production approval.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-08-10 Streaming Chat API is now unblocked and should expose the streaming endpoints using the governed prompt registry.
 
 ### Commit
 
-- Pending
+- Pending focused commit `feat(orchestrator): add prompt version management`

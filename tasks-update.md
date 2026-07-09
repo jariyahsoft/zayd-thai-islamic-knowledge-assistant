@@ -1,3 +1,16 @@
+## 2026-07-09T15:30:00+07:00
+
+- Task: TASK-08-09 - Prompt Version Management
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Completed `prompt-registry-v1` with versioned prompt records, draft-only creation, permission-gated approval, rollback, comparison, audit logging, and production dependency resolution for answer generation. Added admin `/admin/prompts` APIs, orchestrator composition helpers, answer trace fields, bootstrap defaults, and governance documentation. TASK-08-10 is now READY.
+- Changed files: `services/common/src/zayd_common/prompt_registry.py` (new), `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_prompt_registry.py` (new), `services/orchestrator/src/zayd_service_orchestrator/prompt_orchestrator.py` (new), `services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py`, `services/orchestrator/src/zayd_service_orchestrator/chat_streaming.py`, `services/orchestrator/src/zayd_service_orchestrator/__init__.py`, `services/orchestrator/tests/test_prompt_orchestration.py` (new), `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_prompt_api.py` (new), `docs/governance/prompt-management.md` (new), `tasks/08_orchestrator/08-09_prompt_version_management.md`, `tasks/08_orchestrator/08-10_streaming_chat_api.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: prompt registry/API/orchestration tests passed with 12 passed; answer orchestration regression passed with 10 passed; focused mypy passed; focused ruff fix/format applied to new prompt files.
+- Self-review: Draft prompts cannot reach production without `prompts.manage`. Rollback deprecates superseded approved versions. Answer traces record prompt and policy version metadata without exposing hidden prompts. No secrets or production data introduced.
+- Remaining risks: Default prompt/policy bodies require human religious-content review before production approval. External prompt artifact packaging remains future work. Streaming chat endpoint exposure is TASK-08-10.
+- Commit: focused commit pending `feat(orchestrator): add prompt version management`.
+
 ## 2026-07-09T13:49:53+07:00
 
 - Task: TASK-08-08 - Citation Verification Engine

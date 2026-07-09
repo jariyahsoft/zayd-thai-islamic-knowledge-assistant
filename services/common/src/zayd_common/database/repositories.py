@@ -11,6 +11,9 @@ from zayd_common.database.models import (
     DocumentChunk,
     DocumentVersion,
     Incident,
+    ModelConfiguration,
+    PolicyVersion,
+    PromptVersion,
     ReviewTask,
     Source,
     SourceLicense,
@@ -268,6 +271,109 @@ class SQLAlchemyIncidentRepository(AbstractIncidentRepository):
     def get_incidents(self) -> Sequence[Incident]:
         stmt = select(Incident)
         return self.session.execute(stmt).scalars().all()
+
+
+class AbstractPromptRepository(ABC):
+    """Repository interface for prompt, policy, and model version records."""
+
+    @abstractmethod
+    def get_prompt_by_id(self, prompt_id: UUID) -> PromptVersion | None:
+        pass
+
+    @abstractmethod
+    def get_prompt_by_name_version(self, name: str, version: str) -> PromptVersion | None:
+        pass
+
+    @abstractmethod
+    def get_prompts(self) -> Sequence[PromptVersion]:
+        pass
+
+    @abstractmethod
+    def create_prompt(self, prompt: PromptVersion) -> PromptVersion:
+        pass
+
+    @abstractmethod
+    def update_prompt(self, prompt: PromptVersion) -> PromptVersion:
+        pass
+
+    @abstractmethod
+    def get_policy_by_name_version(self, policy_name: str, version: str) -> PolicyVersion | None:
+        pass
+
+    @abstractmethod
+    def get_policy_by_id(self, policy_id: UUID) -> PolicyVersion | None:
+        pass
+
+    @abstractmethod
+    def create_policy(self, policy: PolicyVersion) -> PolicyVersion:
+        pass
+
+    @abstractmethod
+    def update_policy(self, policy: PolicyVersion) -> PolicyVersion:
+        pass
+
+    @abstractmethod
+    def get_default_model_configuration(self, model_type: str) -> ModelConfiguration | None:
+        pass
+
+
+class SQLAlchemyPromptRepository(AbstractPromptRepository):
+    """SQLAlchemy implementation for prompt/policy/model records."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_prompt_by_id(self, prompt_id: UUID) -> PromptVersion | None:
+        return self.session.get(PromptVersion, prompt_id)
+
+    def get_prompt_by_name_version(self, name: str, version: str) -> PromptVersion | None:
+        stmt = (
+            select(PromptVersion)
+            .where(PromptVersion.name == name)
+            .where(PromptVersion.version == version)
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
+
+    def get_prompts(self) -> Sequence[PromptVersion]:
+        stmt = select(PromptVersion).order_by(PromptVersion.name, PromptVersion.created_at.desc())
+        return self.session.execute(stmt).scalars().all()
+
+    def create_prompt(self, prompt: PromptVersion) -> PromptVersion:
+        self.session.add(prompt)
+        return prompt
+
+    def update_prompt(self, prompt: PromptVersion) -> PromptVersion:
+        self.session.flush()
+        return prompt
+
+    def get_policy_by_name_version(self, policy_name: str, version: str) -> PolicyVersion | None:
+        stmt = (
+            select(PolicyVersion)
+            .where(PolicyVersion.policy_name == policy_name)
+            .where(PolicyVersion.version == version)
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
+
+    def get_policy_by_id(self, policy_id: UUID) -> PolicyVersion | None:
+        return self.session.get(PolicyVersion, policy_id)
+
+    def create_policy(self, policy: PolicyVersion) -> PolicyVersion:
+        self.session.add(policy)
+        return policy
+
+    def update_policy(self, policy: PolicyVersion) -> PolicyVersion:
+        self.session.flush()
+        return policy
+
+    def get_default_model_configuration(self, model_type: str) -> ModelConfiguration | None:
+        stmt = (
+            select(ModelConfiguration)
+            .where(ModelConfiguration.model_type == model_type)
+            .where(ModelConfiguration.is_default.is_(True))
+            .where(ModelConfiguration.deleted_at.is_(None))
+            .order_by(ModelConfiguration.created_at.desc())
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
 
 
 class AbstractReviewTaskRepository(ABC):

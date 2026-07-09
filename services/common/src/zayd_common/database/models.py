@@ -633,6 +633,61 @@ class ModelConfiguration(Base):
     row_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class PromptVersion(Base):
+    __tablename__ = "prompt_versions"
+    __table_args__ = (UniqueConstraint("name", "version"),)
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[str] = mapped_column(String, nullable=False)
+    prompt_hash: Mapped[str] = mapped_column(String, nullable=False)
+    prompt_body: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
+    created_by: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    approved_by: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class PolicyVersion(Base):
+    __tablename__ = "policy_versions"
+    __table_args__ = (UniqueConstraint("policy_name", "version"),)
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    policy_name: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[str] = mapped_column(String, nullable=False)
+    policy_hash: Mapped[str] = mapped_column(String, nullable=False)
+    policy_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
+    created_by: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    approved_by: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -1009,6 +1064,51 @@ class RetrievalResult(Base):
     score_vector: Mapped[float | None] = mapped_column(Float, nullable=True)
     score_reranker: Mapped[float | None] = mapped_column(Float, nullable=True)
     score_final: Mapped[float] = mapped_column(Float, nullable=False)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    guest_session_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str] = mapped_column(String, default="th", nullable=False)
+    madhhab: Mapped[str] = mapped_column(String, default="shafii", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    sender_type: Mapped[str] = mapped_column(String, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    body_hash: Mapped[str] = mapped_column(String, nullable=False)
     metadata_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False

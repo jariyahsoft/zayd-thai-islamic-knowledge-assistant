@@ -1,4 +1,6 @@
 import base64
+import asyncio
+import json
 import re
 from collections.abc import Callable
 from datetime import date, datetime
@@ -6,7 +8,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
@@ -85,6 +87,29 @@ from zayd_common.sources import (
     SourceService,
 )
 from zayd_common.storage import S3ObjectStorage, S3StorageSettings, SignedUrl, StorageError
+from zayd_common.prompt_registry import (
+    DEFAULT_ANSWER_PROMPT_NAME,
+    DEFAULT_ANSWER_PROMPT_VERSION,
+    DEFAULT_POLICY_VERSION,
+    PromptComparison,
+    PromptCreate,
+    PromptRegistryError,
+    PromptRegistryService,
+    PromptStatusChange,
+    PromptTestCase,
+    bootstrap_registry_defaults,
+    default_answer_generation_prompt,
+)
+from zayd_service_orchestrator import (
+    ChatRequest,
+    ChatStreamingError,
+    ChatStreamingService,
+    MockLLMProvider,
+    PromptRegistryService as OrchestratorPromptRegistryService,
+    StaticAnswerRetriever,
+    build_managed_answer_orchestrator,
+    sse_encode,
+)
 
 logger = get_logger("zayd.api")
 
@@ -165,6 +190,89 @@ class RoleAssignmentRequest(BaseModel):
 class RoleAssignmentResponse(BaseModel):
     status: str
     changed: bool
+
+
+class PromptTestCaseRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    input_payload: dict[str, Any]
+    expected_assertions: list[str] = Field(default_factory=list)
+
+
+class PromptCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    version: str = Field(min_length=1, max_length=100)
+    prompt_body: str = Field(min_length=1)
+    purpose: str = Field(min_length=1, max_length=500)
+    owner: str = Field(min_length=1, max_length=200)
+    input_schema: dict[str, Any]
+    output_schema: dict[str, Any]
+    changelog: list[str] = Field(default_factory=list)
+    test_cases: list[PromptTestCaseRequest] = Field(default_factory=list)
+    status: str = Field(default="draft", min_length=1, max_length=32)
+
+
+class PromptResponse(BaseModel):
+    id: str
+    name: str
+    version: str
+    prompt_body: str
+    status: str
+    owner: str
+    purpose: str
+    input_schema: dict[str, Any]
+    output_schema: dict[str, Any]
+    changelog: list[str]
+    test_cases: list[PromptTestCaseRequest]
+    prompt_hash: str
+    created_by: str
+    approved_by: str | None
+    created_at: str
+    updated_at: str
+    active: bool
+    registry_version: str
+
+
+class PromptListResponse(BaseModel):
+    prompts: list[PromptResponse]
+
+
+class PromptStatusChangeResponse(BaseModel):
+    prompt: PromptResponse
+    active_prompt: PromptResponse | None
+    changed: bool
+    trace: dict[str, Any]
+
+
+class PromptComparisonResponse(BaseModel):
+    prompt_name: str
+    from_version: str
+    to_version: str
+    from_status: str
+    to_status: str
+    from_hash: str
+    to_hash: str
+    body_changed: bool
+    purpose_changed: bool
+    owner_changed: bool
+    input_schema_changed: bool
+    output_schema_changed: bool
+    changelog_added: list[str]
+    test_case_names_added: list[str]
+    trace: dict[str, Any]
+
+
+class PromptRollbackRequest(BaseModel):
+    prompt_name: str = Field(min_length=1, max_length=200)
+    target_version: str = Field(min_length=1, max_length=100)
+
+
+class ChatStreamRequest(BaseModel):
+    question: str = Field(min_length=1)
+    conversation_id: UUID | None = None
+    requested_madhhab: str | None = Field(default=None, max_length=50)
+    answer_length: str = Field(default="normal", pattern=r"^(short|normal|detailed)$")
+    no_history: bool = False
+    guest_token: str | None = Field(default=None, min_length=20, max_length=256)
 
 
 class DocumentApprovalAuthorizationRequest(BaseModel):
@@ -722,6 +830,87 @@ def _audit_outcome(value: str | None) -> AuditOutcome | None:
     return None
 
 
+def _prompt_test_case_request(case) -> PromptTestCaseRequest:
+    return PromptTestCaseRequest(
+        name=case.name,
+        input_payload=case.input_payload,
+        expected_assertions=list(case.expected_assertions),
+    )
+
+
+def _prompt_response(prompt) -> PromptResponse:
+    return PromptResponse(
+        id=str(prompt.id),
+        name=prompt.name,
+        version=prompt.version,
+        prompt_body=prompt.prompt_body,
+        status=prompt.status,
+        owner=prompt.owner,
+        purpose=prompt.purpose,
+        input_schema=prompt.input_schema,
+        output_schema=prompt.output_schema,
+        changelog=list(prompt.changelog),
+        test_cases=[_prompt_test_case_request(case) for case in prompt.test_cases],
+        prompt_hash=prompt.prompt_hash,
+        created_by=str(prompt.created_by),
+        approved_by=str(prompt.approved_by) if prompt.approved_by else None,
+        created_at=prompt.created_at.isoformat(),
+        updated_at=prompt.updated_at.isoformat(),
+        active=prompt.active,
+        registry_version=prompt.registry_version,
+    )
+
+
+def _prompt_status_change_response(result: PromptStatusChange) -> PromptStatusChangeResponse:
+    return PromptStatusChangeResponse(
+        prompt=_prompt_response(result.prompt),
+        active_prompt=_prompt_response(result.active_prompt) if result.active_prompt else None,
+        changed=result.changed,
+        trace=result.trace,
+    )
+
+
+def _prompt_comparison_response(result: PromptComparison) -> PromptComparisonResponse:
+    return PromptComparisonResponse(
+        prompt_name=result.prompt_name,
+        from_version=result.from_version,
+        to_version=result.to_version,
+        from_status=result.from_status,
+        to_status=result.to_status,
+        from_hash=result.from_hash,
+        to_hash=result.to_hash,
+        body_changed=result.body_changed,
+        purpose_changed=result.purpose_changed,
+        owner_changed=result.owner_changed,
+        input_schema_changed=result.input_schema_changed,
+        output_schema_changed=result.output_schema_changed,
+        changelog_added=list(result.changelog_added),
+        test_case_names_added=list(result.test_case_names_added),
+        trace=result.trace,
+    )
+
+
+def _prompt_create_from_request(payload: PromptCreateRequest) -> PromptCreate:
+    return PromptCreate(
+        name=payload.name,
+        version=payload.version,
+        prompt_body=payload.prompt_body,
+        purpose=payload.purpose,
+        owner=payload.owner,
+        input_schema=payload.input_schema,
+        output_schema=payload.output_schema,
+        changelog=tuple(payload.changelog),
+        test_cases=tuple(
+            PromptTestCase(
+                name=case.name,
+                input_payload=case.input_payload,
+                expected_assertions=tuple(case.expected_assertions),
+            )
+            for case in payload.test_cases
+        ),
+    )
+
+
 _ISO_DATETIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([+-]\d{2}:\d{2}|Z)?$"
 )
@@ -969,6 +1158,11 @@ def create_app() -> FastAPI:
 
         return LicenseService(SQLAlchemyUnitOfWork(session_factory))
 
+    def prompt_registry_service() -> PromptRegistryService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return PromptRegistryService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -986,6 +1180,35 @@ def create_app() -> FastAPI:
                     signed_url_ttl_seconds=settings.s3_signed_url_ttl_seconds,
                 )
             ),
+        )
+
+    def chat_streaming_service() -> ChatStreamingService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        registry = prompt_registry_service()
+        try:
+            prompt, policy_version_id, model_configuration_id = registry.resolve_answer_dependencies(
+                prompt_name=DEFAULT_ANSWER_PROMPT_NAME,
+                policy_name="answer-safety",
+            )
+        except PromptRegistryError:
+            bootstrap_registry_defaults(registry)
+            prompt, policy_version_id, model_configuration_id = registry.resolve_answer_dependencies(
+                prompt_name=DEFAULT_ANSWER_PROMPT_NAME,
+                policy_name="answer-safety",
+            )
+        orchestrator = build_managed_answer_orchestrator(
+            prompt_registry=OrchestratorPromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
+            retriever=StaticAnswerRetriever(candidates=()),
+            llm_provider=MockLLMProvider(),
+        )
+        orchestrator.prompt_version_id = prompt.id
+        orchestrator.policy_version_id = policy_version_id
+        orchestrator.model_configuration_id = model_configuration_id
+        return ChatStreamingService(
+            uow_factory=lambda: SQLAlchemyUnitOfWork(session_factory),
+            orchestrator=orchestrator,
+            prompt_registry_factory=lambda: PromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
         )
 
     def get_current_claims(
@@ -1113,6 +1336,15 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(ParserError)
     async def parser_error_handler(request: Request, exc: ParserError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(PromptRegistryError)
+    async def prompt_registry_error_handler(
+        request: Request, exc: PromptRegistryError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -1346,6 +1578,89 @@ def create_app() -> FastAPI:
             media_type="application/x-ndjson",
             headers={"content-disposition": "attachment; filename=audit-logs.ndjson"},
         )
+
+    @app.post("/admin/prompts", response_model=PromptResponse, status_code=201)
+    async def create_prompt(
+        payload: PromptCreateRequest,
+        request: Request,
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.PROMPTS_MANAGE))],
+        service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
+    ) -> PromptResponse:
+        prompt = service.create_prompt(
+            data=_prompt_create_from_request(payload),
+            actor_user_id=principal.id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _prompt_response(prompt)
+
+    @app.get("/admin/prompts", response_model=PromptListResponse)
+    async def list_prompts(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROMPTS_MANAGE))],
+        service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
+        name: str | None = None,
+    ) -> PromptListResponse:
+        return PromptListResponse(prompts=[_prompt_response(prompt) for prompt in service.list_prompts(name=name)])
+
+    @app.get("/admin/prompts/compare", response_model=PromptComparisonResponse)
+    async def compare_prompt_versions(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROMPTS_MANAGE))],
+        service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
+        prompt_name: str,
+        from_version: str,
+        to_version: str,
+    ) -> PromptComparisonResponse:
+        result = service.compare_versions(
+            prompt_name=prompt_name,
+            from_version=from_version,
+            to_version=to_version,
+        )
+        return _prompt_comparison_response(result)
+
+    @app.post("/admin/prompts/rollback", response_model=PromptStatusChangeResponse)
+    async def rollback_prompt(
+        payload: PromptRollbackRequest,
+        request: Request,
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.PROMPTS_MANAGE))],
+        service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
+    ) -> PromptStatusChangeResponse:
+        result = service.rollback_prompt(
+            prompt_name=payload.prompt_name,
+            target_version=payload.target_version,
+            actor_user_id=principal.id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _prompt_status_change_response(result)
+
+    @app.post("/admin/prompts/bootstrap")
+    async def bootstrap_prompt_registry(
+        request: Request,
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.PROMPTS_MANAGE))],
+        service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
+    ) -> dict[str, str]:
+        bootstrap_registry_defaults(service, actor_user_id=principal.id)
+        return {"status": "ok"}
+
+    @app.get("/admin/prompts/{prompt_id}", response_model=PromptResponse)
+    async def get_prompt(
+        prompt_id: UUID,
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROMPTS_MANAGE))],
+        service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
+    ) -> PromptResponse:
+        return _prompt_response(service.get_prompt(prompt_id=prompt_id))
+
+    @app.post("/admin/prompts/{prompt_id}/approve", response_model=PromptStatusChangeResponse)
+    async def approve_prompt(
+        prompt_id: UUID,
+        request: Request,
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.PROMPTS_MANAGE))],
+        service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
+    ) -> PromptStatusChangeResponse:
+        result = service.approve_prompt(
+            prompt_id=prompt_id,
+            actor_user_id=principal.id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _prompt_status_change_response(result)
 
     def guest_service() -> GuestService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
