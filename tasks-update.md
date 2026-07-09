@@ -1,3 +1,16 @@
+## 2026-07-09T17:00:00+07:00
+
+- Task: TASK-09-04 - Madhhab and Answer Preferences
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Added user preference settings for madhhab, answer length, Arabic visibility, history mode, and theme. Introduced migration `0012_user_app_preferences`, `UserPreferencesService`, `/auth/me/preferences` API, `@zayd/preferences` package, settings UI with explicit Shafii default disclosure, guest localStorage persistence, and chat request wiring for madhhab/answer length/history mode.
+- Changed files: migration 0012, user preferences service/API/tests, `packages/preferences/*`, web preferences provider/settings form/chat integration, `docs/user/preferences.md`, task index/status updates, `tasks-update.md`
+- Verification: Python preferences tests — 7 passed; `@zayd/preferences` vitest — 6 passed; `@zayd/web` vitest — 22 passed; preferences/web typecheck and web build — success
+- Self-review: Default Shafii madhhab is disclosed in UI and API. Guest prefs stay local. Signed-in prefs validate and audit on update. Theme remains client-only. No secrets or unsafe rendering added.
+- Remaining risks: Migration requires human DBA review before production. Default disclosure Thai copy needs religious-content review. Theme not synced across devices for signed-in users.
+- Commit: `feat(web): add madhhab and answer preferences`
+
 ## 2026-07-09T16:45:00+07:00
 
 - Task: TASK-09-03 - Citation Cards and Source Detail

@@ -567,6 +567,75 @@ textarea {
   text-align: right;
 }
 
+.zayd-settings {
+  display: grid;
+  gap: 1rem;
+}
+
+.zayd-settings__disclosure {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: var(--zayd-accent-soft);
+  color: var(--zayd-text);
+  font-size: 0.95rem;
+}
+
+.zayd-settings__group {
+  border: 1px solid var(--zayd-border);
+  border-radius: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--zayd-surface);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.zayd-settings__group legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+
+.zayd-settings__field {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.zayd-settings__control {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--zayd-bg);
+  color: var(--zayd-text);
+}
+
+.zayd-settings__control:focus-visible {
+  outline: 2px solid var(--zayd-accent);
+  outline-offset: 2px;
+}
+
+.zayd-settings__checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+}
+
+.zayd-settings__status,
+.zayd-settings__error {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.zayd-settings__status {
+  color: var(--zayd-muted);
+}
+
+.zayd-settings__error {
+  color: #c24141;
+}
+
 @media (min-width: 40rem) {
   .zayd-user-shell__header,
   .zayd-user-shell__main {

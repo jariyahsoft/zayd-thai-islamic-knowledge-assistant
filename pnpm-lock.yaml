@@ -107,6 +107,9 @@ importers:
       '@zayd/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@zayd/preferences':
+        specifier: workspace:*
+        version: link:../../packages/preferences
       '@zayd/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -146,6 +149,8 @@ importers:
   packages/contracts: {}
 
   packages/plugin-sdk: {}
+
+  packages/preferences: {}
 
   packages/provider-sdk: {}
 

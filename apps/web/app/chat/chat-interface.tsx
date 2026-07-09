@@ -12,6 +12,7 @@ import {
   ensureGuestSession,
   readStoredAccessToken,
 } from "./chat-stream.js";
+import { usePreferences } from "../preferences/preferences-provider.js";
 import {
   CHAT_STAGE_LABELS,
   abstentionMessage,
@@ -22,14 +23,23 @@ import {
   mapCompleteStatus,
 } from "./chat-ui.js";
 
-function SafeText(props: { readonly value: string }): ReactElement {
+function SafeText(props: {
+  readonly value: string;
+  readonly showArabic: boolean;
+}): ReactElement {
+  if (!props.showArabic && containsArabic(props.value)) {
+    return <>[อักษรอาหรับถูกซ่อนตามการตั้งค่า]</>;
+  }
   if (containsArabic(props.value)) {
     return <ArabicText>{props.value}</ArabicText>;
   }
   return <>{props.value}</>;
 }
 
-function MessageBubble(props: { readonly message: ChatMessage }): ReactElement {
+function MessageBubble(props: {
+  readonly message: ChatMessage;
+  readonly showArabic: boolean;
+}): ReactElement {
   const isUser = props.message.role === "user";
   const status = props.message.status;
 
@@ -41,12 +51,12 @@ function MessageBubble(props: { readonly message: ChatMessage }): ReactElement {
       aria-label={isUser ? "คำถามของคุณ" : "คำตอบจาก Zayd"}
     >
       <p className="zayd-chat__message-body">
-        <SafeText value={props.message.content} />
+        <SafeText value={props.message.content} showArabic={props.showArabic} />
       </p>
 
       {props.message.warning ? (
         <p className="zayd-chat__warning" role="note">
-          <SafeText value={props.message.warning} />
+          <SafeText value={props.message.warning} showArabic={props.showArabic} />
         </p>
       ) : null}
 
@@ -54,7 +64,7 @@ function MessageBubble(props: { readonly message: ChatMessage }): ReactElement {
         <ul className="zayd-chat__limitations">
           {props.message.limitations.map((item) => (
             <li key={item}>
-              <SafeText value={item} />
+              <SafeText value={item} showArabic={props.showArabic} />
             </li>
           ))}
         </ul>
@@ -87,6 +97,7 @@ function MessageBubble(props: { readonly message: ChatMessage }): ReactElement {
 }
 
 export function ChatInterface(props: { readonly apiBaseUrl: string }): ReactElement {
+  const { preferences } = usePreferences();
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [question, setQuestion] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -258,7 +269,10 @@ export function ChatInterface(props: { readonly apiBaseUrl: string }): ReactElem
           question: prompt.trim(),
           guestToken,
           accessToken,
-          conversationId,
+          conversationId: preferences.historyMode === "enabled" ? conversationId : null,
+          requestedMadhhab: preferences.madhhab,
+          answerLength: preferences.answerLength,
+          noHistory: preferences.historyMode === "disabled",
           signal: controller.signal,
           onEvent: (event) => {
             applyStreamEvent(assistantId, event);
@@ -314,7 +328,7 @@ export function ChatInterface(props: { readonly apiBaseUrl: string }): ReactElem
         setStage(null);
       }
     },
-    [applyStreamEvent, conversationId, isStreaming, props.apiBaseUrl],
+    [applyStreamEvent, conversationId, isStreaming, preferences, props.apiBaseUrl],
   );
 
   const handleSubmit = useCallback(
@@ -371,7 +385,13 @@ export function ChatInterface(props: { readonly apiBaseUrl: string }): ReactElem
         {messages.length === 0 ? (
           <p className="zayd-chat__empty">พิมพ์คำถามด้านล่างเพื่อเริ่มสนทนา</p>
         ) : (
-          messages.map((message) => <MessageBubble key={message.id} message={message} />)
+          messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              showArabic={preferences.showArabic}
+            />
+          ))
         )}
         <div ref={messagesEndRef} />
       </div>

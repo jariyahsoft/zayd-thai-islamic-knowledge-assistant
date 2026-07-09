@@ -9,7 +9,7 @@ export default function ChatPage(): ReactElement {
   const apiBaseUrl = getPublicEnv().NEXT_PUBLIC_API_BASE_URL;
 
   return (
-    <UserAppClient activeNav="chat">
+    <UserAppClient activeNav="chat" apiBaseUrl={apiBaseUrl}>
       <ChatInterface apiBaseUrl={apiBaseUrl} />
     </UserAppClient>
   );

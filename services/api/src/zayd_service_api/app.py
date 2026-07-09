@@ -86,6 +86,12 @@ from zayd_common.sources import (
     SourceSearchQuery,
     SourceService,
 )
+from zayd_common.user_preferences import (
+    UserPreferencesError,
+    UserPreferencesPublic,
+    UserPreferencesService,
+    UserPreferencesUpdate,
+)
 from zayd_common.storage import S3ObjectStorage, S3StorageSettings, SignedUrl, StorageError
 from zayd_common.prompt_registry import (
     DEFAULT_ANSWER_PROMPT_NAME,
@@ -184,6 +190,23 @@ class PrincipalResponse(BaseModel):
     email: str
     roles: list[str]
     permissions: list[str]
+
+
+class UserPreferencesResponse(BaseModel):
+    madhhab: str
+    default_madhhab: str
+    answer_length: str
+    show_arabic: bool
+    history_mode: str
+    preferred_language: str
+    synced: bool = True
+
+
+class UserPreferencesPatchRequest(BaseModel):
+    madhhab: str | None = Field(default=None, pattern=r"^(shafii|hanafi|maliki|hanbali)$")
+    answer_length: str | None = Field(default=None, pattern=r"^(short|normal|detailed)$")
+    show_arabic: bool | None = None
+    history_mode: str | None = Field(default=None, pattern=r"^(enabled|disabled)$")
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -1167,6 +1190,18 @@ def _citation_detail_response(detail: CitationDetailPublic) -> CitationDetailRes
     )
 
 
+def _preferences_response(preferences: UserPreferencesPublic) -> UserPreferencesResponse:
+    return UserPreferencesResponse(
+        madhhab=preferences.madhhab,
+        default_madhhab=preferences.default_madhhab,
+        answer_length=preferences.answer_length,
+        show_arabic=preferences.show_arabic,
+        history_mode=preferences.history_mode,
+        preferred_language=preferences.preferred_language,
+        synced=preferences.synced,
+    )
+
+
 def _public_source_warnings(source: SourcePublic) -> list[str]:
     warnings: list[str] = []
     if not source.is_active:
@@ -1399,6 +1434,11 @@ def create_app() -> FastAPI:
 
         return CitationRegistryService(SQLAlchemyUnitOfWork(session_factory))
 
+    def user_preferences_service() -> UserPreferencesService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return UserPreferencesService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -1581,6 +1621,15 @@ def create_app() -> FastAPI:
             content={"error": {"code": exc.code, "message": exc.message}},
         )
 
+    @app.exception_handler(UserPreferencesError)
+    async def user_preferences_error_handler(
+        request: Request, exc: UserPreferencesError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
     @app.get("/health", response_model=HealthStatus)
     async def health() -> HealthStatus:
         logger.info("health_check")
@@ -1691,6 +1740,32 @@ def create_app() -> FastAPI:
         service: Annotated[RbacService, Depends(rbac_service)],
     ) -> PrincipalResponse:
         return _principal_response(service.get_principal(claims.user_id))
+
+    @app.get("/auth/me/preferences", response_model=UserPreferencesResponse)
+    async def get_my_preferences(
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[UserPreferencesService, Depends(user_preferences_service)],
+    ) -> UserPreferencesResponse:
+        return _preferences_response(service.get_preferences(user_id=claims.user_id))
+
+    @app.patch("/auth/me/preferences", response_model=UserPreferencesResponse)
+    async def update_my_preferences(
+        payload: UserPreferencesPatchRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        service: Annotated[UserPreferencesService, Depends(user_preferences_service)],
+    ) -> UserPreferencesResponse:
+        updated = service.update_preferences(
+            user_id=claims.user_id,
+            update=UserPreferencesUpdate(
+                madhhab=payload.madhhab,
+                answer_length=payload.answer_length,
+                show_arabic=payload.show_arabic,
+                history_mode=payload.history_mode,
+            ),
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _preferences_response(updated)
 
     @app.post("/admin/rbac/bootstrap")
     async def bootstrap_rbac(

@@ -12,7 +12,7 @@ export default async function CitationDetailPage(props: {
   const apiBaseUrl = getPublicEnv().NEXT_PUBLIC_API_BASE_URL;
 
   return (
-    <UserAppClient activeNav="chat">
+    <UserAppClient activeNav="chat" apiBaseUrl={apiBaseUrl}>
       <section className="zayd-panel zayd-citation-page">
         <h2>รายละเอียดอ้างอิง</h2>
         <CitationDetailView apiBaseUrl={apiBaseUrl} citationRef={decodeURIComponent(citationId)} />

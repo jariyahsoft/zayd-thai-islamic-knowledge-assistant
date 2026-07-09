@@ -96,6 +96,9 @@ class User(Base):
     mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     preferred_language: Mapped[str] = mapped_column(String, default="th", nullable=False)
     preferred_madhhab: Mapped[str] = mapped_column(String, default="shafii", nullable=False)
+    answer_length: Mapped[str] = mapped_column(String, default="normal", nullable=False)
+    show_arabic: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    history_mode: Mapped[str] = mapped_column(String, default="enabled", nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

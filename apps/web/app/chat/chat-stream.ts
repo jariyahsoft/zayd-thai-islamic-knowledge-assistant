@@ -21,6 +21,9 @@ export type ChatStreamRequest = {
   readonly guestToken?: string | null;
   readonly accessToken?: string | null;
   readonly conversationId?: string | null;
+  readonly requestedMadhhab?: string | null;
+  readonly answerLength?: string | null;
+  readonly noHistory?: boolean;
   readonly signal?: AbortSignal;
   readonly onEvent: (event: ParsedChatEvent) => void;
 };
@@ -140,6 +143,9 @@ export async function consumeChatStream(request: ChatStreamRequest): Promise<Cha
   const body: Record<string, unknown> = {
     question: request.question,
     conversation_id: request.conversationId ?? null,
+    requested_madhhab: request.requestedMadhhab ?? null,
+    answer_length: request.answerLength ?? "normal",
+    no_history: request.noHistory ?? false,
   };
   if (request.guestToken) {
     body.guest_token = request.guestToken;

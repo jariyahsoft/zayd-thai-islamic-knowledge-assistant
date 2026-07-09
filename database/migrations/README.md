@@ -19,6 +19,7 @@ Forward migrations and documented rollback plans belong here.
 | `0009_scholar_approval_workflow` | `0009_scholar_approval_workflow.up.sql`, `0009_scholar_approval_workflow.down.sql` | Scholar approval, expiry and revocation records for TASK-06-03 |
 | `0010_full_text_search` | `0010_full_text_search.up.sql`, `0010_full_text_search.down.sql` | Retrieval reference/full-text indexes and filter support for TASK-07-03 |
 | `0011_pgvector_search` | `0011_pgvector_search.up.sql`, `0011_pgvector_search.down.sql` | pgvector embedding-space and filtered vector search indexes for TASK-07-04 |
+| `0012_user_app_preferences` | `0012_user_app_preferences.up.sql`, `0012_user_app_preferences.down.sql` | User answer length, Arabic visibility, and history mode preferences for TASK-09-04 |
 
 Use `scripts/migrate.sh up`, `scripts/migrate.sh down`, or `MIGRATION_ACTION=<up|down|reset> make migrate` for development/test execution. The `up` action is idempotent when `schema_migrations` already contains a migration version.
 

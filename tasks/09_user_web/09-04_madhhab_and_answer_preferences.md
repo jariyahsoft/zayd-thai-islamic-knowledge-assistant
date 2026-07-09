@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Implement settings for madhhab, answer length, Arabic visibility, history mode a
 
 ## Acceptance Criteria
 
-- [ ] Default Shafii setting is disclosed, not hidden.
-- [ ] Preferences are validated and synced for signed-in users.
-- [ ] Guest preferences remain local and privacy-safe.
+- [x] Default Shafii setting is disclosed, not hidden.
+- [x] Preferences are validated and synced for signed-in users.
+- [x] Guest preferences remain local and privacy-safe.
 
 ## Required Tests
 
@@ -89,28 +89,69 @@ Implement settings for madhhab, answer length, Arabic visibility, history mode a
 
 ### Files Changed
 
-- Pending
+- `database/migrations/0012_user_app_preferences.up.sql` (new)
+- `database/migrations/0012_user_app_preferences.down.sql` (new)
+- `database/migrations/README.md`
+- `services/common/src/zayd_common/database/models.py`
+- `services/common/src/zayd_common/user_preferences.py` (new)
+- `services/common/tests/test_user_preferences.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_preferences_api.py` (new)
+- `packages/preferences/package.json` (new)
+- `packages/preferences/tsconfig.json` (new)
+- `packages/preferences/src/types.ts` (new)
+- `packages/preferences/src/defaults.ts` (new)
+- `packages/preferences/src/labels.ts` (new)
+- `packages/preferences/src/validation.ts` (new)
+- `packages/preferences/src/storage.ts` (new)
+- `packages/preferences/src/api.ts` (new)
+- `packages/preferences/src/index.ts` (new)
+- `packages/preferences/src/preferences.test.ts` (new)
+- `apps/web/package.json`
+- `apps/web/app/preferences/preferences-provider.tsx` (new)
+- `apps/web/app/preferences/use-user-preferences.ts` (new)
+- `apps/web/app/settings/settings-form.tsx` (new)
+- `apps/web/app/settings/settings.test.ts` (new)
+- `apps/web/app/settings/page.tsx`
+- `apps/web/app/user-app-client.tsx`
+- `apps/web/app/chat/chat-interface.tsx`
+- `apps/web/app/chat/chat-stream.ts`
+- `apps/web/app/chat/page.tsx`
+- `apps/web/app/page.tsx`
+- `apps/web/app/history/page.tsx`
+- `apps/web/app/citations/[citationId]/page.tsx`
+- `apps/web/app/globals.css`
+- `docs/user/preferences.md` (new)
+- `tasks/09_user_web/09-04_madhhab_and_answer_preferences.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_user_preferences.py services/api/tests/test_preferences_api.py -q` — 7 passed
+- `pnpm --filter @zayd/preferences test` — 6 passed
+- `pnpm --filter @zayd/web test` — 22 passed
+- `pnpm --filter @zayd/preferences typecheck` — success
+- `pnpm --filter @zayd/web typecheck` — success
+- `pnpm --filter @zayd/web build` — success
+- `uv run ruff check` on preference Python files — success after line-length/import fixes
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Settings UI discloses default Shafii madhhab in Thai and via API `default_madhhab`. Signed-in users sync madhhab, answer length, Arabic visibility, and history mode through `/auth/me/preferences` with validation and audit logging. Guests persist all preferences locally in `zayd.preferences.guest` without server calls. Theme stays client-only.
 
 ### Security and License Review
 
-- Pending
+- No secrets or production data added. Guest preferences never sync until sign-in. Preference mutations require bearer auth and write hash-chained audit summaries only. Invalid API payloads fail closed with structured errors.
 
 ### Known Limitations
 
-- Pending
+- Theme is not stored server-side by design. Madhhab default disclosure text requires human religious-content review before production. Migration `0012` needs DBA review before production rollout.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-09-05 — conversation history screen (already READY)
 
 ### Commit
 
-- Pending
+- `feat(web): add madhhab and answer preferences`

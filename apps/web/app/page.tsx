@@ -1,11 +1,14 @@
 import type { ReactElement } from "react";
 import { ArabicText } from "@zayd/ui";
+import { getPublicEnv } from "@zayd/config/env/public";
 
 import { UserAppClient } from "./user-app-client.js";
 
 export default function Page(): ReactElement {
+  const apiBaseUrl = getPublicEnv().NEXT_PUBLIC_API_BASE_URL;
+
   return (
-    <UserAppClient activeNav="home">
+    <UserAppClient activeNav="home" apiBaseUrl={apiBaseUrl}>
       <section className="zayd-panel">
         <h2>ยินดีต้อนรับ</h2>
         <p>

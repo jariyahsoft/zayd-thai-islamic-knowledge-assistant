@@ -1,15 +1,20 @@
 import type { ReactElement } from "react";
 
+import { getPublicEnv } from "@zayd/config/env/public";
+
 import { UserAppClient } from "../user-app-client.js";
+import { SettingsForm } from "./settings-form.js";
 
 export default function SettingsPage(): ReactElement {
+  const apiBaseUrl = getPublicEnv().NEXT_PUBLIC_API_BASE_URL;
+
   return (
-    <UserAppClient activeNav="settings">
+    <UserAppClient activeNav="settings" apiBaseUrl={apiBaseUrl}>
       <section className="zayd-panel">
-        <h2>ตั้งค่า</h2>
-        <p>การตั้งค่ามัซฮับและความยาวคำตอบจะมาใน TASK-09-04</p>
+        <h2 id="settings-heading">ตั้งค่า</h2>
+        <p>ปรับมัซฮับ ความยาวคำตอบ การแสดงอักษรอาหรับ ประวัติการสนทนา และธีม</p>
       </section>
-      <div className="zayd-screen-placeholder">การตั้งค่าผู้ใช้จะอยู่ที่นี่</div>
+      <SettingsForm />
     </UserAppClient>
   );
 }
