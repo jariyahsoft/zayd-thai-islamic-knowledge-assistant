@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -63,9 +63,9 @@ Implement deterministic risk policies for divorce, inheritance, takfir, complex 
 
 ## Acceptance Criteria
 
-- [ ] High-risk and restricted cases route according to policy.
-- [ ] Model output cannot downgrade deterministic restrictions.
-- [ ] Policy changes require approval and regression tests.
+- [x] High-risk and restricted cases route according to policy.
+- [x] Model output cannot downgrade deterministic restrictions.
+- [x] Policy changes require approval and regression tests.
 
 ## Required Tests
 
@@ -91,28 +91,71 @@ Implement deterministic risk policies for divorce, inheritance, takfir, complex 
 
 ### Files Changed
 
-- Pending
+- `services/orchestrator/src/zayd_service_orchestrator/risk_policy_engine.py`
+- `services/orchestrator/src/zayd_service_orchestrator/__init__.py`
+- `services/orchestrator/tests/test_risk_policy_engine.py`
+- `docs/governance/answer-safety-policy.md`
+- `tasks/08_orchestrator/08-05_risk_policy_engine.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+```bash
+uv run pytest services/orchestrator/tests/test_risk_policy_engine.py -q
+# 26 passed
+
+uv run pytest services/orchestrator/tests -q
+# 77 passed
+
+uv run ruff check services/orchestrator/src/zayd_service_orchestrator/risk_policy_engine.py services/orchestrator/src/zayd_service_orchestrator/__init__.py services/orchestrator/tests/test_risk_policy_engine.py
+# All checks passed
+
+uv run ruff format --check services/orchestrator/src/zayd_service_orchestrator/risk_policy_engine.py services/orchestrator/src/zayd_service_orchestrator/__init__.py services/orchestrator/tests/test_risk_policy_engine.py
+# 3 files already formatted
+
+uv run mypy services/orchestrator/src/zayd_service_orchestrator/risk_policy_engine.py services/orchestrator/tests/test_risk_policy_engine.py
+# Success
+
+uv run mypy services/orchestrator/src/zayd_service_orchestrator
+# Success
+
+git diff --check
+# Passed
+```
+
+Note: full orchestrator lint and format checks surfaced pre-existing issues in
+`test_question_classification.py`, `question_classification.py`, and
+`test_provider_sdk.py`; focused TASK-08-05 files pass lint and format.
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] High-risk and restricted cases route according to policy.
+- [x] Model output cannot downgrade deterministic restrictions.
+- [x] Policy changes require approval and regression tests.
 
 ### Security and License Review
 
-- Pending
+The engine applies deterministic policy before model judgement, fails closed for
+empty supplied question text and draft policy activation, and records only safe
+rule IDs, classification metadata, actor, policy version/status, and matched
+signal source names. It does not persist raw question text, hidden
+chain-of-thought, provider secrets, production data, PHI, restricted datasets,
+or third-party code.
 
 ### Known Limitations
 
-- Pending
+- Scholar, medical, legal, and crisis-support routing is represented as
+  structured `escalation_target` metadata; downstream workflow and user-facing
+  routing are future tasks.
+- Keyword rules are intentionally conservative and should be expanded only
+  through reviewed policy versions and regression tests.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-08-06 should consume `PolicyDecision` to enforce answer workflow routing.
+- Future reviewer/admin workflows should expose approved policy-version changes.
 
 ### Commit
 
-- Pending
+- Pending focused commit.

@@ -1,3 +1,17 @@
+## 2026-07-09T12:32:23+07:00
+
+- Task: TASK-08-05 - Risk Policy Engine
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented deterministic risk-policy routing for takfir, divorce, inheritance, complex family rulings, unsafe medical instructions, health questions, violence, self-harm, illegal activity, and financial/contract questions. Added versioned approved-policy activation checks, escalation targets, stable provider errors, safe audit traces, and documentation for the implemented answer-safety enforcement policy. TASK-08-06 is now READY.
+- Changed files: `services/orchestrator/src/zayd_service_orchestrator/risk_policy_engine.py` (new), `services/orchestrator/src/zayd_service_orchestrator/__init__.py`, `services/orchestrator/tests/test_risk_policy_engine.py` (new), `docs/governance/answer-safety-policy.md` (new), `tasks/08_orchestrator/08-05_risk_policy_engine.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: risk-policy unit tests passed with 26 passed; orchestrator regression tests passed with 77 passed; focused Ruff lint passed; focused Ruff format check passed; focused mypy for risk-policy files passed; orchestrator source mypy passed; `git diff --check` passed. Full orchestrator lint/format were not clean because pre-existing unrelated files `test_question_classification.py`, `question_classification.py`, and `test_provider_sdk.py` need cleanup.
+- Self-review: Deterministic rule matching runs before model judgement and uses supplied question text plus safe classifier trace signals, so model output cannot downgrade takfir, dangerous health, or high-risk personal ruling detections. Decision traces record policy version/status, classification metadata, actor, rule ID, escalation target, and matched signal source names only; no raw question text, hidden chain-of-thought, provider secrets, production data, restricted datasets, PHI, or third-party code were introduced.
+- Telegram notification: sent (STARTED and COMPLETED).
+- Remaining risks: Human routing is represented as structured escalation metadata and must be enforced by TASK-08-06 answer orchestration. Keyword coverage is conservative and future changes require reviewed policy versions plus regression tests.
+- Commit: pending focused commit.
+
 ## 2026-07-09T10:38:00+07:00
 
 - Task: TASK-08-01 - Provider SDK

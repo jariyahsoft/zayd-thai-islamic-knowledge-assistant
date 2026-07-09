@@ -98,8 +98,8 @@
 | TASK-08-02 | OpenAI-compatible LLM Adapter | A | DONE | TASK-08-01 | `08_orchestrator/08-02_openai_compatible_llm_adapter.md` |
 | TASK-08-03 | Local Ollama and vLLM Adapter | A | DONE | TASK-08-01 | `08_orchestrator/08-03_local_ollama_and_vllm_adapter.md` |
 | TASK-08-04 | Question Classification | S | DONE | TASK-08-02 or TASK-08-03 | `08_orchestrator/08-04_question_classification.md` |
-| TASK-08-05 | Risk Policy Engine | S | READY | TASK-08-04 | `08_orchestrator/08-05_risk_policy_engine.md` |
-| TASK-08-06 | Answer Orchestration Workflow | S | TODO | TASK-07-08, TASK-08-05 | `08_orchestrator/08-06_answer_orchestration_workflow.md` |
+| TASK-08-05 | Risk Policy Engine | S | DONE | TASK-08-04 | `08_orchestrator/08-05_risk_policy_engine.md` |
+| TASK-08-06 | Answer Orchestration Workflow | S | READY | TASK-07-08, TASK-08-05 | `08_orchestrator/08-06_answer_orchestration_workflow.md` |
 | TASK-08-07 | Citation Registry | S | TODO | TASK-06-04 | `08_orchestrator/08-07_citation_registry.md` |
 | TASK-08-08 | Citation Verification Engine | S | TODO | TASK-08-06, TASK-08-07 | `08_orchestrator/08-08_citation_verification_engine.md` |
 | TASK-08-09 | Prompt Version Management | A | TODO | TASK-08-06 | `08_orchestrator/08-09_prompt_version_management.md` |
