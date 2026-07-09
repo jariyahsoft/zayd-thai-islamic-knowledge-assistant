@@ -1,3 +1,17 @@
+## 2026-07-09T07:04:41+07:00
+
+- Task: TASK-07-07 - Reranker Interface
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added reranker provider protocol, local deterministic keyword reranker, reranker service, timeout/candidate configuration, safe fallback behavior, external data-sharing guard, score/model trace metadata, and optional persistence back to `retrieval_results`. TASK-07-08 is now READY.
+- Changed files: `services/retrieval/src/zayd_service_retrieval/reranker.py` (new), `services/retrieval/src/zayd_service_retrieval/__init__.py`, `services/retrieval/tests/test_reranker.py` (new), `docs/development/reranker-providers.md` (new), `tasks/07_retrieval/07-07_reranker_interface.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: reranker tests passed with 6 passed; retrieval regression tests passed with 28 passed; focused Ruff lint passed; focused mypy passed; `python3 -m py_compile ... && git diff --check` passed.
+- Self-review: Reranker failures, disabled mode, timeout overruns, and provider data-sharing restrictions all return hybrid ranking rather than breaking retrieval. Reranking only reorders candidates already returned by hybrid search, preserving published/status/license visibility gates. No secrets, production data, restricted datasets, PHI, or third-party code were introduced.
+- Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
+- Remaining risks: The local reranker is deterministic overlap scoring, not a semantic reranker. Production external reranker adapters remain future provider-SDK/plugin work.
+- Commit: focused commit `feat(retrieval): add reranker interface`.
+
 ## 2026-07-09T06:56:28+07:00
 
 - Task: TASK-07-06 - Multilingual Query Expansion

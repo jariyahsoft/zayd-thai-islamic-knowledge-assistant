@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Define local/external reranker adapters with timeout, capability metadata and sa
 
 ## Acceptance Criteria
 
-- [ ] Reranker failures do not break retrieval.
-- [ ] Scores and model versions are stored.
-- [ ] Provider data-sharing restrictions are respected.
+- [x] Reranker failures do not break retrieval.
+- [x] Scores and model versions are stored.
+- [x] Provider data-sharing restrictions are respected.
 
 ## Required Tests
 
@@ -89,28 +89,43 @@ Define local/external reranker adapters with timeout, capability metadata and sa
 
 ### Files Changed
 
-- Pending
+- `services/retrieval/src/zayd_service_retrieval/reranker.py` (new)
+- `services/retrieval/src/zayd_service_retrieval/__init__.py`
+- `services/retrieval/tests/test_reranker.py` (new)
+- `docs/development/reranker-providers.md` (new)
+- `tasks/07_retrieval/07-07_reranker_interface.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/retrieval/tests/test_reranker.py -v`
+- `uv run pytest services/retrieval/tests/test_full_text_search.py services/retrieval/tests/test_vector_search.py services/retrieval/tests/test_hybrid_search.py services/retrieval/tests/test_query_expansion.py services/retrieval/tests/test_reranker.py services/retrieval/tests/test_retrieval_imports.py -v`
+- `uv run ruff check services/retrieval/src/zayd_service_retrieval/query_expansion.py services/retrieval/src/zayd_service_retrieval/reranker.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_query_expansion.py services/retrieval/tests/test_reranker.py`
+- `uv run mypy services/retrieval/src/zayd_service_retrieval/query_expansion.py services/retrieval/src/zayd_service_retrieval/reranker.py services/retrieval/src/zayd_service_retrieval/__init__.py --ignore-missing-imports`
+- `python3 -m py_compile services/retrieval/src/zayd_service_retrieval/query_expansion.py services/retrieval/src/zayd_service_retrieval/reranker.py services/retrieval/src/zayd_service_retrieval/__init__.py services/retrieval/tests/test_query_expansion.py services/retrieval/tests/test_reranker.py && git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Provider errors, disabled reranking, timeout overruns, and blocked external data-sharing all fall back to hybrid ranking instead of breaking retrieval.
+- Passed. Successful reranking records score, final rank, provider/model identifiers, provider version, model revision, and interface version; matching `retrieval_results` rows are updated when a retrieval run is present.
+- Passed. External providers are not called when data-sharing approval is required but unavailable.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, PHI, restricted religious datasets, or third-party code were introduced.
+- The default reranker is local and deterministic; external providers are blocked unless provider metadata permits data sharing.
+- Reranking does not create new retrieval candidates and therefore cannot bypass SQL-level publication/license filters from hybrid search.
 
 ### Known Limitations
 
-- Pending
+- The local keyword reranker is a deterministic fallback, not a semantic model.
+- Production external reranker adapters remain future provider-SDK/plugin work.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-07-08 Evidence Sufficiency Engine should consume reranker scores alongside hybrid score components.
 
 ### Commit
 
-- Pending
+- Focused commit created for TASK-07-07.
