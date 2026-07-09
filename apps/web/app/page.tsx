@@ -14,6 +14,11 @@ export default function Page(): ReactElement {
         <p>
           แอปนี้ออกแบบสำหรับมือถือเป็นหลัก พร้อมธีมสว่าง/มืด และการแสดงข้อความภาษาไทยและอาหรับอย่างปลอดภัย
         </p>
+        <p>
+          <a className="zayd-home__link" href="/saved">
+            ดูคำตอบที่บันทึก
+          </a>
+        </p>
       </section>
 
       <section className="zayd-panel zayd-typography-demo" aria-label="ตัวอย่างการแสดงผลภาษา">

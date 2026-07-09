@@ -113,6 +113,9 @@ importers:
       '@zayd/preferences':
         specifier: workspace:*
         version: link:../../packages/preferences
+      '@zayd/saved-answers':
+        specifier: workspace:*
+        version: link:../../packages/saved-answers
       '@zayd/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -158,6 +161,8 @@ importers:
   packages/preferences: {}
 
   packages/provider-sdk: {}
+
+  packages/saved-answers: {}
 
   packages/testing: {}
 

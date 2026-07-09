@@ -75,6 +75,8 @@ export type ChatMessage = {
   readonly role: ChatMessageRole;
   readonly content: string;
   readonly status?: ChatMessageStatus;
+  readonly answerId?: string | null;
+  readonly savedAnswerId?: string | null;
   readonly citations?: readonly ChatCitation[];
   readonly limitations?: readonly string[];
   readonly warning?: string | null;

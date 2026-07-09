@@ -741,6 +741,84 @@ textarea {
   font-size: 0.9rem;
 }
 
+.zayd-home__link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.zayd-home__link:hover,
+.zayd-home__link:focus-visible {
+  color: var(--zayd-accent);
+}
+
+.zayd-saved {
+  display: grid;
+  gap: 1rem;
+}
+
+.zayd-saved__guest,
+.zayd-saved__status,
+.zayd-saved__empty,
+.zayd-saved__meta {
+  margin: 0;
+  color: var(--zayd-muted);
+}
+
+.zayd-saved__error {
+  margin: 0;
+  color: #c24141;
+}
+
+.zayd-saved__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.zayd-saved__item {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.9rem;
+  background: var(--zayd-surface);
+}
+
+.zayd-saved__item-header {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.zayd-saved__item-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.zayd-saved__body {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.zayd-saved__button,
+.zayd-chat__save-button {
+  min-height: 2.25rem;
+  border: 1px solid var(--zayd-border);
+  border-radius: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--zayd-surface);
+  color: var(--zayd-text);
+  font: inherit;
+}
+
+.zayd-chat__save-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (min-width: 40rem) {
   .zayd-user-shell__header,
   .zayd-user-shell__main {

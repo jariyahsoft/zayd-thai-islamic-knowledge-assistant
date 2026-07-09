@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -60,8 +60,8 @@ Allow signed-in users to save/unsave answers and display source validity status.
 
 ## Acceptance Criteria
 
-- [ ] Saved records reference answers rather than duplicate source text.
-- [ ] Warnings appear if citations later become invalid or suspended.
+- [x] Saved records reference answers rather than duplicate source text.
+- [x] Warnings appear if citations later become invalid or suspended.
 
 ## Required Tests
 
@@ -87,28 +87,62 @@ Allow signed-in users to save/unsave answers and display source validity status.
 
 ### Files Changed
 
-- Pending
+- `database/migrations/0013_saved_answers.up.sql` (new)
+- `database/migrations/0013_saved_answers.down.sql` (new)
+- `database/migrations/README.md`
+- `services/common/src/zayd_common/saved_answers.py` (new)
+- `services/common/src/zayd_common/database/models.py`
+- `services/common/tests/test_saved_answers.py` (new)
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_saved_answers_api.py` (new)
+- `packages/saved-answers/package.json` (new)
+- `packages/saved-answers/tsconfig.json` (new)
+- `packages/saved-answers/src/types.ts` (new)
+- `packages/saved-answers/src/api.ts` (new)
+- `packages/saved-answers/src/index.ts` (new)
+- `packages/saved-answers/src/saved-answers.test.ts` (new)
+- `packages/citations/src/labels.ts`
+- `apps/web/package.json`
+- `apps/web/app/saved/page.tsx` (new)
+- `apps/web/app/saved/saved-list.tsx` (new)
+- `apps/web/app/saved/saved.test.ts` (new)
+- `apps/web/app/chat/chat-interface.tsx`
+- `apps/web/app/chat/chat-types.ts`
+- `apps/web/app/page.tsx`
+- `apps/web/app/globals.css`
+- `docs/user/saved-answers.md` (new)
+- `tasks/09_user_web/09-06_saved_answers.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
+- `pnpm-lock.yaml`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_saved_answers.py services/api/tests/test_saved_answers_api.py -q` — 7 passed
+- `pnpm --filter @zayd/saved-answers test` — 1 passed
+- `pnpm --filter @zayd/citations test` — 9 passed
+- `pnpm --filter @zayd/web test` — 26 passed
+- `pnpm --filter @zayd/saved-answers typecheck` — success
+- `pnpm --filter @zayd/web typecheck` — success
+- `pnpm --filter @zayd/web build` — success
+- `uv run ruff check` on saved-answers Python files — success
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. `saved_answers` rows store only `user_id` + `answer_id`; list/detail resolve text and citations from `answers.answer_json`. UI shows `SourceStatusWarnings` for `answer_invalidated`, `citation_invalidated`, and `source_suspended` at read time.
 
 ### Security and License Review
 
-- Pending
+- No secrets or production data added. Save/unsave requires auth and owned-answer checks. Audit logs omit message bodies. Rendering uses text nodes and citation cards only.
 
 ### Known Limitations
 
-- Pending
+- Save controls appear only when streaming returns `answer_id` (authenticated flows with persisted answers). Guest users cannot save. Hard-delete retention policy remains operational follow-up.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-09-07 — user feedback form (blocked on TASK-11-01)
 
 ### Commit
 
-- Pending
+- `feat(web): add saved answers`

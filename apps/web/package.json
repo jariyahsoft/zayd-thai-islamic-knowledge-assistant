@@ -14,6 +14,7 @@
     "@zayd/citations": "workspace:*",
     "@zayd/conversations": "workspace:*",
     "@zayd/preferences": "workspace:*",
+    "@zayd/saved-answers": "workspace:*",
     "@zayd/config": "workspace:*",
     "@zayd/contracts": "workspace:*",
     "@zayd/ui": "workspace:*",

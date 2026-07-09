@@ -8,6 +8,7 @@ export const CITATION_KIND_LABELS: Record<CitationKind, string> = {
 };
 
 export const CITATION_WARNING_LABELS: Record<string, string> = {
+  answer_invalidated: "คำตอบนี้ถูกทำเครื่องหมายว่าไม่เป็นปัจจุบันแล้ว",
   citation_invalidated: "อ้างอิงนี้ถูกยกเลิกการใช้งานแล้ว",
   source_suspended: "แหล่งอ้างอิงถูกระงับชั่วคราว",
   document_version_unavailable: "ฉบับเอกสารไม่พร้อมให้แสดง",

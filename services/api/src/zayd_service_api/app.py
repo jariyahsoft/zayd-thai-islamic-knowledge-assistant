@@ -93,6 +93,12 @@ from zayd_common.conversations import (
     ConversationListResult,
     ConversationSummaryPublic,
 )
+from zayd_common.saved_answers import (
+    SavedAnswerError,
+    SavedAnswerListResult,
+    SavedAnswerPublic,
+    SavedAnswerService,
+)
 from zayd_common.user_preferences import (
     UserPreferencesError,
     UserPreferencesPublic,
@@ -264,6 +270,33 @@ class ConversationDetailResponse(BaseModel):
 
 class ConversationDeleteAllResponse(BaseModel):
     deleted_count: int
+
+
+class SavedAnswerCitationResponse(BaseModel):
+    citation_id: str
+    display: str
+    source_type: str
+    verification_status: str
+
+
+class SavedAnswerResponse(BaseModel):
+    id: UUID
+    answer_id: UUID
+    saved_at: str
+    summary: str
+    answer_th: str
+    madhhab: str
+    warnings: list[str]
+    citations: list[SavedAnswerCitationResponse]
+
+
+class SavedAnswerListResponse(BaseModel):
+    saved_answers: list[SavedAnswerResponse]
+    total_count: int
+
+
+class SavedAnswerCreateRequest(BaseModel):
+    answer_id: UUID
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -1316,6 +1349,34 @@ def _conversation_list_response(result: ConversationListResult) -> ConversationL
     )
 
 
+def _saved_answer_response(saved: SavedAnswerPublic) -> SavedAnswerResponse:
+    return SavedAnswerResponse(
+        id=saved.id,
+        answer_id=saved.answer_id,
+        saved_at=saved.saved_at.isoformat(),
+        summary=saved.summary,
+        answer_th=saved.answer_th,
+        madhhab=saved.madhhab,
+        warnings=list(saved.warnings),
+        citations=[
+            SavedAnswerCitationResponse(
+                citation_id=item["citation_id"],
+                display=item["display"],
+                source_type=item["source_type"],
+                verification_status=item["verification_status"],
+            )
+            for item in saved.citations
+        ],
+    )
+
+
+def _saved_answer_list_response(result: SavedAnswerListResult) -> SavedAnswerListResponse:
+    return SavedAnswerListResponse(
+        saved_answers=[_saved_answer_response(item) for item in result.saved_answers],
+        total_count=result.total_count,
+    )
+
+
 def _public_source_warnings(source: SourcePublic) -> list[str]:
     warnings: list[str] = []
     if not source.is_active:
@@ -1558,6 +1619,11 @@ def create_app() -> FastAPI:
 
         return ConversationHistoryService(SQLAlchemyUnitOfWork(session_factory))
 
+    def saved_answer_service() -> SavedAnswerService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return SavedAnswerService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -1752,6 +1818,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(ConversationHistoryError)
     async def conversation_history_error_handler(
         request: Request, exc: ConversationHistoryError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(SavedAnswerError)
+    async def saved_answer_error_handler(
+        request: Request, exc: SavedAnswerError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -2317,6 +2392,50 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return ConversationDeleteAllResponse(deleted_count=result.deleted_count)
+
+    @app.get("/saved-answers", response_model=SavedAnswerListResponse)
+    async def list_saved_answers(
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.CONVERSATIONS_MANAGE_OWN))
+        ],
+        service: Annotated[SavedAnswerService, Depends(saved_answer_service)],
+        limit: int = 50,
+        offset: int = 0,
+    ) -> SavedAnswerListResponse:
+        result = service.list_saved_answers(user_id=principal.id, limit=limit, offset=offset)
+        return _saved_answer_list_response(result)
+
+    @app.post("/saved-answers", response_model=SavedAnswerResponse, status_code=201)
+    async def save_answer(
+        payload: SavedAnswerCreateRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.CONVERSATIONS_MANAGE_OWN))
+        ],
+        service: Annotated[SavedAnswerService, Depends(saved_answer_service)],
+    ) -> SavedAnswerResponse:
+        saved = service.save_answer(
+            user_id=principal.id,
+            answer_id=payload.answer_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _saved_answer_response(saved)
+
+    @app.delete("/saved-answers/{saved_answer_id}")
+    async def unsave_answer(
+        saved_answer_id: UUID,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.CONVERSATIONS_MANAGE_OWN))
+        ],
+        service: Annotated[SavedAnswerService, Depends(saved_answer_service)],
+    ) -> dict[str, str]:
+        service.unsave_answer(
+            user_id=principal.id,
+            saved_answer_id=saved_answer_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return {"status": "ok"}
 
     @app.get("/citations/{citation_id}", response_model=CitationDetailResponse)
     async def get_citation_detail(

@@ -12,6 +12,12 @@ import {
   type ConversationMessage,
 } from "@zayd/conversations";
 import {
+  SavedAnswersClientError,
+  fetchSavedAnswers,
+  saveAnswer,
+  unsaveAnswer,
+} from "@zayd/saved-answers";
+import {
   ChatClientError,
   consumeChatStream,
   ensureGuestSession,
@@ -44,6 +50,10 @@ function SafeText(props: {
 function MessageBubble(props: {
   readonly message: ChatMessage;
   readonly showArabic: boolean;
+  readonly canSave: boolean;
+  readonly isSaving: boolean;
+  readonly onSave?: (answerId: string) => void;
+  readonly onUnsave?: (savedAnswerId: string, answerId: string) => void;
 }): ReactElement {
   const isUser = props.message.role === "user";
   const status = props.message.status;
@@ -77,6 +87,34 @@ function MessageBubble(props: {
 
       {props.message.citations && props.message.citations.length > 0 ? (
         <CitationCardList citations={props.message.citations} />
+      ) : null}
+
+      {props.canSave && props.message.answerId && status === "completed" ? (
+        <div className="zayd-chat__save-actions">
+          {props.message.savedAnswerId ? (
+            <button
+              type="button"
+              className="zayd-chat__save-button"
+              disabled={props.isSaving}
+              onClick={() => {
+                props.onUnsave?.(props.message.savedAnswerId as string, props.message.answerId as string);
+              }}
+            >
+              ยกเลิกการบันทึก
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="zayd-chat__save-button"
+              disabled={props.isSaving}
+              onClick={() => {
+                props.onSave?.(props.message.answerId as string);
+              }}
+            >
+              บันทึกคำตอบ
+            </button>
+          )}
+        </div>
       ) : null}
 
       {status === "streaming" ? (
@@ -113,6 +151,7 @@ function mapHistoryMessage(message: ConversationMessage): ChatMessage {
     id: message.id,
     role: "assistant",
     content: message.answer?.answerTh ?? message.body,
+    answerId: message.answer?.id ?? null,
     status:
       message.answer?.status === "abstained"
         ? "abstained"
@@ -142,6 +181,8 @@ export function ChatInterface(props: {
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [guestReady, setGuestReady] = useState(false);
   const [retryQuestion, setRetryQuestion] = useState<string | null>(null);
+  const [isSavingAnswer, setIsSavingAnswer] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const guestTokenRef = useRef<string | null>(null);
@@ -211,6 +252,89 @@ export function ChatInterface(props: {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, stage, isStreaming]);
 
+  const syncSavedState = useCallback(async () => {
+    const accessToken = readStoredAccessToken();
+    if (!accessToken) {
+      return;
+    }
+    try {
+      const saved = await fetchSavedAnswers(props.apiBaseUrl, accessToken);
+      const byAnswerId = new Map(saved.savedAnswers.map((item) => [item.answerId, item.id]));
+      setMessages((current) =>
+        current.map((message) =>
+          message.answerId && byAnswerId.has(message.answerId)
+            ? { ...message, savedAnswerId: byAnswerId.get(message.answerId) ?? null }
+            : message,
+        ),
+      );
+    } catch {
+      // Saved-state sync is best-effort in chat.
+    }
+  }, [props.apiBaseUrl]);
+
+  useEffect(() => {
+    void syncSavedState();
+  }, [syncSavedState, messages.length]);
+
+  const handleSaveAnswer = useCallback(
+    async (answerId: string) => {
+      const accessToken = readStoredAccessToken();
+      if (!accessToken) {
+        setSaveError("ต้องลงชื่อเข้าใช้ก่อนบันทึกคำตอบ");
+        return;
+      }
+      setIsSavingAnswer(true);
+      setSaveError(null);
+      try {
+        const saved = await saveAnswer(props.apiBaseUrl, accessToken, answerId);
+        setMessages((current) =>
+          current.map((message) =>
+            message.answerId === answerId
+              ? { ...message, savedAnswerId: saved.id }
+              : message,
+          ),
+        );
+      } catch (error: unknown) {
+        setSaveError(
+          error instanceof SavedAnswersClientError
+            ? error.message
+            : "ไม่สามารถบันทึกคำตอบได้",
+        );
+      } finally {
+        setIsSavingAnswer(false);
+      }
+    },
+    [props.apiBaseUrl],
+  );
+
+  const handleUnsaveAnswer = useCallback(
+    async (savedAnswerId: string, answerId: string) => {
+      const accessToken = readStoredAccessToken();
+      if (!accessToken) {
+        return;
+      }
+      setIsSavingAnswer(true);
+      setSaveError(null);
+      try {
+        await unsaveAnswer(props.apiBaseUrl, accessToken, savedAnswerId);
+        setMessages((current) =>
+          current.map((message) =>
+            message.answerId === answerId ? { ...message, savedAnswerId: null } : message,
+          ),
+        );
+      } catch (error: unknown) {
+        setSaveError(
+          error instanceof SavedAnswersClientError
+            ? error.message
+            : "ไม่สามารถยกเลิกการบันทึกได้",
+        );
+      } finally {
+        setIsSavingAnswer(false);
+      }
+    },
+    [props.apiBaseUrl],
+  );
+
   const applyStreamEvent = useCallback(
     (assistantId: string, event: ParsedChatEvent) => {
       if (event.type === "status") {
@@ -227,6 +351,7 @@ export function ChatInterface(props: {
                   ...message,
                   content: event.payload.answer.answer_th,
                   status: "completed",
+                  answerId: event.payload.answer_id,
                   citations: event.payload.answer.citations,
                   limitations: event.payload.answer.limitations,
                   warning: event.payload.answer.warning,
@@ -444,6 +569,11 @@ export function ChatInterface(props: {
           {sessionError}
         </p>
       ) : null}
+      {saveError ? (
+        <p className="zayd-chat__session-error" role="alert">
+          {saveError}
+        </p>
+      ) : null}
 
       <div
         className="zayd-chat__messages"
@@ -460,6 +590,14 @@ export function ChatInterface(props: {
               key={message.id}
               message={message}
               showArabic={preferences.showArabic}
+              canSave={readStoredAccessToken() !== null}
+              isSaving={isSavingAnswer}
+              onSave={(answerId) => {
+                void handleSaveAnswer(answerId);
+              }}
+              onUnsave={(savedAnswerId, answerId) => {
+                void handleUnsaveAnswer(savedAnswerId, answerId);
+              }}
             />
           ))
         )}

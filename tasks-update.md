@@ -1,3 +1,16 @@
+## 2026-07-09T17:15:00+07:00
+
+- Task: TASK-09-06 - Saved Answers
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Added saved-answer bookmarks for signed-in users via migration `0013_saved_answers`, `SavedAnswerService`, `/saved-answers` APIs, `@zayd/saved-answers` client, `/saved` list UI with citation cards and validity warnings, and chat save/unsave controls tied to `answer_id` references.
+- Changed files: migration 0013, saved answers service/API/tests, `packages/saved-answers/*`, web saved page/chat integration, citation warning label, `docs/user/saved-answers.md`, task index/status updates, `tasks-update.md`
+- Verification: Python saved-answers tests — 7 passed; `@zayd/saved-answers` vitest — 1 passed; `@zayd/citations` vitest — 9 passed; `@zayd/web` vitest — 26 passed; saved-answers/web typecheck and web build — success
+- Self-review: Saved rows reference answers only. Warnings re-check invalidation/suspension at read time. Guests cannot save. Audit logs avoid answer bodies.
+- Remaining risks: Save button requires persisted `answer_id` from streaming; guest answers cannot be bookmarked. Migration needs DBA review before production.
+- Commit: `feat(web): add saved answers`
+
 ## 2026-07-09T17:10:00+07:00
 
 - Task: TASK-09-05 - Conversation History
