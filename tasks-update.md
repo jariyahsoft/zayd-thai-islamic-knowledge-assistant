@@ -737,3 +737,16 @@
 - Remaining risks: Contextual PII/restricted content requires reviewer inspection; scholar/QA approval is required before any candidate becomes approved benchmark content. No religious expected behavior was approved by this implementation.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Focused task commit created; see Git history for the commit identifier.
+## 2026-07-11T05:48:41+07:00
+
+- Task: TASK-13-08 - Minimal Self-host Profile
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A; applied production integration, secure configuration, container, API health, and upgrade-path review.
+- Summary: Added a single-host minimal Compose profile with web/API/worker/PostgreSQL/Redis/MinIO, credential-free Ollama mode, opt-in cloud provider mode, generated local secrets, migration/admin/demo/upgrade commands, and bounded dependency health reporting.
+- Changed files: minimal Compose/environment/lifecycle tooling, API dependency health endpoint/tests, API and web Dockerfiles, admin seed implementation, self-host documentation, and task records.
+- Verification: 5 focused tests passed; Compose config, Bash syntax, Ruff/format, MyPy, and diff checks passed; API, worker, and web images built successfully.
+- Self-review: Stateful ports remain private, API defaults to loopback, secret placeholders fail closed until generated, environment secrets are mode `0600`/Git-ignored, and external providers require explicit opt-in. Health output excludes endpoints and credentials.
+- Remaining risks: Single-host profile is not HA. Full model-pull/runtime E2E is hardware-dependent and was not run. Trivy, Grype, Gitleaks, and ShellCheck were unavailable; production use requires the TASK-13-09 security review.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending focused task commit.

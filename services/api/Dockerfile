@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir --break-system-packages uv==0.11.26
 
 COPY .python-version pyproject.toml uv.lock README.md ./
 COPY services ./services
+COPY database ./database
 
 RUN uv sync --frozen --no-dev --all-packages --no-editable \
     && useradd --create-home --uid 10001 appuser

@@ -2,10 +2,12 @@ import asyncio
 import base64
 import hashlib
 import re
+import socket
 import threading
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, cast
+from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
@@ -1228,6 +1230,16 @@ class MetricsSnapshotResponse(BaseModel):
     summary: MetricsSummaryResponse
 
 
+class DependencyHealthResponse(BaseModel):
+    status: str
+
+
+class SystemHealthResponse(BaseModel):
+    service: str
+    status: str
+    dependencies: dict[str, DependencyHealthResponse]
+
+
 class ReviewTaskAssignRequest(BaseModel):
     assignee_user_id: UUID
 
@@ -1760,6 +1772,26 @@ def _prompt_create_from_request(payload: PromptCreateRequest) -> PromptCreate:
 _ISO_DATETIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?([+-]\d{2}:\d{2}|Z)?$"
 )
+
+_DEPENDENCY_DEFAULT_PORTS = {
+    "http": 80,
+    "https": 443,
+    "postgresql": 5432,
+    "redis": 6379,
+}
+
+
+def _tcp_dependency_status(url: str, *, timeout_seconds: float = 0.5) -> str:
+    parsed = urlparse(url)
+    host = parsed.hostname
+    port = parsed.port or _DEPENDENCY_DEFAULT_PORTS.get(parsed.scheme)
+    if not host or not port:
+        return "unavailable"
+    try:
+        with socket.create_connection((host, port), timeout=timeout_seconds):
+            return "ok"
+    except OSError:
+        return "unavailable"
 
 
 def _parse_iso_datetime(value: str | None) -> datetime | None:
@@ -2963,6 +2995,28 @@ def create_app() -> FastAPI:
     async def health() -> HealthStatus:
         logger.info("health_check")
         return HealthStatus(service=settings.app_name)
+
+    @app.get("/health/dependencies", response_model=SystemHealthResponse)
+    async def dependency_health() -> SystemHealthResponse:
+        dependency_urls = {
+            "database": settings.database_url,
+            "redis": settings.redis_url,
+            "object_storage": settings.s3_endpoint,
+            "llm_provider": settings.llm_base_url,
+        }
+        statuses = await asyncio.gather(
+            *(asyncio.to_thread(_tcp_dependency_status, url) for url in dependency_urls.values())
+        )
+        dependencies = {
+            name: DependencyHealthResponse(status=status)
+            for name, status in zip(dependency_urls, statuses, strict=True)
+        }
+        overall = "ok" if all(item.status == "ok" for item in dependencies.values()) else "degraded"
+        return SystemHealthResponse(
+            service=settings.app_name,
+            status=overall,
+            dependencies=dependencies,
+        )
 
     @app.get("/admin/dashboard", response_model=MetricsSnapshotResponse)
     async def admin_dashboard(

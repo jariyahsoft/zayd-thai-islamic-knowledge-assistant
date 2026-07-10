@@ -3,8 +3,8 @@ WORKDIR /workspace
 RUN corepack enable
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json eslint.config.mjs .prettierrc.json .prettierignore .nvmrc ./
-COPY apps ./apps
-COPY packages ./packages
+COPY --chown=node:node apps ./apps
+COPY --chown=node:node packages ./packages
 
 RUN corepack pnpm install --frozen-lockfile
 
