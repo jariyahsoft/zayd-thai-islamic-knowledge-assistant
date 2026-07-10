@@ -24,6 +24,7 @@ Forward migrations and documented rollback plans belong here.
 | `0014_feedback_review_queue` | `0014_feedback_review_queue.up.sql`, `0014_feedback_review_queue.down.sql` | Feedback queue assignment, classification, resolution, and reviewer permission grant for TASK-11-02 |
 | `0015_incident_management` | `0015_incident_management.up.sql`, `0015_incident_management.down.sql` | Incident ownership, idempotency, alert status, and append-only timeline for TASK-11-03 |
 | `0016_answer_invalidation` | `0016_answer_invalidation.up.sql`, `0016_answer_invalidation.down.sql` | Append-only answer invalidation history and notification status for TASK-11-04 |
+| `0017_evaluation_case_schema` | `0017_evaluation_case_schema.up.sql`, `0017_evaluation_case_schema.down.sql` | Versioned evaluation case contracts, visibility metadata, and evaluation RBAC for TASK-12-01 |
 
 Use `scripts/migrate.sh up`, `scripts/migrate.sh down`, or `MIGRATION_ACTION=<up|down|reset> make migrate` for development/test execution. The `up` action is idempotent when `schema_migrations` already contains a migration version.
 

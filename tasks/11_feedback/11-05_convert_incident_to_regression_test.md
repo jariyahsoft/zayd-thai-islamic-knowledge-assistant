@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`BLOCKED`
 
 ## Model Tier
 
@@ -90,28 +90,28 @@ Allow authorized reviewers to create sanitized evaluation cases from confirmed i
 
 ### Files Changed
 
-- Pending
+- Task status and execution record only; no product implementation was started.
 
 ### Commands and Tests Executed
 
-- Pending
+- Dependency review: TASK-11-03 is complete, but every EPIC-12 task remains `TODO`.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Blocked. The evaluation-case schema, benchmark runner, and evaluation workflow required to retain incident provenance do not exist yet.
 
 ### Security and License Review
 
-- Pending
+- No security-sensitive implementation was performed. Future work must retain provenance without exposing reporter, answer, conversation, or restricted source data.
 
 ### Known Limitations
 
-- Pending
+- Owner action: complete EPIC-12, beginning with TASK-12-01 Evaluation Data Schema and its dependent evaluation workflow, then return TASK-11-05 to `READY`.
 
 ### Follow-up Tasks
 
-- Pending
+- EPIC-12 completion.
 
 ### Commit
 
-- Pending
+- No commit created; task is blocked by an out-of-range prerequisite.

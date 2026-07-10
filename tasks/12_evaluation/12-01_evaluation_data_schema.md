@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Define versioned schemas for multiple choice, open-ended, retrieval-only, citati
 
 ## Acceptance Criteria
 
-- [ ] Cases include sources, license metadata, reviewer status and expected behavior.
-- [ ] Public and private test-set visibility is supported.
-- [ ] Schema validation is deterministic.
+- [x] Cases include sources, license metadata, reviewer status and expected behavior.
+- [x] Public and private test-set visibility is supported.
+- [x] Schema validation is deterministic.
 
 ## Required Tests
 
@@ -89,28 +89,28 @@ Define versioned schemas for multiple choice, open-ended, retrieval-only, citati
 
 ### Files Changed
 
-- Pending
+- Evaluation schema/store, SQLAlchemy models and RBAC, migration `0017`, tests, documentation, and task records.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_evaluation_schema.py database/tests/test_evaluation_schema_migration.py -q` — 6 passed. Focused Ruff and MyPy passed; `git diff --check` passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. All six case types validate deterministically; cases persist source/license/reviewer/expected behavior metadata; private visibility is permission-gated and public cases require approval plus redistributable sources.
 
 ### Security and License Review
 
-- Pending
+- Evaluation-specific read/manage permissions are MFA-backed at API boundaries. Public validation fails closed on approval/license status. Migration requires human DBA/security review; case content requires human religious-content review before approval.
 
 ### Known Limitations
 
-- Pending
+- No real benchmark content or golden religious answers were introduced. Dataset publication workflow remains a later task.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-12-02 Benchmark Runner; TASK-12-06 starter set; unblock TASK-11-05 only after EPIC-12 is complete.
 
 ### Commit
 
-- Pending
+- Pending focused commit.

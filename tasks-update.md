@@ -542,3 +542,29 @@
 - Remaining risks: Production needs a configured notification sink and human security/DBA migration review. Offset pagination may need snapshot cursors at large scale.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-10T21:35:00+07:00
+
+- Task: TASK-11-05 - Convert Incident to Regression Test
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: No implementation started because the requested task depends on EPIC-12, which is outside the requested range and has no completed task evidence.
+- Changed files: `tasks/11_feedback/11-05_convert_incident_to_regression_test.md`, `tasks/00_task_index.md`, `tasks-update.md`.
+- Verification: Dependency review confirmed TASK-11-03 is DONE and TASK-12-01 through TASK-12-07 are all TODO.
+- Self-review: Did not create a partial evaluation case or persist incident/reporter content without the evaluation schema and redaction workflow.
+- Remaining risks: Owner must complete EPIC-12—starting with TASK-12-01 Evaluation Data Schema and the dependent benchmark workflow—before TASK-11-05 can safely implement provenance-preserving sanitized regression cases.
+- Telegram notification: STARTED sent; BLOCKED sent.
+- Commit: Not created; this task reached a blocked terminal status.
+## 2026-07-10T21:50:00+07:00
+
+- Task: TASK-12-01 - Evaluation Data Schema
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added versioned deterministic contracts for six evaluation case types, public/private visibility, source/license/reviewer metadata, persistence models, evaluation RBAC, and migration `0017`.
+- Changed files: evaluation schema/store/tests, common database/RBAC models, migration/docs, and task records.
+- Verification: evaluation schema and migration tests — 6 passed; focused Ruff and MyPy passed; `git diff --check` passed.
+- Self-review: Public cases fail closed unless approved and fully redistributable. Private cases remain permission-gated. Audit summaries exclude questions and expected-answer content.
+- Remaining risks: Migration needs human DBA/security review. No golden religious content was added; future approved cases require scholar/license review.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending

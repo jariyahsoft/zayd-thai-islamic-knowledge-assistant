@@ -121,13 +121,13 @@
 | TASK-11-02 | Feedback Review Queue | A | DONE | TASK-11-01 | `11_feedback/11-02_feedback_review_queue.md` |
 | TASK-11-03 | Incident Management | S | DONE | TASK-11-02, TASK-06-05 | `11_feedback/11-03_incident_management.md` |
 | TASK-11-04 | Answer Invalidation | S | DONE | TASK-11-03, TASK-08-07 | `11_feedback/11-04_answer_invalidation.md` |
-| TASK-11-05 | Convert Incident to Regression Test | A | TODO | TASK-11-03, EPIC-12 | `11_feedback/11-05_convert_incident_to_regression_test.md` |
-| TASK-12-01 | Evaluation Data Schema | S | TODO | EPIC-02 complete | `12_evaluation/12-01_evaluation_data_schema.md` |
-| TASK-12-02 | Benchmark Runner | S | TODO | TASK-12-01, EPIC-08 | `12_evaluation/12-02_benchmark_runner.md` |
+| TASK-11-05 | Convert Incident to Regression Test | A | BLOCKED | TASK-11-03, EPIC-12 | `11_feedback/11-05_convert_incident_to_regression_test.md` |
+| TASK-12-01 | Evaluation Data Schema | S | DONE | EPIC-02 complete | `12_evaluation/12-01_evaluation_data_schema.md` |
+| TASK-12-02 | Benchmark Runner | S | READY | TASK-12-01, EPIC-08 | `12_evaluation/12-02_benchmark_runner.md` |
 | TASK-12-03 | Retrieval Metrics | A | TODO | TASK-12-02 | `12_evaluation/12-03_retrieval_metrics.md` |
 | TASK-12-04 | Citation Metrics | S | TODO | TASK-12-02 | `12_evaluation/12-04_citation_metrics.md` |
 | TASK-12-05 | Safety and Abstention Metrics | S | TODO | TASK-12-02 | `12_evaluation/12-05_safety_and_abstention_metrics.md` |
-| TASK-12-06 | Create Zayd-IslamicQA-TH Starter Set | S + Human Scholar Review | TODO | TASK-12-01 | `12_evaluation/12-06_create_zayd_islamicqa_th_starter_set.md` |
+| TASK-12-06 | Create Zayd-IslamicQA-TH Starter Set | S + Human Scholar Review | READY | TASK-12-01 | `12_evaluation/12-06_create_zayd_islamicqa_th_starter_set.md` |
 | TASK-12-07 | Evaluation Dashboard | A | TODO | TASK-12-03, TASK-12-04, TASK-12-05 | `12_evaluation/12-07_evaluation_dashboard.md` |
 | TASK-13-01 | Central Logging and Request IDs | A | DONE | EPIC-01 complete | `13_operations/13-01_central_logging_and_request_ids.md` |
 | TASK-13-02 | OpenTelemetry Instrumentation | A | DONE | TASK-13-01 | `13_operations/13-02_opentelemetry_instrumentation.md` |

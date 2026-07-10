@@ -1291,3 +1291,115 @@ class IncidentEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class EvaluationDataset(Base):
+    __tablename__ = "evaluation_datasets"
+    __table_args__ = (UniqueConstraint("name", "version"),)
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[str] = mapped_column(String, nullable=False)
+    license_status: Mapped[str] = mapped_column(String, default="review_required", nullable=False)
+    manifest_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    visibility: Mapped[str] = mapped_column(String, default="private", nullable=False)
+    status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
+    created_by: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class EvaluationCase(Base):
+    __tablename__ = "evaluation_cases"
+    __table_args__ = (UniqueConstraint("dataset_id", "case_key"),)
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    dataset_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("evaluation_datasets.id", ondelete="CASCADE"), nullable=False
+    )
+    case_key: Mapped[str] = mapped_column(String, nullable=False)
+    schema_version: Mapped[str] = mapped_column(String, nullable=False)
+    case_type: Mapped[str] = mapped_column(String, nullable=False)
+    visibility: Mapped[str] = mapped_column(String, nullable=False)
+    reviewer_status: Mapped[str] = mapped_column(String, nullable=False)
+    reviewed_by: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    choices_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    expected_citations: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    expected_behavior: Mapped[dict[str, Any]] = mapped_column(
+        BaseJSONB, default=dict, nullable=False
+    )
+    source_references: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, default=list, nullable=False
+    )
+    license_metadata: Mapped[dict[str, Any]] = mapped_column(
+        BaseJSONB, default=dict, nullable=False
+    )
+    provenance_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String, default="low", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class EvaluationRun(Base):
+    __tablename__ = "evaluation_runs"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    dataset_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("evaluation_datasets.id", ondelete="RESTRICT"), nullable=False
+    )
+    model_configuration_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False)
+    prompt_version_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False)
+    policy_version_id: Mapped[UUID] = mapped_column(BaseUUID, nullable=False)
+    status: Mapped[str] = mapped_column(String, default="running", nullable=False)
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    run_config_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    random_seed: Mapped[int] = mapped_column(Integer, nullable=False)
+    git_commit: Mapped[str] = mapped_column(String, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class EvaluationResult(Base):
+    __tablename__ = "evaluation_results"
+    __table_args__ = (UniqueConstraint("evaluation_run_id", "evaluation_case_id"),)
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    evaluation_run_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("evaluation_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    evaluation_case_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("evaluation_cases.id", ondelete="RESTRICT"), nullable=False
+    )
+    answer_id: Mapped[UUID | None] = mapped_column(BaseUUID, nullable=True)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    scores_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    duration_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )

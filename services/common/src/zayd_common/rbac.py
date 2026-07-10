@@ -46,6 +46,8 @@ class Permission(StrEnum):
     FEEDBACK_CREATE = "feedback.create"
     FEEDBACK_READ = "feedback.read"
     FEEDBACK_MANAGE = "feedback.manage"
+    EVALUATIONS_READ = "evaluations.read"
+    EVALUATIONS_MANAGE = "evaluations.manage"
     CONVERSATIONS_MANAGE_OWN = "conversations.manage_own"
 
 
@@ -114,6 +116,7 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.ANSWERS_REVIEW,
         Permission.FEEDBACK_READ,
         Permission.FEEDBACK_MANAGE,
+        Permission.EVALUATIONS_READ,
         Permission.LICENSES_READ,
     },
     "senior_scholar": {
@@ -127,6 +130,8 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.ANSWERS_REVIEW,
         Permission.ANSWERS_INVALIDATE,
         Permission.LICENSES_READ,
+        Permission.EVALUATIONS_READ,
+        Permission.EVALUATIONS_MANAGE,
     },
     "admin": {
         Permission.SESSIONS_REVOKE_OWN,
@@ -154,6 +159,8 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.AUDIT_VERIFY,
         Permission.FEEDBACK_READ,
         Permission.FEEDBACK_MANAGE,
+        Permission.EVALUATIONS_READ,
+        Permission.EVALUATIONS_MANAGE,
     },
     "auditor": {
         Permission.SESSIONS_REVOKE_OWN,
@@ -166,6 +173,7 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.AUDIT_EXPORT,
         Permission.AUDIT_VERIFY,
         Permission.FEEDBACK_READ,
+        Permission.EVALUATIONS_READ,
     },
     "maintainer": {
         Permission.SESSIONS_REVOKE_OWN,
