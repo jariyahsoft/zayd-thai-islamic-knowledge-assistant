@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Provide production reference architecture for reverse proxy/load balancer, repli
 
 ## Acceptance Criteria
 
-- [ ] No default insecure credentials.
-- [ ] Rolling/canary deployment and rollback are documented.
-- [ ] Stateful components and failure domains are explicit.
+- [x] No default insecure credentials.
+- [x] Rolling/canary deployment and rollback are documented.
+- [x] Stateful components and failure domains are explicit.
 
 ## Required Tests
 
@@ -89,28 +89,43 @@ Provide production reference architecture for reverse proxy/load balancer, repli
 
 ### Files Changed
 
-- Pending implementation; dependency state re-evaluated after TASK-13-08 completion.
+- Production Compose/Swarm reference, TLS reverse proxy, replicated app/worker policies, external
+  managed secrets, worker/network isolation, Prometheus configuration and endpoint, backup image/job,
+  fail-closed secret loader, tests, production runbook, and task records.
 
 ### Commands and Tests Executed
 
-- Dependency review: TASK-13-08 is complete.
+- `uv run pytest -q infra/compose/tests/test_production_profile.py services/api/tests/test_health_dependencies.py infra/backup/tests/test_backup_restore.py` — 9 passed.
+- Focused Ruff, Ruff format, MyPy, Bash syntax, Compose config, and `git diff --check` — passed.
+- Production Nginx TLS configuration test in pinned container — passed.
+- Production backup image build and required-tool smoke test — passed.
+- Focused secret/private-key scan — no findings; Trivy/Grype/Gitleaks/ShellCheck/Docker Scout were unavailable.
 
 ### Acceptance Criteria Result
 
-- Pending implementation.
+- Passed. All credential-bearing fields use external secret files with a fail-closed loader; app,
+  proxy, and worker replicas have health checks, spread/rolling/automatic rollback policies; canary
+  and rollback procedures are documented; managed state and failure domains are explicit.
 
 ### Security and License Review
 
-- Pending implementation; human security review remains mandatory.
+- No default credentials or production data are present. TLS, internal app/operations networks,
+  worker edge isolation, rate limits, bounded metrics, external secrets/volumes, non-root backup,
+  encrypted off-site backup, and immutable image-tag requirements are represented. Tier S human
+  security/platform review is still required before production approval.
 
 ### Known Limitations
 
-- Previous TASK-13-08 dependency blocker was resolved on 2026-07-11.
+- The reference depends on environment-provided managed HA PostgreSQL, Redis, object storage, WAF/LB,
+  secret manager, durable monitoring volume, node labels, signed images, and real certificates.
+  Stateful failover, load, canary, penetration, and restore drills require the target environment.
+  Container vulnerability scanners were unavailable locally.
 
 ### Follow-up Tasks
 
-- Implement the production reference profile.
+- TASK-14-01 Pilot Environment is now dependency-ready. Complete environment-specific human security,
+  platform, DBA, and operations review before production use.
 
 ### Commit
 
-- Previous blocker bookkeeping was committed separately.
+- Focused task commit created; see Git history for the commit identifier.

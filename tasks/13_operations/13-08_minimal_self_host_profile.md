@@ -128,4 +128,4 @@ Create a minimal Docker Compose profile with web, API, worker, PostgreSQL/pgvect
 
 ### Commit
 
-- Pending focused task commit.
+- `751049a feat(deployment): add minimal self-host profile`

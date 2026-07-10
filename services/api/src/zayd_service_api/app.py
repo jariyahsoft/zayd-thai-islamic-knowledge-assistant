@@ -3018,6 +3018,13 @@ def create_app() -> FastAPI:
             dependencies=dependencies,
         )
 
+    @app.get("/metrics", response_class=Response)
+    async def metrics() -> Response:
+        return Response(
+            content=telemetry_registry.export_prometheus_text(),
+            media_type="text/plain; version=0.0.4",
+        )
+
     @app.get("/admin/dashboard", response_model=MetricsSnapshotResponse)
     async def admin_dashboard(
         _: Annotated[UserPrincipal, Depends(require_permission(Permission.AUDIT_READ))],

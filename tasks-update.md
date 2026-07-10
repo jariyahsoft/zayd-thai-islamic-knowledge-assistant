@@ -749,4 +749,17 @@
 - Self-review: Stateful ports remain private, API defaults to loopback, secret placeholders fail closed until generated, environment secrets are mode `0600`/Git-ignored, and external providers require explicit opt-in. Health output excludes endpoints and credentials.
 - Remaining risks: Single-host profile is not HA. Full model-pull/runtime E2E is hardware-dependent and was not run. Trivy, Grype, Gitleaks, and ShellCheck were unavailable; production use requires the TASK-13-09 security review.
 - Telegram notification: STARTED sent; COMPLETED sent.
-- Commit: Pending focused task commit.
+- Commit: `751049a feat(deployment): add minimal self-host profile`
+## 2026-07-11T05:59:23+07:00
+
+- Task: TASK-13-09 - Production Deployment Profile
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S; applied strict architecture, secret handling, availability, network isolation, backup, observability, and rollback review.
+- Summary: Added a multi-node production Compose/Swarm reference with TLS proxy/load balancing, replicated stateless services, isolated workers, external managed state/secrets, health/rollback policies, central metrics, encrypted off-site backup job/image, and detailed rolling/canary/failure-domain runbook.
+- Changed files: production Compose, Nginx/Prometheus/secret-loader/backup assets, metrics endpoint/tests, production documentation, and task records.
+- Verification: 9 focused tests passed; Compose, Bash, Ruff/format, MyPy, diff, Nginx TLS config, backup image build, and backup tool smoke checks passed.
+- Self-review: No default credentials exist; secret files fail closed; stateful services are external with explicit failure-domain requirements; workers have no edge/app network; metrics expose bounded operational data; rolling rollback is automatic and canary/rollback gates are documented.
+- Remaining risks: Real HA failover, load/canary, penetration, secret-manager, WAF/TLS, image-signature/SBOM, alerting, and restore evidence require target infrastructure and explicit human security/platform/DBA/operations review. Vulnerability scanner CLIs were unavailable locally.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Focused task commit created; see Git history for the commit identifier.

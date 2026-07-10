@@ -1,0 +1,242 @@
+name: zayd-production
+
+x-app-environment: &app-environment
+  APP_ENV: production
+  APP_URL: ${APP_URL:?APP_URL is required}
+  DATABASE_URL_FILE: /run/secrets/database_url
+  REDIS_URL_FILE: /run/secrets/redis_url
+  S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+  S3_REGION: ${S3_REGION:?S3_REGION is required}
+  S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+  S3_ACCESS_KEY_FILE: /run/secrets/s3_access_key
+  S3_SECRET_KEY_FILE: /run/secrets/s3_secret_key
+  AUTH_JWT_SECRET_FILE: /run/secrets/auth_jwt_secret
+  AUTH_SESSION_SECRET_FILE: /run/secrets/auth_session_secret
+  PROVIDER_TOKEN_FILE: /run/secrets/provider_token
+  LLM_PROVIDER: ${LLM_PROVIDER:?LLM_PROVIDER is required}
+  LLM_BASE_URL: ${LLM_BASE_URL:?LLM_BASE_URL is required}
+  LLM_API_KEY_FILE: /run/secrets/llm_api_key
+  LLM_MODEL: ${LLM_MODEL:?LLM_MODEL is required}
+  EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:?EMBEDDING_PROVIDER is required}
+  EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:?EMBEDDING_BASE_URL is required}
+  EMBEDDING_API_KEY_FILE: /run/secrets/embedding_api_key
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:?EMBEDDING_MODEL is required}
+  ENABLE_EXTERNAL_PROVIDERS: ${ENABLE_EXTERNAL_PROVIDERS:?ENABLE_EXTERNAL_PROVIDERS is required}
+  ENABLE_GUEST_MODE: ${ENABLE_GUEST_MODE:-false}
+  ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  TELEMETRY_SAMPLE_RATE: ${TELEMETRY_SAMPLE_RATE:-0.1}
+
+x-app-secrets: &app-secrets
+  - database_url
+  - redis_url
+  - s3_access_key
+  - s3_secret_key
+  - auth_jwt_secret
+  - auth_session_secret
+  - provider_token
+  - llm_api_key
+  - embedding_api_key
+
+x-deploy-policy: &deploy-policy
+  update_config:
+    parallelism: 1
+    delay: 15s
+    failure_action: rollback
+    monitor: 60s
+    order: start-first
+  rollback_config:
+    parallelism: 1
+    delay: 10s
+    monitor: 60s
+    order: stop-first
+  restart_policy:
+    condition: on-failure
+    delay: 5s
+    max_attempts: 3
+    window: 120s
+
+services:
+  proxy:
+    image: nginx:1.28.0-alpine
+    configs:
+      - source: nginx_production
+        target: /etc/nginx/nginx.conf
+        mode: 0444
+    secrets:
+      - tls_certificate
+      - tls_private_key
+    ports:
+      - target: 8080
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 8443
+        published: 443
+        protocol: tcp
+        mode: host
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      replicas: 2
+      placement:
+        max_replicas_per_node: 1
+      <<: *deploy-policy
+    networks: [edge, app]
+
+  web:
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/zayd-web:${IMAGE_TAG:?IMAGE_TAG is required}
+    environment:
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 2
+      placement:
+        max_replicas_per_node: 1
+      <<: *deploy-policy
+    networks: [app]
+
+  api:
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/zayd-api:${IMAGE_TAG:?IMAGE_TAG is required}
+    entrypoint: ["/usr/local/bin/load-secrets-and-exec"]
+    command: ["python", "-m", "uvicorn", "zayd_service_api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *app-environment
+    configs:
+      - source: secret_loader
+        target: /usr/local/bin/load-secrets-and-exec
+        mode: 0555
+    secrets: *app-secrets
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 3
+      placement:
+        max_replicas_per_node: 1
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+      <<: *deploy-policy
+    networks: [app, backend]
+
+  worker:
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/zayd-worker:${IMAGE_TAG:?IMAGE_TAG is required}
+    entrypoint: ["/usr/local/bin/load-secrets-and-exec"]
+    command: ["python", "-m", "zayd_service_worker.main"]
+    environment:
+      <<: *app-environment
+      WORKER_POOL: ingestion
+    configs:
+      - source: secret_loader
+        target: /usr/local/bin/load-secrets-and-exec
+        mode: 0555
+    secrets: *app-secrets
+    healthcheck:
+      test: ["CMD", "python", "-c", "from zayd_service_worker import get_health; assert get_health().status == 'ok'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      replicas: 2
+      placement:
+        max_replicas_per_node: 1
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+      <<: *deploy-policy
+    networks: [backend]
+
+  monitoring:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
+    configs:
+      - source: prometheus_production
+        target: /etc/prometheus/prometheus.yml
+        mode: 0444
+    volumes:
+      - prometheus-data:/prometheus
+    deploy:
+      replicas: 1
+      placement:
+        constraints: ["node.labels.zayd_monitoring==true"]
+      restart_policy:
+        condition: on-failure
+    networks: [app, operations]
+
+  backup:
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/zayd-backup:${IMAGE_TAG:?IMAGE_TAG is required}
+    profiles: ["backup-job"]
+    entrypoint: ["/usr/local/bin/load-secrets-and-exec"]
+    command: ["sh", "-ec", "export BACKUP_ENCRYPTION_KEY_FILE=/run/secrets/backup_encryption_key; exec /usr/local/bin/zayd-backup"]
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      AWS_ACCESS_KEY_ID_FILE: /run/secrets/s3_access_key
+      AWS_SECRET_ACCESS_KEY_FILE: /run/secrets/s3_secret_key
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      OFFSITE_S3_URI: ${OFFSITE_S3_URI:?OFFSITE_S3_URI is required}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_ACTOR: production-scheduled-backup
+    configs:
+      - source: secret_loader
+        target: /usr/local/bin/load-secrets-and-exec
+        mode: 0555
+    secrets:
+      - database_url
+      - s3_access_key
+      - s3_secret_key
+      - backup_encryption_key
+    volumes:
+      - backup-staging:/var/backups/zayd
+    deploy:
+      replicas: 0
+      placement:
+        constraints: ["node.labels.zayd_backup==true"]
+    networks: [backend]
+
+configs:
+  nginx_production:
+    file: ../nginx/production.conf
+  prometheus_production:
+    file: ../monitoring/prometheus-production.yml
+  secret_loader:
+    file: ../scripts/load-secrets-and-exec.sh
+
+secrets:
+  database_url: {external: true}
+  redis_url: {external: true}
+  s3_access_key: {external: true}
+  s3_secret_key: {external: true}
+  auth_jwt_secret: {external: true}
+  auth_session_secret: {external: true}
+  provider_token: {external: true}
+  llm_api_key: {external: true}
+  embedding_api_key: {external: true}
+  backup_encryption_key: {external: true}
+  tls_certificate: {external: true}
+  tls_private_key: {external: true}
+
+volumes:
+  prometheus-data: {external: true}
+  backup-staging: {external: true}
+
+networks:
+  edge:
+  app:
+    internal: true
+  backend:
+  operations:
+    internal: true

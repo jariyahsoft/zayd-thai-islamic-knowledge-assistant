@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from httpx import ASGITransport, AsyncClient
+from zayd_common.telemetry import telemetry_registry
 from zayd_service_api import create_app
 
 
@@ -34,3 +35,22 @@ def test_dependency_health_reports_each_dependency_without_endpoint_details(monk
         },
     }
     assert "postgres" not in str(payload) and "minio" not in str(payload)
+
+
+def test_metrics_endpoint_exports_prometheus_text(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "test")
+    telemetry_registry.reset()
+    telemetry_registry.record_counter("production_probe_total", status="ok")
+    app = create_app()
+
+    async def request() -> tuple[int, str, str]:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            response = await client.get("/metrics")
+            return response.status_code, response.text, response.headers["content-type"]
+
+    status_code, content, content_type = asyncio.run(request())
+    assert status_code == 200
+    assert 'production_probe_total{status="ok"} 1.0' in content
+    assert content_type.startswith("text/plain; version=0.0.4")
