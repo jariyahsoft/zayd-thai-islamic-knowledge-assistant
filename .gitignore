@@ -6,6 +6,7 @@
 .env.*
 !.env.example
 !.env.self-host.example
+!.env.pilot.example
 *.local
 
 # Secrets, credentials, and certificates

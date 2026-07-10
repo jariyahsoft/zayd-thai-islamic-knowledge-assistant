@@ -1,3 +1,16 @@
+## 2026-07-11T09:00:00+07:00
+
+- Task: TASK-14-01 - Pilot Environment
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Configured and finalized the closed pilot environment overlay. Enabled invite-only registration gating via email list hashing (preventing leak risks), verified compose profile configurations, resolved execute attributes on the validator shell script, fixed YAML construct duplicate entries in pilot compose environment parameters, and verified isolation, access control, and backup tests.
+- Changed files: `infra/compose/pilot.yml`, `infra/scripts/validate-pilot-environment.sh` (perm edit), `tasks/14_release/14-01_pilot_environment.md`, `tasks/00_task_index.md`, `tasks-update.md` (untracked files committed)
+- Verification: `uv run pytest infra/compose/tests/ infra/backup/tests/ services/api/tests/test_pilot_access_api.py -q` — passed.
+- Self-review: Duplicate YAML keys in `pilot.yml` resolved. Validator correctly blocks variables that lack `pilot-*` prefixing rules. Hashed allowname checks validated.
+- Remaining risks: Container registry deployment requires cloud-target secrets seeding in external pipeline scopes.
+- Telegram notification: sent
+
 ## 2026-07-10T16:00:00+07:00
 
 - Task: TASK-13-06 - Software Bill of Materials

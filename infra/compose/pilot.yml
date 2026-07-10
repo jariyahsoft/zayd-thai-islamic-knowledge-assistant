@@ -1,0 +1,90 @@
+name: zayd-pilot
+
+x-pilot-secrets: &pilot-secrets
+  - database_url
+  - redis_url
+  - s3_access_key
+  - s3_secret_key
+  - auth_jwt_secret
+  - auth_session_secret
+  - provider_token
+  - llm_api_key
+  - embedding_api_key
+  - pilot_invite_email_hashes
+
+services:
+  api:
+    environment:
+      APP_URL: ${PILOT_APP_URL:?PILOT_APP_URL is required}
+      ALLOWED_ORIGINS: ${PILOT_ALLOWED_ORIGINS:?PILOT_ALLOWED_ORIGINS is required}
+      S3_ENDPOINT: ${PILOT_S3_ENDPOINT:?PILOT_S3_ENDPOINT is required}
+      S3_REGION: ${PILOT_S3_REGION:?PILOT_S3_REGION is required}
+      S3_BUCKET: ${PILOT_S3_BUCKET:?PILOT_S3_BUCKET is required}
+      PILOT_MODE: "true"
+      ENABLE_GUEST_MODE: "false"
+      PILOT_INVITE_EMAIL_HASHES_FILE: /run/secrets/pilot_invite_email_hashes
+      PILOT_INVITE_ALLOWLIST_VERSION: ${PILOT_INVITE_ALLOWLIST_VERSION:?PILOT_INVITE_ALLOWLIST_VERSION is required}
+    secrets: *pilot-secrets
+
+  worker:
+    environment:
+      PILOT_MODE: "true"
+      ENABLE_GUEST_MODE: "false"
+      PILOT_INVITE_EMAIL_HASHES_FILE: /run/secrets/pilot_invite_email_hashes
+      PILOT_INVITE_ALLOWLIST_VERSION: ${PILOT_INVITE_ALLOWLIST_VERSION:?PILOT_INVITE_ALLOWLIST_VERSION is required}
+    secrets: *pilot-secrets
+
+  backup:
+    environment:
+      S3_ENDPOINT: ${PILOT_S3_ENDPOINT:?PILOT_S3_ENDPOINT is required}
+      S3_BUCKET: ${PILOT_S3_BUCKET:?PILOT_S3_BUCKET is required}
+      OFFSITE_S3_URI: ${PILOT_OFFSITE_S3_URI:?PILOT_OFFSITE_S3_URI is required}
+
+secrets:
+  database_url:
+    external: true
+    name: ${PILOT_DATABASE_URL_SECRET:?PILOT_DATABASE_URL_SECRET is required}
+  redis_url:
+    external: true
+    name: ${PILOT_REDIS_URL_SECRET:?PILOT_REDIS_URL_SECRET is required}
+  s3_access_key:
+    external: true
+    name: ${PILOT_S3_ACCESS_KEY_SECRET:?PILOT_S3_ACCESS_KEY_SECRET is required}
+  s3_secret_key:
+    external: true
+    name: ${PILOT_S3_SECRET_KEY_SECRET:?PILOT_S3_SECRET_KEY_SECRET is required}
+  auth_jwt_secret:
+    external: true
+    name: ${PILOT_AUTH_JWT_SECRET:?PILOT_AUTH_JWT_SECRET is required}
+  auth_session_secret:
+    external: true
+    name: ${PILOT_AUTH_SESSION_SECRET:?PILOT_AUTH_SESSION_SECRET is required}
+  provider_token:
+    external: true
+    name: ${PILOT_PROVIDER_TOKEN_SECRET:?PILOT_PROVIDER_TOKEN_SECRET is required}
+  llm_api_key:
+    external: true
+    name: ${PILOT_LLM_API_KEY_SECRET:?PILOT_LLM_API_KEY_SECRET is required}
+  embedding_api_key:
+    external: true
+    name: ${PILOT_EMBEDDING_API_KEY_SECRET:?PILOT_EMBEDDING_API_KEY_SECRET is required}
+  pilot_invite_email_hashes:
+    external: true
+    name: ${PILOT_INVITE_EMAIL_HASHES_SECRET:?PILOT_INVITE_EMAIL_HASHES_SECRET is required}
+  backup_encryption_key:
+    external: true
+    name: ${PILOT_BACKUP_ENCRYPTION_KEY_SECRET:?PILOT_BACKUP_ENCRYPTION_KEY_SECRET is required}
+  tls_certificate:
+    external: true
+    name: ${PILOT_TLS_CERTIFICATE_SECRET:?PILOT_TLS_CERTIFICATE_SECRET is required}
+  tls_private_key:
+    external: true
+    name: ${PILOT_TLS_PRIVATE_KEY_SECRET:?PILOT_TLS_PRIVATE_KEY_SECRET is required}
+
+volumes:
+  prometheus-data:
+    external: true
+    name: ${PILOT_PROMETHEUS_VOLUME:?PILOT_PROMETHEUS_VOLUME is required}
+  backup-staging:
+    external: true
+    name: ${PILOT_BACKUP_VOLUME:?PILOT_BACKUP_VOLUME is required}

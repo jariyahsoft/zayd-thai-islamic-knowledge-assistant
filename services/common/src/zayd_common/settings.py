@@ -77,6 +77,9 @@ class ServiceSettings(BaseSettings):
     default_madhhab: Madhhab = "shafii"
     enable_external_providers: bool = False
     enable_guest_mode: bool = True
+    pilot_mode: bool = False
+    pilot_invite_email_hashes: SecretStr | None = None
+    pilot_invite_allowlist_version: str | None = None
     guest_session_ttl_minutes: int = 120
     guest_message_quota: int = 10
     log_level: LogLevel = "INFO"
@@ -176,6 +179,16 @@ class ServiceSettings(BaseSettings):
                         f"{key} must not use a development placeholder in production",
                     )
 
+        if self.pilot_mode:
+            if self.enable_guest_mode:
+                raise ValueError("ENABLE_GUEST_MODE must be false when PILOT_MODE=true")
+            if not self.pilot_invite_hashes():
+                raise ValueError("PILOT_INVITE_EMAIL_HASHES is required when PILOT_MODE=true")
+            if not self.pilot_invite_allowlist_version:
+                raise ValueError(
+                    "PILOT_INVITE_ALLOWLIST_VERSION is required when PILOT_MODE=true"
+                )
+
         return self
 
     @classmethod
@@ -224,6 +237,9 @@ class ServiceSettings(BaseSettings):
                 default_madhhab=cast(Madhhab, _get_env("DEFAULT_MADHHAB", "shafii")),
                 enable_external_providers=_get_bool("ENABLE_EXTERNAL_PROVIDERS", False),
                 enable_guest_mode=_get_bool("ENABLE_GUEST_MODE", True),
+                pilot_mode=_get_bool("PILOT_MODE", False),
+                pilot_invite_email_hashes=_optional_secret("PILOT_INVITE_EMAIL_HASHES"),
+                pilot_invite_allowlist_version=_optional_str("PILOT_INVITE_ALLOWLIST_VERSION"),
                 log_level=cast(LogLevel, _get_env("LOG_LEVEL", "INFO")),
                 auth_jwt_secret=SecretStr(
                     _get_env("AUTH_JWT_SECRET", "dev-jwt-secret-change-me"),
@@ -235,6 +251,21 @@ class ServiceSettings(BaseSettings):
             )
         except ValidationError as exc:
             raise EnvironmentConfigurationError(_sanitize_validation_error(exc)) from exc
+
+    def pilot_invite_hashes(self) -> frozenset[str]:
+        if self.pilot_invite_email_hashes is None:
+            return frozenset()
+        values = {
+            item.strip().lower()
+            for item in self.pilot_invite_email_hashes.get_secret_value().split(",")
+            if item.strip()
+        }
+        if not values or any(
+            len(item) != 64 or not all(char in "0123456789abcdef" for char in item)
+            for item in values
+        ):
+            raise ValueError("PILOT_INVITE_EMAIL_HASHES must contain SHA-256 hex digests")
+        return frozenset(values)
 
 
 def _get_bool(name: str, default: bool) -> bool:

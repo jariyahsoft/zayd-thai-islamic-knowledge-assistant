@@ -1,4 +1,5 @@
 import os
+from hashlib import sha256
 from unittest.mock import patch
 
 import pytest
@@ -67,3 +68,23 @@ def test_production_rejects_development_credentials() -> None:
             match="development placeholder",
         ):
             ServiceSettings.from_runtime_env(app_name="api")
+
+
+def test_pilot_mode_requires_hashed_allowlist_and_disables_guests() -> None:
+    invite_hash = sha256(b"pilot@example.test").hexdigest()
+    settings = ServiceSettings(
+        app_name="api",
+        pilot_mode=True,
+        enable_guest_mode=False,
+        pilot_invite_email_hashes=SecretStr(invite_hash),
+        pilot_invite_allowlist_version="pilot-invites-v1",
+    )
+    assert settings.pilot_invite_hashes() == frozenset({invite_hash})
+    with pytest.raises(ValueError, match="ENABLE_GUEST_MODE"):
+        ServiceSettings(
+            app_name="api",
+            pilot_mode=True,
+            enable_guest_mode=True,
+            pilot_invite_email_hashes=SecretStr(invite_hash),
+            pilot_invite_allowlist_version="pilot-invites-v1",
+        )

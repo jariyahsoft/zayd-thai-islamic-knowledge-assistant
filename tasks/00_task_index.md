@@ -138,7 +138,7 @@
 | TASK-13-07 | Backup and Restore | S | DONE | EPIC-02, TASK-05-02 | `13_operations/13-07_backup_and_restore.md` |
 | TASK-13-08 | Minimal Self-host Profile | A | DONE | All MVP epics | `13_operations/13-08_minimal_self_host_profile.md` |
 | TASK-13-09 | Production Deployment Profile | S | DONE | TASK-13-08 | `13_operations/13-09_production_deployment_profile.md` |
-| TASK-14-01 | Pilot Environment | A | READY | EPIC-13 complete | `14_release/14-01_pilot_environment.md` |
+| TASK-14-01 | Pilot Environment | A | DONE | EPIC-13 complete | `14_release/14-01_pilot_environment.md` |
 | TASK-14-02 | Scholar Pilot Workflow | B | TODO | EPIC-12, TASK-14-01 | `14_release/14-02_scholar_pilot_workflow.md` |
 | TASK-14-03 | User Pilot Workflow | B | TODO | TASK-14-01 | `14_release/14-03_user_pilot_workflow.md` |
 | TASK-14-04 | Performance and Load Test | A | TODO | TASK-14-01 | `14_release/14-04_performance_and_load_test.md` |

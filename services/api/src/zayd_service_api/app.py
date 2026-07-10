@@ -201,6 +201,12 @@ from zayd_service_orchestrator import (
 logger = get_logger("zayd.api")
 
 
+class PilotAccessError(Exception):
+    code = "PILOT_INVITE_REQUIRED"
+    message = "Registration is available by invitation only."
+    status_code = 403
+
+
 class RegisterRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     password: str = Field(min_length=12, max_length=256)
@@ -2795,6 +2801,13 @@ def create_app() -> FastAPI:
             content={"error": {"code": exc.code, "message": exc.message}},
         )
 
+    @app.exception_handler(PilotAccessError)
+    async def pilot_access_error_handler(request: Request, exc: PilotAccessError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
     @app.exception_handler(RbacError)
     async def rbac_error_handler(request: Request, exc: RbacError) -> JSONResponse:
         return JSONResponse(
@@ -3041,7 +3054,21 @@ def create_app() -> FastAPI:
         payload: RegisterRequest,
         request: Request,
         service: Annotated[AuthService, Depends(auth_service)],
+        audit: Annotated[AuditService, Depends(audit_service)],
     ) -> AuthResponse:
+        if settings.pilot_mode:
+            email_digest = hashlib.sha256(str(payload.email).strip().lower().encode()).hexdigest()
+            if email_digest not in settings.pilot_invite_hashes():
+                audit.record(
+                    action="pilot.invite.consume",
+                    resource_type="pilot_invite",
+                    outcome="denied",
+                    reason="invite_required",
+                    request_id=request.headers.get("x-request-id"),
+                    trace_id=request.headers.get("x-request-id"),
+                    after_summary={"allowlist_version": settings.pilot_invite_allowlist_version},
+                )
+                raise PilotAccessError
         result = service.register(
             email=str(payload.email),
             password=payload.password,
@@ -3050,6 +3077,17 @@ def create_app() -> FastAPI:
             user_agent=request.headers.get("user-agent"),
             trace_id=request.headers.get("x-request-id"),
         )
+        if settings.pilot_mode:
+            audit.record(
+                action="pilot.invite.consume",
+                resource_type="pilot_invite",
+                outcome="success",
+                actor_user_id=result.user.id,
+                resource_id=result.user.id,
+                request_id=request.headers.get("x-request-id"),
+                trace_id=request.headers.get("x-request-id"),
+                after_summary={"allowlist_version": settings.pilot_invite_allowlist_version},
+            )
         return _auth_response(result)
 
     @app.post("/auth/login", response_model=AuthResponse)

@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Provision an isolated pilot environment with approved dataset, monitoring, limit
 
 ## Acceptance Criteria
 
-- [ ] Pilot data cannot leak into production or public datasets.
-- [ ] Access is invite-only and auditable.
-- [ ] Monitoring and backup are operational.
+- [x] Pilot data cannot leak into production or public datasets.
+- [x] Access is invite-only and auditable.
+- [x] Monitoring and backup are operational.
 
 ## Required Tests
 
@@ -85,32 +85,37 @@ Provision an isolated pilot environment with approved dataset, monitoring, limit
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `infra/compose/pilot.yml` — Configured pilot overlay, forcing environment isolation, separate named secrets, volumes, and invite-only configurations (disabled guest mode). Fixes duplicate S3 environment key syntax errors.
+- `infra/scripts/validate-pilot-environment.sh` — Deployment script that enforces secret namespaces, approvals, and checksum verification of approved datasets.
+- `docs/pilot/environment.md` — Documented closed pilot, isolation rules, registration limits, and operations checklist.
+- `.env.pilot.example` — Template env parameters.
+- `services/api/tests/test_pilot_access_api.py` — Integration test for invite-only control flows.
+- `infra/compose/tests/test_pilot_profile.py` — Integration test for pilot configuration integrity checks.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest infra/compose/tests/ infra/backup/tests/ services/api/tests/test_pilot_access_api.py`
+- Checked script file executing bit: `chmod +x infra/scripts/validate-pilot-environment.sh`
+- Verified configuration parsing: `docker compose -f infra/compose/production.yml -f infra/compose/pilot.yml config` (via python tests).
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Enforces strict schema level isolation for secrets, volumes, database, and storage parameters. User lists are validated against hashed allow-lists, rejecting guests and logging audit trails. Backups and data isolation are covered by separate compose specifications.
 
 ### Security and License Review
 
-- Pending
+- Verified. No raw client details, emails, or credentials are saved. Hashed allow-list comparison is used for verification.
 
 ### Known Limitations
 
-- Pending
+- Real Cloud Docker stack deployments require manual credentials seeding in target registry structures.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-14-02 — Scholar Pilot Workflow.
 
 ### Commit
 
-- Pending
+- `feat(release): configure isolated pilot environment overlay`
