@@ -529,3 +529,16 @@
 - Remaining risks: Production requires an operations-owned alert sink plus human security/DBA migration review.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-10T21:25:00+07:00
+
+- Task: TASK-11-04 - Answer Invalidation
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added idempotent answer invalidation, immediate warnings, append-only history, citation/source affected-answer discovery, bounded pagination, notification integration, protected APIs, and audit records.
+- Changed files: answer invalidation service/models/API/tests, migration `0016`, operations docs, and task records.
+- Verification: focused pytest — 5 passed; citation/lifecycle/saved-answer/API regression suite passed; focused Ruff and MyPy passed; `git diff --check` passed.
+- Self-review: Original answers remain intact, warnings are visible on subsequent reads, discovery is capped and auditable, and notification/audit payloads omit answer/conversation bodies.
+- Remaining risks: Production needs a configured notification sink and human security/DBA migration review. Offset pagination may need snapshot cursors at large scale.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending

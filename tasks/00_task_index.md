@@ -120,7 +120,7 @@
 | TASK-11-01 | Feedback API | A | DONE | EPIC-08 complete | `11_feedback/11-01_feedback_api.md` |
 | TASK-11-02 | Feedback Review Queue | A | DONE | TASK-11-01 | `11_feedback/11-02_feedback_review_queue.md` |
 | TASK-11-03 | Incident Management | S | DONE | TASK-11-02, TASK-06-05 | `11_feedback/11-03_incident_management.md` |
-| TASK-11-04 | Answer Invalidation | S | READY | TASK-11-03, TASK-08-07 | `11_feedback/11-04_answer_invalidation.md` |
+| TASK-11-04 | Answer Invalidation | S | DONE | TASK-11-03, TASK-08-07 | `11_feedback/11-04_answer_invalidation.md` |
 | TASK-11-05 | Convert Incident to Regression Test | A | TODO | TASK-11-03, EPIC-12 | `11_feedback/11-05_convert_incident_to_regression_test.md` |
 | TASK-12-01 | Evaluation Data Schema | S | TODO | EPIC-02 complete | `12_evaluation/12-01_evaluation_data_schema.md` |
 | TASK-12-02 | Benchmark Runner | S | TODO | TASK-12-01, EPIC-08 | `12_evaluation/12-02_benchmark_runner.md` |

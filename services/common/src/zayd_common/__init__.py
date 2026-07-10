@@ -1,5 +1,14 @@
 """Shared Python foundations for Zayd services."""
 
+from .answer_invalidation import (
+    ANSWER_INVALIDATION_POLICY_VERSION,
+    AffectedAnswerPage,
+    AnswerInvalidationError,
+    AnswerInvalidationNotice,
+    AnswerInvalidationResult,
+    AnswerInvalidationService,
+    DisabledAnswerInvalidationNotifier,
+)
 from .audit import AuditLogQuery, AuditService, serialize_audit_log
 from .auth import (
     AccessTokenClaims,
@@ -329,6 +338,13 @@ from .user_admin import (
 
 __all__ = [
     "AuditLogQuery",
+    "ANSWER_INVALIDATION_POLICY_VERSION",
+    "AffectedAnswerPage",
+    "AnswerInvalidationError",
+    "AnswerInvalidationNotice",
+    "AnswerInvalidationResult",
+    "AnswerInvalidationService",
+    "DisabledAnswerInvalidationNotifier",
     "AuditService",
     "serialize_audit_log",
     "HealthStatus",

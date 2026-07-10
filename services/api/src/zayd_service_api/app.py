@@ -9,6 +9,12 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from zayd_common.answer_invalidation import (
+    AffectedAnswerPage,
+    AnswerInvalidationError,
+    AnswerInvalidationResult,
+    AnswerInvalidationService,
+)
 from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
 from zayd_common.conversations import (
@@ -461,6 +467,30 @@ class IncidentResponse(BaseModel):
 
 class IncidentTimelineResponse(BaseModel):
     events: list[dict[str, object]]
+
+
+class AnswerInvalidateRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    incident_id: UUID | None = None
+    citation_id: UUID | None = None
+    source_id: UUID | None = None
+
+
+class AnswerInvalidationResponse(BaseModel):
+    answer_id: UUID
+    invalidated_at: str
+    warning: str
+    notification_status: str
+    idempotent: bool
+
+
+class AffectedAnswerPageResponse(BaseModel):
+    answer_ids: list[UUID]
+    total_count: int
+    limit: int
+    offset: int
+    next_offset: int | None
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -2045,6 +2075,26 @@ def _incident_response(item: IncidentPublic, *, idempotent: bool = False) -> Inc
     )
 
 
+def _answer_invalidation_response(item: AnswerInvalidationResult) -> AnswerInvalidationResponse:
+    return AnswerInvalidationResponse(
+        answer_id=item.answer_id,
+        invalidated_at=item.invalidated_at.isoformat(),
+        warning=item.warning,
+        notification_status=item.notification_status,
+        idempotent=item.idempotent,
+    )
+
+
+def _affected_answer_page_response(item: AffectedAnswerPage) -> AffectedAnswerPageResponse:
+    return AffectedAnswerPageResponse(
+        answer_ids=list(item.answer_ids),
+        total_count=item.total_count,
+        limit=item.limit,
+        offset=item.offset,
+        next_offset=item.next_offset,
+    )
+
+
 def _public_source_warnings(source: SourcePublic) -> list[str]:
     warnings: list[str] = []
     if not source.is_active:
@@ -2382,6 +2432,11 @@ def create_app() -> FastAPI:
 
         return IncidentManagementService(SQLAlchemyUnitOfWork(session_factory))
 
+    def answer_invalidation_service() -> AnswerInvalidationService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return AnswerInvalidationService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -2624,6 +2679,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(IncidentManagementError)
     async def incident_management_error_handler(
         request: Request, exc: IncidentManagementError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(AnswerInvalidationError)
+    async def answer_invalidation_error_handler(
+        request: Request, exc: AnswerInvalidationError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -3656,6 +3720,54 @@ def create_app() -> FastAPI:
                 }
                 for item in events
             ]
+        )
+
+    @app.post("/admin/answers/{answer_id}/invalidate", response_model=AnswerInvalidationResponse)
+    async def invalidate_answer(
+        answer_id: UUID,
+        payload: AnswerInvalidateRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.ANSWERS_INVALIDATE))
+        ],
+        service: Annotated[AnswerInvalidationService, Depends(answer_invalidation_service)],
+    ) -> AnswerInvalidationResponse:
+        return _answer_invalidation_response(
+            service.invalidate(
+                answer_id=answer_id,
+                reason=payload.reason,
+                idempotency_key=payload.idempotency_key,
+                incident_id=payload.incident_id,
+                citation_id=payload.citation_id,
+                source_id=payload.source_id,
+                actor_user_id=principal.id,
+                permissions=principal.permissions,
+                trace_id=request.headers.get("x-request-id"),
+            )
+        )
+
+    @app.get("/admin/answers/affected", response_model=AffectedAnswerPageResponse)
+    async def discover_affected_answers(
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.ANSWERS_REVIEW))
+        ],
+        service: Annotated[AnswerInvalidationService, Depends(answer_invalidation_service)],
+        citation_id: UUID | None = None,
+        source_id: UUID | None = None,
+        limit: int = Query(default=100, ge=1, le=200),
+        offset: int = Query(default=0, ge=0),
+    ) -> AffectedAnswerPageResponse:
+        return _affected_answer_page_response(
+            service.discover(
+                permissions=principal.permissions,
+                citation_id=citation_id,
+                source_id=source_id,
+                limit=limit,
+                offset=offset,
+                actor_user_id=principal.id,
+                trace_id=request.headers.get("x-request-id"),
+            )
         )
 
     @app.get("/citations/{citation_id}", response_model=CitationDetailResponse)

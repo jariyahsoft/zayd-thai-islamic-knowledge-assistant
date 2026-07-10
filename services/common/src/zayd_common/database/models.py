@@ -1154,6 +1154,33 @@ class Answer(Base):
     )
 
 
+class AnswerInvalidation(Base):
+    __tablename__ = "answer_invalidations"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    answer_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("answers.id", ondelete="CASCADE"), nullable=False
+    )
+    incident_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
+    )
+    citation_id: Mapped[UUID | None] = mapped_column(BaseUUID, nullable=True)
+    source_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("sources.id", ondelete="SET NULL"), nullable=True
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    warning: Mapped[str] = mapped_column(Text, nullable=False)
+    actor_user_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    notification_status: Mapped[str] = mapped_column(String, nullable=False)
+    policy_version: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
 class SavedAnswer(Base):
     __tablename__ = "saved_answers"
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Mark answers invalid with reason, notify affected views and discover other answe
 
 ## Acceptance Criteria
 
-- [ ] New views show warnings immediately.
-- [ ] Historical record is preserved.
-- [ ] Bulk discovery is bounded, retryable and auditable.
+- [x] New views show warnings immediately.
+- [x] Historical record is preserved.
+- [x] Bulk discovery is bounded, retryable and auditable.
 
 ## Required Tests
 
@@ -90,28 +90,28 @@ Mark answers invalid with reason, notify affected views and discover other answe
 
 ### Files Changed
 
-- Pending
+- Answer invalidation service/model/API/tests, migration `0016`, operations docs, and task records.
 
 ### Commands and Tests Executed
 
-- Pending
+- Focused pytest: 5 passed. Broader citation/lifecycle/saved-answer/API regression suite passed. Focused Ruff, MyPy, and `git diff --check` passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed: warnings are persisted immediately; append-only records preserve the reason and linkage; citation/source discovery is capped at 200, pageable, retryable, and audited.
 
 ### Security and License Review
 
-- Pending
+- MFA-backed `answers.invalidate`/`answers.review` permissions are enforced. Notification/audit payloads omit answer and conversation bodies. Migration needs human security/DBA review.
 
 ### Known Limitations
 
-- Pending
+- Production must configure the notification sink. Discovery uses offset pagination; very large changing result sets may later benefit from snapshot cursors.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-11-05 — Convert Incident to Regression Test
 
 ### Commit
 
-- Pending
+- Pending focused commit.
