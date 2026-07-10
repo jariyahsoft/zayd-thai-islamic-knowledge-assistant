@@ -21,6 +21,7 @@ Forward migrations and documented rollback plans belong here.
 | `0011_pgvector_search` | `0011_pgvector_search.up.sql`, `0011_pgvector_search.down.sql` | pgvector embedding-space and filtered vector search indexes for TASK-07-04 |
 | `0012_user_app_preferences` | `0012_user_app_preferences.up.sql`, `0012_user_app_preferences.down.sql` | User answer length, Arabic visibility, and history mode preferences for TASK-09-04 |
 | `0013_saved_answers` | `0013_saved_answers.up.sql`, `0013_saved_answers.down.sql` | User saved-answer bookmarks referencing answers for TASK-09-06 |
+| `0014_feedback_review_queue` | `0014_feedback_review_queue.up.sql`, `0014_feedback_review_queue.down.sql` | Feedback queue assignment, classification, resolution, and reviewer permission grant for TASK-11-02 |
 
 Use `scripts/migrate.sh up`, `scripts/migrate.sh down`, or `MIGRATION_ACTION=<up|down|reset> make migrate` for development/test execution. The `up` action is idempotent when `schema_migrations` already contains a migration version.
 

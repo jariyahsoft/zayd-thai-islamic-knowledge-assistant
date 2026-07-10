@@ -113,6 +113,7 @@ ROLE_PERMISSION_MATRIX: dict[RoleName, set[Permission]] = {
         Permission.DOCUMENTS_REVIEW,
         Permission.ANSWERS_REVIEW,
         Permission.FEEDBACK_READ,
+        Permission.FEEDBACK_MANAGE,
         Permission.LICENSES_READ,
     },
     "senior_scholar": {

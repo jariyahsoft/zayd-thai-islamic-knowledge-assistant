@@ -49,6 +49,17 @@ from zayd_common.documents import (
     DocumentUploadService,
 )
 from zayd_common.feedback import FeedbackError, FeedbackPublic, FeedbackService, FeedbackSubmit
+from zayd_common.feedback_review import (
+    FeedbackAssignRequest,
+    FeedbackClassifyRequest,
+    FeedbackQueueItem,
+    FeedbackQueueQuery,
+    FeedbackQueueResult,
+    FeedbackResolveRequest,
+    FeedbackReviewDetail,
+    FeedbackReviewError,
+    FeedbackReviewService,
+)
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
 from zayd_common.licenses import (
@@ -339,6 +350,69 @@ class FeedbackResponse(BaseModel):
     citation_id: UUID | None
     created_at: str
     receipt_message: str
+
+
+class FeedbackReviewItemResponse(BaseModel):
+    id: UUID
+    category: str
+    status: str
+    priority: str
+    severity: str
+    answer_id: UUID | None
+    citation_id: UUID | None
+    reviewer_id: UUID | None
+    root_cause: str | None
+    created_at: str
+    updated_at: str
+
+
+class FeedbackReviewDetailResponse(BaseModel):
+    id: UUID
+    category: str
+    status: str
+    priority: str
+    severity: str
+    answer_id: UUID | None
+    citation_id: UUID | None
+    reviewer_id: UUID | None
+    reviewer_notes: str
+    root_cause: str | None
+    resolution: str | None
+    resolved_at: str | None
+    trace_context: "FeedbackTraceContextResponse | None"
+    created_at: str
+    updated_at: str
+
+
+class FeedbackTraceContextResponse(BaseModel):
+    retrieval_run_id: UUID
+    model_configuration_id: UUID
+    prompt_version_id: UUID
+    policy_version_id: UUID
+
+
+class FeedbackQueueListResponse(BaseModel):
+    items: list[FeedbackReviewItemResponse]
+    total_count: int
+    limit: int
+    offset: int
+    next_offset: int | None
+
+
+class FeedbackAssignRequestPayload(BaseModel):
+    reviewer_id: UUID | None = None
+
+
+class FeedbackClassifyRequestPayload(BaseModel):
+    root_cause: str | None = Field(default=None, min_length=1, max_length=64)
+    priority: str | None = Field(default=None, min_length=1, max_length=16)
+    severity: str | None = Field(default=None, min_length=1, max_length=16)
+    reviewer_notes: str | None = Field(default=None, max_length=4000)
+
+
+class FeedbackResolveRequestPayload(BaseModel):
+    resolution: str = Field(min_length=1, max_length=4000)
+    dismissed: bool = False
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -1610,25 +1684,26 @@ def _metrics_summary(session_factory: Any) -> MetricsSummaryResponse:
             .scalars()
             .all()
         )
-        providers = session.execute(
-            select(Provider).where(Provider.deleted_at.is_(None))
-        ).scalars().all()
-        models = session.execute(
-            select(ModelConfiguration).where(ModelConfiguration.deleted_at.is_(None))
-        ).scalars().all()
+        providers = (
+            session.execute(select(Provider).where(Provider.deleted_at.is_(None))).scalars().all()
+        )
+        models = (
+            session.execute(
+                select(ModelConfiguration).where(ModelConfiguration.deleted_at.is_(None))
+            )
+            .scalars()
+            .all()
+        )
 
     counters = telemetry_registry.counters()
     histograms = telemetry_registry.histograms()
     queue_age_samples = [
-        span.duration_ms
-        for span in telemetry_registry.spans()
-        if span.name == "worker.lifecycle"
+        span.duration_ms for span in telemetry_registry.spans() if span.name == "worker.lifecycle"
     ]
     provider_health_ok_count = sum(
         int(snapshot.value)
         for snapshot in counters
-        if snapshot.name == "provider_health_total"
-        and snapshot.labels.get("status") == "ok"
+        if snapshot.name == "provider_health_total" and snapshot.labels.get("status") == "ok"
     )
     fallback_count = sum(
         int(snapshot.value)
@@ -1851,6 +1926,61 @@ def _feedback_response(feedback: FeedbackPublic) -> FeedbackResponse:
         citation_id=feedback.citation_id,
         created_at=feedback.created_at.isoformat(),
         receipt_message=feedback.receipt_message,
+    )
+
+
+def _feedback_review_item_response(item: FeedbackQueueItem) -> FeedbackReviewItemResponse:
+    return FeedbackReviewItemResponse(
+        id=item.id,
+        category=item.category,
+        status=item.status,
+        priority=item.priority,
+        severity=item.severity,
+        answer_id=item.answer_id,
+        citation_id=item.citation_id,
+        reviewer_id=item.reviewer_id,
+        root_cause=item.root_cause,
+        created_at=item.created_at.isoformat(),
+        updated_at=item.updated_at.isoformat(),
+    )
+
+
+def _feedback_review_detail_response(detail: FeedbackReviewDetail) -> FeedbackReviewDetailResponse:
+    return FeedbackReviewDetailResponse(
+        id=detail.id,
+        category=detail.category,
+        status=detail.status,
+        priority=detail.priority,
+        severity=detail.severity,
+        answer_id=detail.answer_id,
+        citation_id=detail.citation_id,
+        reviewer_id=detail.reviewer_id,
+        reviewer_notes=detail.reviewer_notes,
+        root_cause=detail.root_cause,
+        resolution=detail.resolution,
+        resolved_at=detail.resolved_at.isoformat() if detail.resolved_at else None,
+        trace_context=(
+            FeedbackTraceContextResponse(
+                retrieval_run_id=detail.trace_context.retrieval_run_id,
+                model_configuration_id=detail.trace_context.model_configuration_id,
+                prompt_version_id=detail.trace_context.prompt_version_id,
+                policy_version_id=detail.trace_context.policy_version_id,
+            )
+            if detail.trace_context is not None
+            else None
+        ),
+        created_at=detail.created_at.isoformat(),
+        updated_at=detail.updated_at.isoformat(),
+    )
+
+
+def _feedback_queue_list_response(result: FeedbackQueueResult) -> FeedbackQueueListResponse:
+    return FeedbackQueueListResponse(
+        items=[_feedback_review_item_response(item) for item in result.items],
+        total_count=result.total_count,
+        limit=result.limit,
+        offset=result.offset,
+        next_offset=result.next_offset,
     )
 
 
@@ -2181,6 +2311,11 @@ def create_app() -> FastAPI:
 
         return FeedbackService(SQLAlchemyUnitOfWork(session_factory))
 
+    def feedback_review_service() -> FeedbackReviewService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return FeedbackReviewService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -2355,9 +2490,7 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(UserAdminError)
-    async def user_admin_error_handler(
-        request: Request, exc: UserAdminError
-    ) -> JSONResponse:
+    async def user_admin_error_handler(request: Request, exc: UserAdminError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -2400,17 +2533,22 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(SavedAnswerError)
-    async def saved_answer_error_handler(
-        request: Request, exc: SavedAnswerError
-    ) -> JSONResponse:
+    async def saved_answer_error_handler(request: Request, exc: SavedAnswerError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
         )
 
     @app.exception_handler(FeedbackError)
-    async def feedback_error_handler(
-        request: Request, exc: FeedbackError
+    async def feedback_error_handler(request: Request, exc: FeedbackError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(FeedbackReviewError)
+    async def feedback_review_error_handler(
+        request: Request, exc: FeedbackReviewError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -3247,6 +3385,124 @@ def create_app() -> FastAPI:
         feedback = service.get_feedback(user_id=principal.id, feedback_id=feedback_id)
         return _feedback_response(feedback)
 
+    # -- Admin Feedback Review Queue ----------------------------------------
+
+    @app.get("/admin/feedback", response_model=FeedbackQueueListResponse)
+    async def list_feedback_queue(
+        request: Request,
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.FEEDBACK_READ))],
+        service: Annotated[FeedbackReviewService, Depends(feedback_review_service)],
+        status: str | None = Query(default=None),
+        category: str | None = Query(default=None),
+        priority: str | None = Query(default=None),
+        severity: str | None = Query(default=None),
+        reviewer_id: str | None = Query(default=None),
+        unassigned_only: bool = Query(default=False),
+        limit: int = Query(default=20, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+    ) -> FeedbackQueueListResponse:
+        result = service.list_queue(
+            FeedbackQueueQuery(
+                status=status,
+                category=category,
+                priority=priority,
+                severity=severity,
+                reviewer_id=reviewer_id,
+                unassigned_only=unassigned_only,
+                limit=limit,
+                offset=offset,
+            ),
+            actor_user_id=principal.id,
+            actor_permissions=principal.permissions,
+        )
+        return _feedback_queue_list_response(result)
+
+    @app.get("/admin/feedback/{feedback_id}/review", response_model=FeedbackReviewDetailResponse)
+    async def get_feedback_review_detail(
+        feedback_id: UUID,
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.FEEDBACK_READ))],
+        service: Annotated[FeedbackReviewService, Depends(feedback_review_service)],
+    ) -> FeedbackReviewDetailResponse:
+        detail = service.get_detail(
+            feedback_id,
+            actor_permissions=principal.permissions,
+        )
+        return _feedback_review_detail_response(detail)
+
+    @app.put(
+        "/admin/feedback/{feedback_id}/assign",
+        response_model=FeedbackReviewDetailResponse,
+    )
+    async def assign_feedback_reviewer(
+        feedback_id: UUID,
+        payload: FeedbackAssignRequestPayload,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_MANAGE))
+        ],
+        service: Annotated[FeedbackReviewService, Depends(feedback_review_service)],
+    ) -> FeedbackReviewDetailResponse:
+        detail = service.assign(
+            feedback_id,
+            FeedbackAssignRequest(reviewer_id=payload.reviewer_id),
+            actor_user_id=principal.id,
+            actor_permissions=principal.permissions,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _feedback_review_detail_response(detail)
+
+    @app.patch(
+        "/admin/feedback/{feedback_id}/classify",
+        response_model=FeedbackReviewDetailResponse,
+    )
+    async def classify_feedback(
+        feedback_id: UUID,
+        payload: FeedbackClassifyRequestPayload,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_MANAGE))
+        ],
+        service: Annotated[FeedbackReviewService, Depends(feedback_review_service)],
+    ) -> FeedbackReviewDetailResponse:
+        detail = service.classify(
+            feedback_id,
+            FeedbackClassifyRequest(
+                root_cause=payload.root_cause,
+                priority=payload.priority,
+                severity=payload.severity,
+                reviewer_notes=payload.reviewer_notes,
+            ),
+            actor_user_id=principal.id,
+            actor_permissions=principal.permissions,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _feedback_review_detail_response(detail)
+
+    @app.post(
+        "/admin/feedback/{feedback_id}/resolve",
+        response_model=FeedbackReviewDetailResponse,
+    )
+    async def resolve_feedback(
+        feedback_id: UUID,
+        payload: FeedbackResolveRequestPayload,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_MANAGE))
+        ],
+        service: Annotated[FeedbackReviewService, Depends(feedback_review_service)],
+    ) -> FeedbackReviewDetailResponse:
+        detail = service.resolve(
+            feedback_id,
+            FeedbackResolveRequest(
+                resolution=payload.resolution,
+                dismissed=payload.dismissed,
+            ),
+            actor_user_id=principal.id,
+            actor_permissions=principal.permissions,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _feedback_review_detail_response(detail)
+
     @app.get("/citations/{citation_id}", response_model=CitationDetailResponse)
     async def get_citation_detail(
         citation_id: str,
@@ -3446,9 +3702,7 @@ def create_app() -> FastAPI:
             metadata = version.metadata_json or {}
             content_type = str(metadata.get("content_type", "application/octet-stream"))
             filename = str(metadata.get("filename", "uploaded-file"))
-            content = upload_service.storage.get_private_bytes(
-                key=version.original_file_key or ""
-            )
+            content = upload_service.storage.get_private_bytes(key=version.original_file_key or "")
         result = registry.parse(
             content=content,
             filename=filename,
@@ -3726,9 +3980,7 @@ def create_app() -> FastAPI:
         return DocumentLifecycleService(SQLAlchemyUnitOfWork(session_factory))
 
     @app.exception_handler(ReviewQueueError)
-    async def review_queue_error_handler(
-        request: Request, exc: ReviewQueueError
-    ) -> JSONResponse:
+    async def review_queue_error_handler(request: Request, exc: ReviewQueueError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -3850,8 +4102,7 @@ def create_app() -> FastAPI:
                 next_offset=dashboard.queue.next_offset,
             ),
             feedback_items=[
-                _reviewer_feedback_item_response(item)
-                for item in dashboard.feedback_items
+                _reviewer_feedback_item_response(item) for item in dashboard.feedback_items
             ],
         )
 
@@ -4235,9 +4486,7 @@ def create_app() -> FastAPI:
     async def get_approval_requirements(
         document_version_id: UUID,
         content_risk: str,
-        _: Annotated[
-            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
-        ],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))],
         service: Annotated[ScholarApprovalService, Depends(scholar_approval_service)],
     ) -> ApprovalRequirementResponse:
         requirement = service.get_requirements(
@@ -4252,9 +4501,7 @@ def create_app() -> FastAPI:
     )
     async def list_document_approvals(
         document_version_id: UUID,
-        _: Annotated[
-            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
-        ],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))],
         service: Annotated[ScholarApprovalService, Depends(scholar_approval_service)],
     ) -> ApprovalListResponse:
         result = service.list_approvals(document_version_id=document_version_id)
@@ -4395,9 +4642,7 @@ def create_app() -> FastAPI:
             actor_user_id=principal.id,
             trace_id=request.headers.get("x-request-id"),
         )
-        return ReviewTaskActionResponse(
-            status="ok", task=_review_task_summary_response(summary)
-        )
+        return ReviewTaskActionResponse(status="ok", task=_review_task_summary_response(summary))
 
     @app.post(
         "/reviews/{review_task_id}/release",
@@ -4417,9 +4662,7 @@ def create_app() -> FastAPI:
             principal_roles=principal.roles,
             trace_id=request.headers.get("x-request-id"),
         )
-        return ReviewTaskActionResponse(
-            status="ok", task=_review_task_summary_response(summary)
-        )
+        return ReviewTaskActionResponse(status="ok", task=_review_task_summary_response(summary))
 
     @app.post(
         "/reviews/{review_task_id}/assign",
@@ -4441,9 +4684,7 @@ def create_app() -> FastAPI:
             principal_roles=principal.roles,
             trace_id=request.headers.get("x-request-id"),
         )
-        return ReviewTaskActionResponse(
-            status="ok", task=_review_task_summary_response(summary)
-        )
+        return ReviewTaskActionResponse(status="ok", task=_review_task_summary_response(summary))
 
     @app.post(
         "/reviews/{review_task_id}/escalate",
@@ -4463,8 +4704,6 @@ def create_app() -> FastAPI:
             principal_roles=principal.roles,
             trace_id=request.headers.get("x-request-id"),
         )
-        return ReviewTaskActionResponse(
-            status="ok", task=_review_task_summary_response(summary)
-        )
+        return ReviewTaskActionResponse(status="ok", task=_review_task_summary_response(summary))
 
     return app

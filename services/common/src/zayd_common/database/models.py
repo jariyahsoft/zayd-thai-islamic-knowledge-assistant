@@ -763,7 +763,8 @@ class ReviewTask(Base):
     __tablename__ = "review_tasks"
     __table_args__ = (
         UniqueConstraint(
-            "document_version_id", "review_level",
+            "document_version_id",
+            "review_level",
             name="uq_review_tasks_open_level",
         ),
     )
@@ -1187,6 +1188,15 @@ class Feedback(Base):
     category: Mapped[str] = mapped_column(String, nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, default="open", nullable=False)
+    reviewer_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewer_notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    root_cause: Mapped[str | None] = mapped_column(String, nullable=True)
+    resolution: Mapped[str | None] = mapped_column(Text, nullable=True)
+    priority: Mapped[str] = mapped_column(String, default="normal", nullable=False)
+    severity: Mapped[str] = mapped_column(String, default="p3", nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

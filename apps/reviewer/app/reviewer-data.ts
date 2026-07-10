@@ -48,6 +48,33 @@ export type ReviewerDashboardData = {
   readonly feedback_items: readonly ReviewerFeedbackWorkItem[];
 };
 
+export type FeedbackReviewItem = {
+  readonly id: string;
+  readonly category: string;
+  readonly status: string;
+  readonly priority: string;
+  readonly severity: string;
+  readonly reviewer_id: string | null;
+  readonly root_cause: string | null;
+  readonly created_at: string;
+};
+
+export type FeedbackReviewQueue = {
+  readonly items: readonly FeedbackReviewItem[];
+  readonly total_count: number;
+};
+
+export type FeedbackReviewDetail = FeedbackReviewItem & {
+  readonly reviewer_notes: string;
+  readonly resolution: string | null;
+  readonly trace_context: {
+    readonly retrieval_run_id: string;
+    readonly model_configuration_id: string;
+    readonly prompt_version_id: string;
+    readonly policy_version_id: string;
+  } | null;
+};
+
 export type PrincipalResponse = {
   readonly id: string;
   readonly email: string;
@@ -327,6 +354,20 @@ export async function fetchReviewerDashboard(
     "/reviews/dashboard",
     { params },
   );
+}
+
+export async function fetchFeedbackReviewQueue(
+  apiBaseUrl: string,
+  accessToken: string,
+  status?: string,
+): Promise<FeedbackReviewQueue> {
+  const params = new URLSearchParams({ limit: "50" });
+  if (status) params.set("status", status);
+  return request<FeedbackReviewQueue>(apiBaseUrl, accessToken, "/admin/feedback", { params });
+}
+
+export async function fetchFeedbackReviewDetail(apiBaseUrl: string, accessToken: string, id: string): Promise<FeedbackReviewDetail> {
+  return request<FeedbackReviewDetail>(apiBaseUrl, accessToken, `/admin/feedback/${id}/review`);
 }
 
 export async function fetchReviewDraft(

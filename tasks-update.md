@@ -503,3 +503,16 @@
 - Remaining risks: Telemetry is process-local rather than durable, so production needs retained time-series storage. Human security review remains required before production approval for this operational-data surface.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending; the worktree contains unrelated pre-existing changes, so no commit was created.
+## 2026-07-10T20:59:56+07:00
+
+- Task: TASK-11-02 - Feedback Review Queue
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added a prioritized, filterable feedback review queue with assignment, validated root-cause/P0-P3 severity classification, resolution records, privacy-safe answer trace context, reviewer queue pages, and immutable audit events.
+- Changed files: feedback-review service/model/RBAC/API/migration/tests, reviewer queue pages, `docs/user/feedback-review.md`, task records.
+- Verification: `uv run pytest services/common/tests/test_feedback.py services/common/tests/test_feedback_review.py services/api/tests/test_feedback_api.py services/api/tests/test_feedback_review_api.py -q` — 55 passed; focused ruff and mypy — passed; `git diff --check` — passed.
+- Self-review: Reporter identity, feedback bodies, resolution text, and reviewer notes are excluded from queue summaries and audit payloads. Privileged endpoints require server-side RBAC and MFA. P0/P1 incident escalation remains out of scope.
+- Remaining risks: Migration and reviewer `feedback.manage` permission grant need human DBA/security review before production. Frontend runtime checks were unavailable because Node tooling is absent.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending

@@ -116,6 +116,19 @@ from .exceptions import (
     MissingTransitionMetadataError,
     StateTransitionError,
 )
+from .feedback_review import (
+    FEEDBACK_REVIEW_POLICY_VERSION,
+    FeedbackAssignRequest,
+    FeedbackClassifyRequest,
+    FeedbackQueueItem,
+    FeedbackQueueQuery,
+    FeedbackQueueResult,
+    FeedbackResolveRequest,
+    FeedbackReviewDetail,
+    FeedbackReviewError,
+    FeedbackReviewService,
+    FeedbackTraceContext,
+)
 from .guest import (
     GuestError,
     GuestService,
@@ -555,4 +568,15 @@ __all__ = [
     "ApprovalRequirement",
     "ScholarApprovalError",
     "ScholarApprovalService",
+    "FEEDBACK_REVIEW_POLICY_VERSION",
+    "FeedbackAssignRequest",
+    "FeedbackClassifyRequest",
+    "FeedbackQueueItem",
+    "FeedbackQueueQuery",
+    "FeedbackQueueResult",
+    "FeedbackReviewDetail",
+    "FeedbackReviewError",
+    "FeedbackReviewService",
+    "FeedbackResolveRequest",
+    "FeedbackTraceContext",
 ]
