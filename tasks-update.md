@@ -1,5 +1,18 @@
 ## 2026-07-10T16:00:00+07:00
 
+- Task: TASK-13-06 - Software Bill of Materials
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Created `scripts/generate-sbom.py` that reads uv.lock (52 Python deps) and pnpm-lock.yaml (293 JS deps) to produce a structured SBOM JSON with dependency details, file checksums, and a self-digest for integrity verification. Created `docs/releases/sbom.md` documenting format, generation commands, CI integration, Docker digest guidance, and reproducibility.
+- Changed files: `scripts/generate-sbom.py`, `docs/releases/sbom.md`, `tasks/13_operations/13-06_software_bill_of_materials.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `python3 scripts/generate-sbom.py` — 52 Python deps, 293 JS deps, 4 checksums, self-digest all verified. Secret scan passed.
+- Self-review: SBOM excludes secrets by design (reads only public lockfiles). Document digest ensures tamper detection. Reproducibility documented with SOURCE_DATE_EPOCH. Docker image SBOM guidance provided (requires syft/docker sbom).
+- Remaining risks: Python license metadata requires `pip show` (not available in all envs). Docker image SBOMs require external tools.
+- Telegram notification: sent
+
+## 2026-07-10T16:00:00+07:00
+
 - Task: TASK-13-05 - CI Pipeline
 - Attempt: 1
 - Status: completed

@@ -134,7 +134,7 @@
 | TASK-13-03 | Metrics and Dashboards | A | DONE | TASK-13-02 | `13_operations/13-03_metrics_and_dashboards.md` |
 | TASK-13-04 | Security Hardening | S | DONE | All core MVP epics | `13_operations/13-04_security_hardening.md` |
 | TASK-13-05 | CI Pipeline | A | DONE | EPIC-01 complete | `13_operations/13-05_ci_pipeline.md` |
-| TASK-13-06 | Software Bill of Materials | B | TODO | TASK-13-05 | `13_operations/13-06_software_bill_of_materials.md` |
+| TASK-13-06 | Software Bill of Materials | B | DONE | TASK-13-05 | `13_operations/13-06_software_bill_of_materials.md` |
 | TASK-13-07 | Backup and Restore | S | TODO | EPIC-02, TASK-05-02 | `13_operations/13-07_backup_and_restore.md` |
 | TASK-13-08 | Minimal Self-host Profile | A | TODO | All MVP epics | `13_operations/13-08_minimal_self_host_profile.md` |
 | TASK-13-09 | Production Deployment Profile | S | TODO | TASK-13-08 | `13_operations/13-09_production_deployment_profile.md` |
