@@ -294,6 +294,12 @@ from .scholar_approval import (
     ScholarApprovalService,
 )
 from .settings import ServiceSettings
+from .security import (
+    SecurityError,
+    detect_prompt_injection,
+    sanitize_xss,
+    validate_url_for_ssrf,
+)
 from .sources import (
     SourceError,
     SourcePublic,
@@ -613,4 +619,8 @@ __all__ = [
     "FeedbackReviewService",
     "FeedbackResolveRequest",
     "FeedbackTraceContext",
+    "SecurityError",
+    "detect_prompt_injection",
+    "sanitize_xss",
+    "validate_url_for_ssrf",
 ]

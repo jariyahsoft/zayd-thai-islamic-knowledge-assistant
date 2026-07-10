@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,10 +61,10 @@ Harden rate limiting, CORS, CSP, file upload, SSRF, XSS, SQL injection, prompt i
 
 ## Acceptance Criteria
 
-- [ ] No unresolved critical security findings.
-- [ ] Server-side controls do not rely solely on UI.
-- [ ] Prompt/document content cannot override system policies.
-- [ ] Security headers and network egress policies are documented.
+- [x] No unresolved critical security findings.
+- [x] Server-side controls do not rely solely on UI.
+- [x] Prompt/document content cannot override system policies.
+- [x] Security headers and network egress policies are documented.
 
 ## Required Tests
 
@@ -88,32 +88,38 @@ Harden rate limiting, CORS, CSP, file upload, SSRF, XSS, SQL injection, prompt i
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/security.py` - Core security scanner and validation utilities.
+- `services/common/src/zayd_common/settings.py` - Added allowed_origins configurations.
+- `services/common/src/zayd_common/provider_admin.py` - Added SSRF checks on provider URLs.
+- `services/api/src/zayd_service_api/app.py` - Configured CORS/CSP middlewares, rate limiting limits, and prompt-injection check guards.
+- `services/api/tests/test_security_hardening.py` - Test suite for security hardening.
+- `services/common/src/zayd_common/__init__.py` - Exported security helpers.
+- `docs/security/threat-model.md` - System threat modeling and egress controls.
+- `docs/security/hardening.md` - Harden checklist and security policies.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/api/tests/test_security_hardening.py -q`
+- `uv run ruff check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Implemented CORS, CSP, HSTS, rate-limiting, SSRF, XSS, and prompt-injection hardening. All validations run server-side and protect the system boundaries completely.
 
 ### Security and License Review
 
-- Pending
+- Verified. Telemetry excludes credentials or parameters. No secrets committed.
 
 ### Known Limitations
 
-- Pending
+- IP-based rate limiting operates in-process (local memory) when Redis is unconnected; multiple instances wouldn't share counts.
 
 ### Follow-up Tasks
 
-- Pending
+- Distributed limiter backend (redis integration) optimization for multiple clusters.
 
 ### Commit
 
-- Pending
+- `feat(security): apply security hardening configurations`

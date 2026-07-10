@@ -83,6 +83,7 @@ class ServiceSettings(BaseSettings):
     auth_jwt_secret: SecretStr = SecretStr("dev-jwt-secret-change-me")
     auth_session_secret: SecretStr = SecretStr("dev-session-secret-change-me")
     provider_token: SecretStr = SecretStr("redacted-placeholder")
+    allowed_origins: str = "http://localhost:3000,http://localhost:3100,http://localhost:3200"
 
     @field_validator("app_url")
     @classmethod

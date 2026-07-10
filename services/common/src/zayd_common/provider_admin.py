@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from zayd_common.auth import hash_token
 from zayd_common.database.models import AuditLog, AuthRateLimit, ModelConfiguration, Provider
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+from zayd_common.security import SecurityError, validate_url_for_ssrf
 
 ProviderAdminErrorCode = Literal[
     "PROVIDER_NOT_FOUND",
@@ -969,6 +970,14 @@ def _normalize_optional_url(value: str | None) -> str | None:
             "Provider URLs must be absolute http or https URLs.",
             status_code=400,
         )
+    try:
+        validate_url_for_ssrf(normalized)
+    except SecurityError as exc:
+        raise ProviderAdminError(
+            "PROVIDER_INVALID_URL",
+            f"Provider URL failed security check: {exc.message}",
+            status_code=400,
+        ) from exc
     return normalized
 
 

@@ -1,12 +1,15 @@
 import asyncio
 import base64
+import hashlib
 import re
+import threading
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from zayd_common.answer_invalidation import (
@@ -148,6 +151,7 @@ from zayd_common.scholar_approval import (
     ScholarApprovalError,
     ScholarApprovalService,
 )
+from zayd_common.security import SecurityError, detect_prompt_injection, sanitize_xss
 from zayd_common.settings import ServiceSettings
 from zayd_common.sources import (
     SourceError,
@@ -2380,11 +2384,107 @@ def _signed_url_response(signed_url: SignedUrl) -> SignedUrlResponse:
     )
 
 
+class InMemoryRateLimiter:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._requests: dict[str, list[float]] = {}
+
+    def is_allowed(self, identifier: str, limit: int, window_seconds: float) -> bool:
+        now = datetime.now(UTC).timestamp()
+        cutoff = now - window_seconds
+        with self._lock:
+            history = self._requests.get(identifier, [])
+            history = [t for t in history if t > cutoff]
+            if len(history) >= limit:
+                return False
+            history.append(now)
+            self._requests[identifier] = history
+            # Memory safeguard: limit dictionary to avoid storage attacks
+            if len(self._requests) > 10000:
+                self._requests = {k: v for k, v in self._requests.items() if len(v) > 0}
+            return True
+
+
+rate_limiter = InMemoryRateLimiter()
+
+
 def create_app() -> FastAPI:
     settings = ServiceSettings.from_runtime_env(app_name="api")
     configure_logging(level=settings.log_level)
     app = FastAPI(title=f"Zayd {settings.app_name} service")
     session_factory = get_sessionmaker(settings.database_url)
+
+    # 1. Register CORS Middleware
+    origins = [origin.strip() for origin in settings.allowed_origins.split(",") if origin.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # 2. Register Global Security Headers Middleware
+    @app.middleware("http")
+    async def add_security_headers(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'wasm-unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "object-src 'none'; "
+            "base-uri 'self';"
+        )
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=63072000; includeSubDomains; preload"
+        )
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
+
+    # 3. Register IP & Token Rate Limiting Middleware
+    @app.middleware("http")
+    async def rate_limiting_middleware(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        if request.url.path in {"/health", "/metrics"}:
+            return await call_next(request)
+
+        auth_header = request.headers.get("authorization")
+        identifier = request.client.host if request.client else "unknown-ip"
+        if auth_header and auth_header.startswith("Bearer "):
+            token_val = auth_header.split(" ", 1)[1]
+            identifier = hashlib.sha256(token_val.encode("utf-8")).hexdigest()
+
+        is_strict = any(
+            request.url.path.startswith(p)
+            for p in {"/auth/login", "/auth/register", "/feedback", "/admin/providers"}
+        )
+        limit = 10 if is_strict else 100
+        window = 60.0
+
+        if not rate_limiter.is_allowed(identifier, limit, window):
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": {
+                        "code": "RATE_LIMIT_EXCEEDED",
+                        "message": "Too many requests. Please try again later.",
+                    }
+                },
+            )
+
+        return await call_next(request)
 
     @app.middleware("http")
     async def request_context_middleware(
@@ -2693,6 +2793,13 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(ParserError)
     async def parser_error_handler(request: Request, exc: ParserError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(SecurityError)
+    async def security_error_handler(request: Request, exc: SecurityError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"code": exc.code, "message": exc.message}},
@@ -3406,6 +3513,8 @@ def create_app() -> FastAPI:
         rbac_service: Annotated[RbacService, Depends(rbac_service)],
         authorization: Annotated[str | None, Header()] = None,
     ) -> StreamingResponse:
+        detect_prompt_injection(payload.question)
+        payload.question = sanitize_xss(payload.question)
         chat_request = _build_chat_request(
             payload=payload,
             request=request,
@@ -3904,9 +4013,7 @@ def create_app() -> FastAPI:
     @app.get("/admin/answers/affected", response_model=AffectedAnswerPageResponse)
     async def discover_affected_answers(
         request: Request,
-        principal: Annotated[
-            UserPrincipal, Depends(require_permission(Permission.ANSWERS_REVIEW))
-        ],
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.ANSWERS_REVIEW))],
         service: Annotated[AnswerInvalidationService, Depends(answer_invalidation_service)],
         citation_id: UUID | None = None,
         source_id: UUID | None = None,

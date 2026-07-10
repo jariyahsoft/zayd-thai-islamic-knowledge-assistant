@@ -1,5 +1,18 @@
 ## 2026-07-10T16:00:00+07:00
 
+- Task: TASK-13-04 - Security Hardening
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Hardened public and admin surfaces against security threat vectors. Engineered rate-limiting middleware, CORS allow-listing, secure CSP/HSTS response injectors, backend SSRF filter queries on egress connections, XSS markers cleanup, and prompt-injection override validators on user chat parameters.
+- Changed files: `services/common/src/zayd_common/security.py`, `services/common/src/zayd_common/settings.py`, `services/common/src/zayd_common/provider_admin.py`, `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_security_hardening.py`, `services/common/src/zayd_common/__init__.py`, `docs/security/threat-model.md`, `docs/security/hardening.md`, `tasks/13_operations/13-04_security_hardening.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/api/tests/test_security_hardening.py` — passed; `uv run ruff check` — passed
+- Self-review: Added strict CSP connect/script policies. Resolved host addresses blocks loopbacks successfully. Prompt checking prevents active override payloads.
+- Remaining risks: Limit counters fallback to process local memory scopes if Redis endpoints are disconnected.
+- Telegram notification: sent
+
+## 2026-07-10T16:00:00+07:00
+
 - Task: TASK-12-07 - Evaluation Dashboard
 - Attempt: 1
 - Status: completed

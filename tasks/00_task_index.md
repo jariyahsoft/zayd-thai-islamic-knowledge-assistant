@@ -132,7 +132,7 @@
 | TASK-13-01 | Central Logging and Request IDs | A | DONE | EPIC-01 complete | `13_operations/13-01_central_logging_and_request_ids.md` |
 | TASK-13-02 | OpenTelemetry Instrumentation | A | DONE | TASK-13-01 | `13_operations/13-02_opentelemetry_instrumentation.md` |
 | TASK-13-03 | Metrics and Dashboards | A | DONE | TASK-13-02 | `13_operations/13-03_metrics_and_dashboards.md` |
-| TASK-13-04 | Security Hardening | S | TODO | All core MVP epics | `13_operations/13-04_security_hardening.md` |
+| TASK-13-04 | Security Hardening | S | DONE | All core MVP epics | `13_operations/13-04_security_hardening.md` |
 | TASK-13-05 | CI Pipeline | A | TODO | EPIC-01 complete | `13_operations/13-05_ci_pipeline.md` |
 | TASK-13-06 | Software Bill of Materials | B | TODO | TASK-13-05 | `13_operations/13-06_software_bill_of_materials.md` |
 | TASK-13-07 | Backup and Restore | S | TODO | EPIC-02, TASK-05-02 | `13_operations/13-07_backup_and_restore.md` |
