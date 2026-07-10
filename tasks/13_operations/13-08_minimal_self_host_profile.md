@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`BLOCKED`
 
 ## Model Tier
 
@@ -91,28 +91,35 @@ Create a minimal Docker Compose profile with web, API, worker, PostgreSQL/pgvect
 
 ### Files Changed
 
-- Pending
+- `tasks/13_operations/13-08_minimal_self_host_profile.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- Dependency review: `tasks/00_task_index.md` records TASK-11-05 as `BLOCKED`, so EPIC-11 does
+  not satisfy its all-tasks-complete gate and the `All MVP epics` dependency is unmet.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Blocked before implementation; acceptance criteria were not attempted.
 
 ### Security and License Review
 
-- Pending
+- No code, configuration, secret, or deployment changes were made. Deferring a partial self-host
+  profile avoids presenting an incomplete MVP as an installable release.
 
 ### Known Limitations
 
-- Pending
+- Blocker: EPIC-11 is incomplete because TASK-11-05 is `BLOCKED`.
+- Owner: EPIC-11 / TASK-11-05 owner.
+- Next action: complete TASK-11-05 and the EPIC-11 completion gate, then retry TASK-13-08.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-13-09 remains blocked by TASK-13-08.
 
 ### Commit
 
-- Pending
+- No focused implementation commit; blocker records will be committed with the task-range
+  bookkeeping.

@@ -698,3 +698,29 @@
 - Remaining risks: Production requires a real monthly isolated restore drill, application-level database/object consistency and RBAC verification, alert-channel integration, and explicit human security/operations review. The automated drill uses command fakes; `shellcheck` was unavailable.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-11T04:56:00+07:00
+
+- Task: TASK-13-08 - Minimal Self-host Profile
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: No implementation started because the `All MVP epics` dependency is unmet: EPIC-11 still contains TASK-11-05 in `BLOCKED` status.
+- Changed files: TASK-13-08 task record, task index, and `tasks-update.md`.
+- Verification: Dependency review against `tasks/00_task_index.md`; TASK-11-05 is the remaining incomplete EPIC-11 task.
+- Self-review: Avoided publishing or testing a partial self-host profile as if the MVP application surface were complete.
+- Remaining risks: EPIC-11/TASK-11-05 owner must complete TASK-11-05 and satisfy the epic gate, then TASK-13-08 must be retried.
+- Telegram notification: STARTED sent; BLOCKED sent.
+- Commit: Pending task-range blocker bookkeeping commit.
+## 2026-07-11T04:56:39+07:00
+
+- Task: TASK-13-09 - Production Deployment Profile
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier S
+- Summary: No implementation started because direct prerequisite TASK-13-08 is `BLOCKED` by the incomplete EPIC-11/TASK-11-05 chain.
+- Changed files: TASK-13-09 task record, task index, and `tasks-update.md`.
+- Verification: Dependency review confirmed TASK-13-08 is `BLOCKED` and therefore not a valid production-profile base.
+- Self-review: Avoided creating production reference manifests against an incomplete self-host/MVP deployment contract.
+- Remaining risks: Complete TASK-11-05, then TASK-13-08, before retrying TASK-13-09; production implementation will require explicit human security/operations review.
+- Telegram notification: STARTED sent; BLOCKED sent.
+- Commit: Pending task-range blocker bookkeeping commit.
