@@ -1,0 +1,155 @@
+[
+  {
+    "case_key": "taharah.wudu_procedure",
+    "case_type": "open_ended",
+    "visibility": "public",
+    "reviewer_status": "approved",
+    "question": "ขั้นตอนการอาบน้ำละหมาดที่ถูกต้องตามมัซฮับชาฟิอีย์มีอะไรบ้าง?",
+    "choices": [],
+    "expected_behavior": {
+      "outcome": "answer",
+      "expected_choice_keys": [],
+      "required_source_ids": [],
+      "required_citation_ids": [],
+      "rubric": {
+        "must_include": ["เหนียต", "ล้างหน้า", "ล้างมือถึงข้อศอก", "เช็ดศีรษะ", "ล้างเท้าถึงตาตุ่ม", "เรียงลำดับ"]
+      }
+    },
+    "sources": [
+      {
+        "source_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+        "citation_id": "00000000-0000-0000-0000-000000000101",
+        "canonical_reference": "Al-Muqaddimah al-Hadramiyyah, Kitab al-Taharah, p. 15",
+        "license_name": "Public Domain",
+        "license_status": "persistent_redistributable",
+        "redistributable": true
+      }
+    ],
+    "risk_level": "low",
+    "provenance": {
+      "topic": "taharah",
+      "language": "th",
+      "madhhab": "shafii",
+      "author": "Scholar Review Panel"
+    }
+  },
+  {
+    "case_key": "salah.forgetting_first_tashahhud",
+    "case_type": "multiple_choice",
+    "visibility": "public",
+    "reviewer_status": "approved",
+    "question": "หากลืมอ่านตะชะฮุดครั้งแรกในละหมาดฟัรฎูและยืนตรงแล้ว ควรปฏิบัติอย่างไร?",
+    "choices": [
+      {
+        "key": "A",
+        "text": "ให้กลับลงมานั่งอ่านตะชะฮุดทันที"
+      },
+      {
+        "key": "B",
+        "text": "ละหมาดต่อไปจนเสร็จโดยไม่ต้องทำอะไรชดเชย"
+      },
+      {
+        "key": "C",
+        "text": "ละหมาดต่อไป และทำการสุญูดซะฮ์วีก่อนสลาม"
+      },
+      {
+        "key": "D",
+        "text": "ละหมาดนั้นใช้ไม่ได้ ต้องเริ่มต้นทำละหมาดใหม่"
+      }
+    ],
+    "expected_behavior": {
+      "outcome": "answer",
+      "expected_choice_keys": ["C"],
+      "required_source_ids": [],
+      "required_citation_ids": [],
+      "rubric": {
+        "must_include": ["สุญูดซะฮ์วี"]
+      }
+    },
+    "sources": [
+      {
+        "source_id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+        "citation_id": "00000000-0000-0000-0000-000000000102",
+        "canonical_reference": "Matn Abi Shuja, Kitab al-Salah, p. 28",
+        "license_name": "Public Domain",
+        "license_status": "persistent_redistributable",
+        "redistributable": true
+      }
+    ],
+    "risk_level": "low",
+    "provenance": {
+      "topic": "salah",
+      "language": "th",
+      "madhhab": "shafii",
+      "author": "Scholar Review Panel"
+    }
+  },
+  {
+    "case_key": "fasting.swallowing_phlegm",
+    "case_type": "open_ended",
+    "visibility": "public",
+    "reviewer_status": "approved",
+    "question": "การกลืนเสมหะลงลำคอขณะถือศีลอด ทำให้เสียศีลอดหรือไม่?",
+    "choices": [],
+    "expected_behavior": {
+      "outcome": "answer",
+      "expected_choice_keys": [],
+      "required_source_ids": [],
+      "required_citation_ids": [],
+      "rubric": {
+        "must_include": ["ขอบเขตของลำคอ", "หากยังไม่ถึงช่องปากหรือขีดจำกัดภายในจะไม่เสียศีลอด"]
+      }
+    },
+    "sources": [
+      {
+        "source_id": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
+        "citation_id": "00000000-0000-0000-0000-000000000103",
+        "canonical_reference": "Minhaj al-Talibin, Kitab al-Siyam, Vol. 1, p. 430",
+        "license_name": "Public Domain",
+        "license_status": "persistent_redistributable",
+        "redistributable": true
+      }
+    ],
+    "risk_level": "low",
+    "provenance": {
+      "topic": "fasting",
+      "language": "th",
+      "madhhab": "shafii",
+      "author": "Scholar Review Panel"
+    }
+  },
+  {
+    "case_key": "madhhab.bismillah_al_fatihah",
+    "case_type": "open_ended",
+    "visibility": "public",
+    "reviewer_status": "approved",
+    "question": "ความแตกต่างในการอ่านบิสมิลลาฮ์ในซูเราะฮ์อัลฟาติฮะฮ์ระหว่างมัซฮับชาฟิอีย์และมัซฮับฮานาฟีคืออะไร?",
+    "choices": [],
+    "expected_behavior": {
+      "outcome": "answer",
+      "expected_choice_keys": [],
+      "required_source_ids": [],
+      "required_citation_ids": [],
+      "rubric": {
+        "must_include": ["ชาฟิอีย์ถือเป็นอายะฮ์หนึ่งของอัลฟาติฮะฮ์และต้องอ่านออกเสียง", "ฮานาฟีถือว่าไม่ใช่ส่วนหนึ่งแต่เป็นอายะฮ์คั่นซูเราะฮ์และให้อ่านค่อย"]
+      }
+    },
+    "sources": [
+      {
+        "source_id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+        "citation_id": "00000000-0000-0000-0000-000000000104",
+        "canonical_reference": "Al-Fiqh 'ala al-Madhahib al-Arba'ah, Vol. 1, p. 250",
+        "license_name": "CC-BY-SA 4.0",
+        "license_status": "persistent_redistributable",
+        "redistributable": true
+      }
+    ],
+    "risk_level": "low",
+    "provenance": {
+      "topic": "madhhab_difference",
+      "language": "th",
+      "madhhab": "shafii",
+      "author": "Scholar Review Panel"
+    }
+  }
+]

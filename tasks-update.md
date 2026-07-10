@@ -1,3 +1,29 @@
+## 2026-07-10T16:00:00+07:00
+
+- Task: TASK-12-05 - Safety and Abstention Metrics
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Implemented SafetyMetricsService for aggregating true positives, false negatives, false positives, true negatives, routing/abstention rates, unsafe answer rate, and policy compliance rates overall and grouped by topic, language, and madhhab. Enforced evaluations.read permission check and recorded privacy-safe audit trails.
+- Changed files: `services/evaluation/src/zayd_service_evaluation/safety_metrics.py`, `services/evaluation/tests/test_safety_metrics.py`, `docs/evaluation/safety-metrics.md`, `services/evaluation/src/zayd_service_evaluation/__init__.py`, `tasks/12_evaluation/12-05_safety_and_abstention_metrics.md`, `tasks-update.md`
+- Verification: `uv run pytest services/evaluation/tests/test_safety_metrics.py` — passed; `uv run ruff check` — passed
+- Self-review: Checked compliance and unsafe answer rate logic. Restricted case structures correctly keep evaluator notes out of public scopes. Enforced evaluations.read access controls.
+- Remaining risks: Metrics are reliant on outputs produced and structured inside the runner output database JSON structure.
+- Telegram notification: sent
+
+## 2026-07-10T16:00:00+07:00
+
+- Task: TASK-12-06 - Create Zayd-IslamicQA-TH Starter Set
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Designed and populated the Zayd-IslamicQA-TH starter set. Created declarative JSON specs for public and private subsets. Designed a deterministic and idempotent seeder tool utilizing store validations which prevents unreviewed AI drafts from being committed to the database. Complete license manifests added.
+- Changed files: `evaluation/datasets/starter_set_manifest.json`, `evaluation/datasets/public_cases.json`, `evaluation/datasets/private_cases.json`, `services/evaluation/src/zayd_service_evaluation/seed_starter_set.py`, `services/evaluation/tests/test_starter_set.py`, `services/evaluation/src/zayd_service_evaluation/__init__.py`, `evaluation/datasets/README.md`, `docs/evaluation/dataset-governance.md`, `tasks/12_evaluation/12-06_create_zayd_islamicqa_th_starter_set.md`, `tasks-update.md`
+- Verification: `uv run pytest services/evaluation/tests/test_starter_set.py` — passed; `uv run ruff check` — passed
+- Self-review: Starter set cases require approved status and reviewed_by scholar ID. Public cases match Redistributable terms. ID mapping utilizes database lookups to prevent hard-coding.
+- Remaining risks: The set size is minimal and needs extension.
+- Telegram notification: sent
+
 ## 2026-07-10T15:24:44+07:00
 
 - Task: TASK-13-01 - Central Logging and Request IDs

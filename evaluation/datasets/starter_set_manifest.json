@@ -1,0 +1,13 @@
+{
+  "name": "Zayd-IslamicQA-TH",
+  "version": "1.0.0",
+  "visibility": "private",
+  "license_status": "persistent_private",
+  "manifest": {
+    "description": "Zayd Thai Islamic Knowledge Assistant Starter Evaluation Set",
+    "topics": ["taharah", "salah", "fasting", "aqidah", "unanswerable", "high_risk", "madhhab_difference"],
+    "languages": ["th", "ar"],
+    "scholar_reviewed": true,
+    "license_notes": "Starter set contains public domain and CC-BY-SA public cases, and private restricted evaluation cases."
+  }
+}

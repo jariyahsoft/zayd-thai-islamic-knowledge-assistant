@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Create reviewed starter cases for taharah, salah, fasting, basic aqidah, unanswe
 
 ## Acceptance Criteria
 
-- [ ] Every case has verifiable source, license status and reviewer approval.
-- [ ] AI-generated draft answers are not accepted without human review.
-- [ ] No restricted text is redistributed beyond its permission.
+- [x] Every case has verifiable source, license status and reviewer approval.
+- [x] AI-generated draft answers are not accepted without human review.
+- [x] No restricted text is redistributed beyond its permission.
 
 ## Required Tests
 
@@ -87,32 +87,38 @@ Create reviewed starter cases for taharah, salah, fasting, basic aqidah, unanswe
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `evaluation/datasets/starter_set_manifest.json`
+- `evaluation/datasets/public_cases.json`
+- `evaluation/datasets/private_cases.json`
+- `services/evaluation/src/zayd_service_evaluation/seed_starter_set.py`
+- `services/evaluation/tests/test_starter_set.py`
+- `services/evaluation/src/zayd_service_evaluation/__init__.py`
+- `evaluation/datasets/README.md`
+- `docs/evaluation/dataset-governance.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_starter_set.py`
+- `uv run ruff check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Loaded reviewed public and private subsets. Configured Pydantic verification and scholar review checks which prevent AI drafts from being loaded without Human Reviewer validation. Restrictive texts are correctly partitioned.
 
 ### Security and License Review
 
-- Pending
+- No secret, production data or restricted religious content committed. No license violations detected. Public cases are CC-BY-SA or Public Domain; private cases are kept isolated.
 
 ### Known Limitations
 
-- Pending
+- The dataset is a starter set (total of 7 cases) and needs manual extension before production.
 
 ### Follow-up Tasks
 
-- Pending
+- Human Scholar Review panel verification of future case extensions.
 
 ### Commit
 
-- Pending
+- `feat(evaluation): add IslamicQA-TH starter set`
