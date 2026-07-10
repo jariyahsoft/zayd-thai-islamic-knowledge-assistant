@@ -108,9 +108,9 @@ Provide production reference architecture for reverse proxy/load balancer, repli
 
 ### Known Limitations
 
-- Blocker: TASK-13-08 is blocked by incomplete EPIC-11/TASK-11-05.
-- Owner: TASK-13-08 owner, with the EPIC-11/TASK-11-05 owner upstream.
-- Next action: complete TASK-11-05 and TASK-13-08, then retry TASK-13-09.
+- Blocker: TASK-13-08 is ready but not yet complete.
+- Owner: TASK-13-08 owner.
+- Next action: complete TASK-13-08, then retry TASK-13-09.
 
 ### Follow-up Tasks
 

@@ -171,6 +171,10 @@ from zayd_common.user_preferences import (
 from zayd_service_evaluation import (
     BenchmarkComparisonError,
     BenchmarkComparisonService,
+    EvaluationCaseContract,
+    IncidentRegressionError,
+    IncidentRegressionResult,
+    IncidentRegressionService,
     RunComparisonReport,
     RunInfo,
 )
@@ -524,6 +528,19 @@ class IncidentResponse(BaseModel):
 
 class IncidentTimelineResponse(BaseModel):
     events: list[dict[str, object]]
+
+
+class IncidentRegressionCreateRequest(BaseModel):
+    dataset_id: UUID
+    case: EvaluationCaseContract
+
+
+class IncidentRegressionCreateResponse(BaseModel):
+    evaluation_case_id: UUID
+    incident_id: UUID
+    redaction_count: int
+    schema_version: str
+    policy_version: str
 
 
 class AnswerInvalidateRequest(BaseModel):
@@ -2180,6 +2197,18 @@ def _incident_response(item: IncidentPublic, *, idempotent: bool = False) -> Inc
     )
 
 
+def _incident_regression_response(
+    result: IncidentRegressionResult,
+) -> IncidentRegressionCreateResponse:
+    return IncidentRegressionCreateResponse(
+        evaluation_case_id=result.evaluation_case_id,
+        incident_id=result.incident_id,
+        redaction_count=result.redaction_count,
+        schema_version=result.schema_version,
+        policy_version=result.policy_version,
+    )
+
+
 def _answer_invalidation_response(item: AnswerInvalidationResult) -> AnswerInvalidationResponse:
     return AnswerInvalidationResponse(
         answer_id=item.answer_id,
@@ -2638,6 +2667,11 @@ def create_app() -> FastAPI:
 
         return IncidentManagementService(SQLAlchemyUnitOfWork(session_factory))
 
+    def incident_regression_service() -> IncidentRegressionService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return IncidentRegressionService(SQLAlchemyUnitOfWork(session_factory))
+
     def answer_invalidation_service() -> AnswerInvalidationService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -2892,6 +2926,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(IncidentManagementError)
     async def incident_management_error_handler(
         request: Request, exc: IncidentManagementError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(IncidentRegressionError)
+    async def incident_regression_error_handler(
+        request: Request, exc: IncidentRegressionError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -3985,6 +4028,30 @@ def create_app() -> FastAPI:
                 for item in events
             ]
         )
+
+    @app.post(
+        "/admin/incidents/{incident_id}/regression-cases",
+        response_model=IncidentRegressionCreateResponse,
+        status_code=201,
+    )
+    async def create_incident_regression_case(
+        incident_id: UUID,
+        payload: IncidentRegressionCreateRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_MANAGE))
+        ],
+        service: Annotated[IncidentRegressionService, Depends(incident_regression_service)],
+    ) -> IncidentRegressionCreateResponse:
+        result = service.create(
+            incident_id,
+            payload.dataset_id,
+            payload.case,
+            actor_user_id=principal.id,
+            permissions=principal.permissions,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _incident_regression_response(result)
 
     @app.post("/admin/answers/{answer_id}/invalidate", response_model=AnswerInvalidationResponse)
     async def invalidate_answer(

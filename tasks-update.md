@@ -724,3 +724,16 @@
 - Remaining risks: Complete TASK-11-05, then TASK-13-08, before retrying TASK-13-09; production implementation will require explicit human security/operations review.
 - Telegram notification: STARTED sent; BLOCKED sent.
 - Commit: Pending task-range blocker bookkeeping commit.
+## 2026-07-11T05:33:09+07:00
+
+- Task: TASK-11-05 - Convert Incident to Regression Test
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A; applied production API, privacy, RBAC, audit, and evaluation-contract review.
+- Summary: Added private draft incident-regression candidate creation for resolved/closed incidents, deterministic PII redaction, bounded provenance, append-only incident/audit records, and a protected API endpoint.
+- Changed files: evaluation incident-regression service and exports, API route/contracts/error handling, focused unit/API tests, evaluation documentation, and task records.
+- Verification: focused pytest suite — 13 passed; focused Ruff, format, MyPy, and `git diff --check` — passed.
+- Self-review: Incident summaries and linked feedback/conversation/answer details are never copied. The service requires both feedback and evaluation management permissions, preserves only bounded provenance, and forces private draft state. Pattern redaction is supplemented by required human review.
+- Remaining risks: Contextual PII/restricted content requires reviewer inspection; scholar/QA approval is required before any candidate becomes approved benchmark content. No religious expected behavior was approved by this implementation.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Focused task commit created; see Git history for the commit identifier.

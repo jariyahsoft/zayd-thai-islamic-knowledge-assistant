@@ -1,6 +1,12 @@
 """Evaluation service package."""
 
 from .case_store import DatasetCreate, EvaluationCaseStore, EvaluationCaseStoreError
+from .incident_regressions import (
+    INCIDENT_REGRESSION_POLICY_VERSION,
+    IncidentRegressionError,
+    IncidentRegressionResult,
+    IncidentRegressionService,
+)
 from .citation_metrics import (
     CITATION_METRICS_VERSION,
     CitationMetricsError,
@@ -69,6 +75,10 @@ __all__ = [
     "CitationMetricsReport",
     "CitationMetricsService",
     "DatasetCreate",
+    "INCIDENT_REGRESSION_POLICY_VERSION",
+    "IncidentRegressionError",
+    "IncidentRegressionResult",
+    "IncidentRegressionService",
     "EvaluationCaseContract",
     "EvaluationCaseStore",
     "EvaluationCaseStoreError",

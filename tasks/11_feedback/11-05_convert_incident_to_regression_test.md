@@ -2,7 +2,7 @@
 
 ## Status
 
-`BLOCKED`
+`DONE`
 
 ## Model Tier
 
@@ -90,28 +90,47 @@ Allow authorized reviewers to create sanitized evaluation cases from confirmed i
 
 ### Files Changed
 
-- Task status and execution record only; no product implementation was started.
+- `services/evaluation/src/zayd_service_evaluation/incident_regressions.py`
+- `services/evaluation/src/zayd_service_evaluation/__init__.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/evaluation/tests/test_incident_regressions.py`
+- `services/api/tests/test_incident_regressions_api.py`
+- `docs/evaluation/incident-regressions.md`
+- Task status and execution records.
 
 ### Commands and Tests Executed
 
-- Dependency review: TASK-11-03 is complete, but every EPIC-12 task remains `TODO`.
+- `uv run pytest -q services/evaluation/tests/test_incident_regressions.py services/evaluation/tests/test_evaluation_schema.py services/common/tests/test_incident_management.py services/api/tests/test_incident_regressions_api.py` — 13 passed.
+- Focused Ruff check and format check — passed.
+- Focused MyPy — passed.
+- `git diff --check` — passed.
 
 ### Acceptance Criteria Result
 
-- Blocked. The evaluation-case schema, benchmark runner, and evaluation workflow required to retain incident provenance do not exist yet.
+- Passed. Authorized users with both feedback and evaluation management permissions can create
+  private draft candidates from resolved/closed incidents. Deterministic redaction covers emails,
+  Thai phone numbers, and Thai national ID patterns before persistence; expected behavior and source
+  references remain required by the evaluation contract; bounded incident provenance and audit/timeline
+  records exclude incident/reporter/conversation payloads.
 
 ### Security and License Review
 
-- No security-sensitive implementation was performed. Future work must retain provenance without exposing reporter, answer, conversation, or restricted source data.
+- The route is protected by existing privileged MFA/RBAC enforcement and requires both
+  `feedback.manage` and `evaluations.manage` at service level. Incident summaries and linked content
+  are never copied. Candidates are forced to private/draft; human scholar/QA approval remains required
+  before use as reviewed benchmark content.
 
 ### Known Limitations
 
-- Owner action: complete EPIC-12, beginning with TASK-12-01 Evaluation Data Schema and its dependent evaluation workflow, then return TASK-11-05 to `READY`.
+- Pattern redaction cannot identify all contextual personal or restricted information; reviewers must
+  inspect candidates before approval. This task creates candidates only and does not approve religious
+  expected behavior or publish a benchmark case.
 
 ### Follow-up Tasks
 
-- EPIC-12 completion.
+- TASK-13-08 is now dependency-ready. Human scholar/QA review is required before a candidate becomes
+  approved benchmark content.
 
 ### Commit
 
-- No commit created; task is blocked by an out-of-range prerequisite.
+- Focused task commit created; see Git history for the commit identifier.

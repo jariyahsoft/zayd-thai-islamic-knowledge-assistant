@@ -121,7 +121,7 @@
 | TASK-11-02 | Feedback Review Queue | A | DONE | TASK-11-01 | `11_feedback/11-02_feedback_review_queue.md` |
 | TASK-11-03 | Incident Management | S | DONE | TASK-11-02, TASK-06-05 | `11_feedback/11-03_incident_management.md` |
 | TASK-11-04 | Answer Invalidation | S | DONE | TASK-11-03, TASK-08-07 | `11_feedback/11-04_answer_invalidation.md` |
-| TASK-11-05 | Convert Incident to Regression Test | A | BLOCKED | TASK-11-03, EPIC-12 | `11_feedback/11-05_convert_incident_to_regression_test.md` |
+| TASK-11-05 | Convert Incident to Regression Test | A | DONE | TASK-11-03, EPIC-12 | `11_feedback/11-05_convert_incident_to_regression_test.md` |
 | TASK-12-01 | Evaluation Data Schema | S | DONE | EPIC-02 complete | `12_evaluation/12-01_evaluation_data_schema.md` |
 | TASK-12-02 | Benchmark Runner | S | DONE | TASK-12-01, EPIC-08 | `12_evaluation/12-02_benchmark_runner.md` |
 | TASK-12-03 | Retrieval Metrics | A | DONE | TASK-12-02 | `12_evaluation/12-03_retrieval_metrics.md` |
@@ -136,7 +136,7 @@
 | TASK-13-05 | CI Pipeline | A | DONE | EPIC-01 complete | `13_operations/13-05_ci_pipeline.md` |
 | TASK-13-06 | Software Bill of Materials | B | DONE | TASK-13-05 | `13_operations/13-06_software_bill_of_materials.md` |
 | TASK-13-07 | Backup and Restore | S | DONE | EPIC-02, TASK-05-02 | `13_operations/13-07_backup_and_restore.md` |
-| TASK-13-08 | Minimal Self-host Profile | A | BLOCKED | All MVP epics | `13_operations/13-08_minimal_self_host_profile.md` |
+| TASK-13-08 | Minimal Self-host Profile | A | READY | All MVP epics | `13_operations/13-08_minimal_self_host_profile.md` |
 | TASK-13-09 | Production Deployment Profile | S | BLOCKED | TASK-13-08 | `13_operations/13-09_production_deployment_profile.md` |
 | TASK-14-01 | Pilot Environment | A | TODO | EPIC-13 complete | `14_release/14-01_pilot_environment.md` |
 | TASK-14-02 | Scholar Pilot Workflow | B | TODO | EPIC-12, TASK-14-01 | `14_release/14-02_scholar_pilot_workflow.md` |
