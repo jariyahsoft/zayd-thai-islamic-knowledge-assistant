@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -60,9 +60,9 @@ Calculate Recall@5, Recall@10, MRR, precision and metadata-filter correctness.
 
 ## Acceptance Criteria
 
-- [ ] Metrics handle multiple acceptable sources.
-- [ ] Missing/invalid references are reported explicitly.
-- [ ] Results can be grouped by topic, language and madhhab.
+- [x] Metrics handle multiple acceptable sources.
+- [x] Missing/invalid references are reported explicitly.
+- [x] Results can be grouped by topic, language and madhhab.
 
 ## Required Tests
 
@@ -87,28 +87,28 @@ Calculate Recall@5, Recall@10, MRR, precision and metadata-filter correctness.
 
 ### Files Changed
 
-- Pending
+- `services/evaluation/src/zayd_service_evaluation/retrieval_metrics.py`, evaluation exports/tests, `docs/evaluation/retrieval-metrics.md`, and task records.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_retrieval_metrics.py -q` — 3 passed; focused Ruff and MyPy passed. Broader evaluation regression checks passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Hand-calculated metrics cover multiple accepted sources, invalid observed references, missing expected references, metadata filters, and provenance grouping.
 
 ### Security and License Review
 
-- Pending
+- Read permission is required. Persisted run aggregates and audit records contain counts/version only, never question text, expected answers, or source bodies.
 
 ### Known Limitations
 
-- Pending
+- Metrics consume executor-provided retrieved source IDs; live retrieval adapter conformance remains a later integration concern.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-12-07 Evaluation Dashboard.
 
 ### Commit
 
-- Pending
+- Pending focused commit.

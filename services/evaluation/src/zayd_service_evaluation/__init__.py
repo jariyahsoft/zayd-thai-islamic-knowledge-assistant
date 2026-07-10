@@ -1,6 +1,13 @@
 """Evaluation service package."""
 
 from .case_store import DatasetCreate, EvaluationCaseStore, EvaluationCaseStoreError
+from .retrieval_metrics import (
+    RETRIEVAL_METRICS_VERSION,
+    RetrievalMetricsError,
+    RetrievalMetricsReport,
+    RetrievalMetricsService,
+    RetrievalMetricSummary,
+)
 from .runner import (
     BENCHMARK_RUNNER_VERSION,
     BenchmarkCaseInput,
@@ -43,5 +50,10 @@ __all__ = [
     "BenchmarkRunnerError",
     "BenchmarkRunSummary",
     "CaseExecutionResult",
+    "RETRIEVAL_METRICS_VERSION",
+    "RetrievalMetricSummary",
+    "RetrievalMetricsError",
+    "RetrievalMetricsReport",
+    "RetrievalMetricsService",
     "get_health",
 ]

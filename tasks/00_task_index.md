@@ -124,7 +124,7 @@
 | TASK-11-05 | Convert Incident to Regression Test | A | BLOCKED | TASK-11-03, EPIC-12 | `11_feedback/11-05_convert_incident_to_regression_test.md` |
 | TASK-12-01 | Evaluation Data Schema | S | DONE | EPIC-02 complete | `12_evaluation/12-01_evaluation_data_schema.md` |
 | TASK-12-02 | Benchmark Runner | S | DONE | TASK-12-01, EPIC-08 | `12_evaluation/12-02_benchmark_runner.md` |
-| TASK-12-03 | Retrieval Metrics | A | READY | TASK-12-02 | `12_evaluation/12-03_retrieval_metrics.md` |
+| TASK-12-03 | Retrieval Metrics | A | DONE | TASK-12-02 | `12_evaluation/12-03_retrieval_metrics.md` |
 | TASK-12-04 | Citation Metrics | S | READY | TASK-12-02 | `12_evaluation/12-04_citation_metrics.md` |
 | TASK-12-05 | Safety and Abstention Metrics | S | READY | TASK-12-02 | `12_evaluation/12-05_safety_and_abstention_metrics.md` |
 | TASK-12-06 | Create Zayd-IslamicQA-TH Starter Set | S + Human Scholar Review | READY | TASK-12-01 | `12_evaluation/12-06_create_zayd_islamicqa_th_starter_set.md` |

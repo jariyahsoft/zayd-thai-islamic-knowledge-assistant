@@ -581,3 +581,16 @@
 - Remaining risks: Live provider adapters remain future integration and must apply provider egress/privacy controls. Migration needs human DBA/security review.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-10T22:20:00+07:00
+
+- Task: TASK-12-03 - Retrieval Metrics
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added deterministic Recall@5/10, MRR, precision, metadata-filter correctness, invalid-reference reporting, and topic/language/madhhab aggregates for persisted benchmark runs.
+- Changed files: retrieval metrics service/tests, evaluation package exports, docs, and task records.
+- Verification: retrieval metric tests — 3 passed; focused Ruff and MyPy passed; broader evaluation regression checks passed; `git diff --check` passed.
+- Self-review: Multiple acceptable sources are scored correctly. Invalid/missing IDs are explicit. Stored aggregates and audits contain only counts and version metadata.
+- Remaining risks: Retrieval adapters must consistently emit source IDs and metadata filters for full production coverage.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending
