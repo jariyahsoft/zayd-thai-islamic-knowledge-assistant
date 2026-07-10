@@ -1,6 +1,16 @@
 """Evaluation service package."""
 
 from .case_store import DatasetCreate, EvaluationCaseStore, EvaluationCaseStoreError
+from .runner import (
+    BENCHMARK_RUNNER_VERSION,
+    BenchmarkCaseInput,
+    BenchmarkExecutor,
+    BenchmarkRunConfig,
+    BenchmarkRunner,
+    BenchmarkRunnerError,
+    BenchmarkRunSummary,
+    CaseExecutionResult,
+)
 from .schema import (
     EVALUATION_CASE_SCHEMA_VERSION,
     Choice,
@@ -25,5 +35,13 @@ __all__ = [
     "ExpectedBehavior",
     "ReviewerStatus",
     "SourceReference",
+    "BENCHMARK_RUNNER_VERSION",
+    "BenchmarkCaseInput",
+    "BenchmarkExecutor",
+    "BenchmarkRunConfig",
+    "BenchmarkRunner",
+    "BenchmarkRunnerError",
+    "BenchmarkRunSummary",
+    "CaseExecutionResult",
     "get_health",
 ]

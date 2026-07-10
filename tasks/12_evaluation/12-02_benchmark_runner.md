@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -63,9 +63,9 @@ Implement reproducible benchmark runs across model/provider, prompt, retrieval a
 
 ## Acceptance Criteria
 
-- [ ] Run configuration and random seeds are recorded.
-- [ ] Failures are isolated per case.
-- [ ] Sensitive private cases are not included in public exports.
+- [x] Run configuration and random seeds are recorded.
+- [x] Failures are isolated per case.
+- [x] Sensitive private cases are not included in public exports.
 
 ## Required Tests
 
@@ -91,28 +91,28 @@ Implement reproducible benchmark runs across model/provider, prompt, retrieval a
 
 ### Files Changed
 
-- Pending
+- Benchmark runner/contracts/exports, migration `0018`, tests, documentation, and task records.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_benchmark_runner.py database/tests/test_benchmark_runner_migration.py -q` — 5 passed. Focused Ruff and MyPy passed. Broader evaluation/RBAC/migration regression checks passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Runs pin dataset/model/provider/prompt/retrieval/policy versions plus seed and Git commit; executor exceptions are isolated; JSON/CSV/Markdown public exports omit private cases.
 
 ### Security and License Review
 
-- Pending
+- Runner/manage and private-export/read permissions are explicit. Executor errors are sanitized; public reports exclude case questions, expected answers, source text and raw executor output. Migration requires human DBA/security review.
 
 ### Known Limitations
 
-- Pending
+- No live provider adapters are configured by this task. Production adapters must apply provider privacy/egress controls. Duration values are operational and naturally nondeterministic.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-12-03, TASK-12-04 and TASK-12-05 metrics.
 
 ### Commit
 
-- Pending
+- Pending focused commit.

@@ -568,3 +568,16 @@
 - Remaining risks: Migration needs human DBA/security review. No golden religious content was added; future approved cases require scholar/license review.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-10T22:05:00+07:00
+
+- Task: TASK-12-02 - Benchmark Runner
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added a reproducible provider-independent benchmark runner with pinned versions/seeds, isolated case execution, persistent run/results, and deterministic JSON/CSV/Markdown exports.
+- Changed files: evaluation runner/tests/exports, migration `0018`, docs, and task records.
+- Verification: runner and migration tests — 5 passed; focused Ruff and MyPy passed; broader evaluation/RBAC/migration checks passed; `git diff --check` passed.
+- Self-review: Public exports include only approved public cases and omit case questions, expected answers, source text, prompts and executor output. Exception text is reduced to its class name.
+- Remaining risks: Live provider adapters remain future integration and must apply provider egress/privacy controls. Migration needs human DBA/security review.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending
