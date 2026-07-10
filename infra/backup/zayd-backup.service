@@ -1,0 +1,15 @@
+[Unit]
+Description=Zayd encrypted daily backup
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=zayd-backup
+Group=zayd-backup
+EnvironmentFile=/etc/zayd/backup.env
+WorkingDirectory=/opt/zayd
+ExecStart=/opt/zayd/infra/backup/backup.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/zayd

@@ -685,3 +685,16 @@
 - Remaining risks: Override approval UI/policy and quote-accuracy metrics remain outside this task.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-11T04:54:49+07:00
+
+- Task: TASK-13-07 - Backup and Restore
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added encrypted, checksummed daily recovery bundles for PostgreSQL roles/data, private object storage, and non-secret governance configuration; isolated fail-closed restore, configurable retention/off-site copy, audit records, systemd scheduling, and disaster-recovery runbooks.
+- Changed files: backup/restore scripts and systemd units, focused tests, operations documentation, and task records.
+- Verification: focused pytest — 3 passed; Ruff, Ruff format, Bash syntax, focused secret-pattern scan, and `git diff --check` passed; `shellcheck` was unavailable.
+- Self-review: Restore verifies ciphertext and payload integrity before mutation, requires explicitly isolated targets, restores roles before ACL-bearing database content, and checks database/object-storage availability. Credentials and encryption keys remain operator-supplied secrets.
+- Remaining risks: Production requires a real monthly isolated restore drill, application-level database/object consistency and RBAC verification, alert-channel integration, and explicit human security/operations review. The automated drill uses command fakes; `shellcheck` was unavailable.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending

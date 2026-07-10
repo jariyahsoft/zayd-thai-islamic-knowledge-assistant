@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,10 +62,10 @@ Implement encrypted backup and restore for PostgreSQL, object storage, prompts, 
 
 ## Acceptance Criteria
 
-- [ ] Daily backup profile exists.
-- [ ] Restore is tested into an isolated environment.
-- [ ] Retention and off-site strategy are configurable.
-- [ ] Restore preserves referential integrity and permissions.
+- [x] Daily backup profile exists.
+- [x] Restore is tested into an isolated environment.
+- [x] Retention and off-site strategy are configurable.
+- [x] Restore preserves referential integrity and permissions.
 
 ## Required Tests
 
@@ -92,28 +92,53 @@ Implement encrypted backup and restore for PostgreSQL, object storage, prompts, 
 
 ### Files Changed
 
-- Pending
+- `infra/backup/backup.sh`
+- `infra/backup/restore.sh`
+- `infra/backup/zayd-backup.service`
+- `infra/backup/zayd-backup.timer`
+- `infra/backup/README.md`
+- `infra/backup/tests/test_backup_restore.py`
+- `docs/operations/backup-restore.md`
+- `docs/operations/disaster-recovery.md`
+- `tasks/13_operations/13-07_backup_and_restore.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest -q infra/backup/tests/test_backup_restore.py` — 3 passed.
+- `uv run ruff check infra/backup/tests/test_backup_restore.py` — passed.
+- `uv run ruff format --check infra/backup/tests/test_backup_restore.py` — passed.
+- `bash -n infra/backup/backup.sh infra/backup/restore.sh` — passed.
+- Focused credential/private-key pattern scan — no findings.
+- `git diff --check` — passed.
+- `shellcheck` — unavailable in the execution environment.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. The daily systemd timer invokes an encrypted, checksummed database/role, object-storage,
+  and non-secret configuration bundle. Restore is fail-closed unless explicitly isolated, verifies
+  corruption before mutation, restores roles and ACL-bearing data, restores objects, and checks
+  both dependencies. Local retention and optional off-site replication are configurable.
 
 ### Security and License Review
 
-- Pending
+- Backup and restore require separate operator-provided credentials and a secret-mounted GPG key;
+  neither is committed. Files are created with restrictive process permissions, sensitive
+  operations produce bounded actor/trace audit records, and restore targets must be isolated.
+  Tier S production deployment requires human security and operations review.
 
 ### Known Limitations
 
-- Pending
+- The automated drill uses command fakes and validates orchestration/failure behavior; production
+  infrastructure must perform the documented monthly drill and application-level consistency/RBAC
+  checks. `shellcheck` was not installed. Alert routing is an operator integration documented in
+  the runbook rather than a committed provider secret.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-13-08 may proceed only when all MVP epics are complete.
 
 ### Commit
 
-- Pending
+- Pending focused task commit.
