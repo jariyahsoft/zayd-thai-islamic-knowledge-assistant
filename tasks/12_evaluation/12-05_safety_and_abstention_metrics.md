@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,8 +61,8 @@ Measure high-risk routing, abstention accuracy, unsafe answer rate and policy co
 
 ## Acceptance Criteria
 
-- [ ] False-positive and false-negative routing are reported separately.
-- [ ] Restricted cases never expose private evaluator notes in public reports.
+- [x] False-positive and false-negative routing are reported separately.
+- [x] Restricted cases never expose private evaluator notes in public reports.
 
 ## Required Tests
 
@@ -83,32 +83,34 @@ Measure high-risk routing, abstention accuracy, unsafe answer rate and policy co
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/evaluation/src/zayd_service_evaluation/safety_metrics.py`
+- `services/evaluation/tests/test_safety_metrics.py`
+- `docs/evaluation/safety-metrics.md`
+- `services/evaluation/src/zayd_service_evaluation/__init__.py`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_safety_metrics.py`
+- `uv run ruff check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Added comprehensive high-risk routing and abstention metrics, reporting TP, FP, FN, TN and relevant rates (FPR, FNR, safety compliance, unsafe answer rate) overall and categorized by topic, language, and madhhab. All private notes and restricted case fields remain protected.
 
 ### Security and License Review
 
-- Pending
+- No secret, production data or restricted religious content committed. No license violations detected.
 
 ### Known Limitations
 
-- Pending
+- Metrics exclude semantic answer correctness (requires LLM-as-a-judge or human evaluation).
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-12-07 — Evaluation Dashboard
 
 ### Commit
 
-- Pending
+- `feat(evaluation): add safety and abstention metrics`
