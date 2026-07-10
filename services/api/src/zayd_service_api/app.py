@@ -164,6 +164,12 @@ from zayd_common.user_preferences import (
     UserPreferencesService,
     UserPreferencesUpdate,
 )
+from zayd_service_evaluation import (
+    BenchmarkComparisonError,
+    BenchmarkComparisonService,
+    RunComparisonReport,
+    RunInfo,
+)
 from zayd_service_orchestrator import (
     ChatRequest,
     ChatStreamingError,
@@ -409,6 +415,53 @@ class FeedbackQueueListResponse(BaseModel):
     limit: int
     offset: int
     next_offset: int | None
+
+
+class EvaluationRunInfoResponse(BaseModel):
+    run_id: UUID
+    dataset_name: str
+    dataset_version: str
+    provider_name: str
+    model_name: str
+    retriever_version: str
+    embedding_version: str | None
+    reranker_version: str | None
+    git_commit: str
+    random_seed: int
+    started_at: str
+    finished_at: str | None
+    metrics: dict[str, Any]
+
+
+class EvaluationRunListResponse(BaseModel):
+    runs: list[EvaluationRunInfoResponse]
+
+
+class CaseComparisonResponse(BaseModel):
+    case_key: str
+    case_type: str
+    risk_level: str
+    visibility: str
+    base_passed: bool
+    target_passed: bool
+    regression: bool
+    improvement: bool
+    base_scores: dict[str, float]
+    target_scores: dict[str, float]
+    topic: str
+    language: str
+    madhhab: str
+
+
+class RunComparisonReportResponse(BaseModel):
+    base_run: EvaluationRunInfoResponse
+    target_run: EvaluationRunInfoResponse
+    regression_count: int
+    improvement_count: int
+    overall_base_pass_rate: float
+    overall_target_pass_rate: float
+    comparisons: list[CaseComparisonResponse]
+    version: str
 
 
 class FeedbackAssignRequestPayload(BaseModel):
@@ -2056,6 +2109,54 @@ def _feedback_queue_list_response(result: FeedbackQueueResult) -> FeedbackQueueL
     )
 
 
+def _evaluation_run_info_response(run: RunInfo) -> EvaluationRunInfoResponse:
+    return EvaluationRunInfoResponse(
+        run_id=run.run_id,
+        dataset_name=run.dataset_name,
+        dataset_version=run.dataset_version,
+        provider_name=run.provider_name,
+        model_name=run.model_name,
+        retriever_version=run.retriever_version,
+        embedding_version=run.embedding_version,
+        reranker_version=run.reranker_version,
+        git_commit=run.git_commit,
+        random_seed=run.random_seed,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        metrics=dict(run.metrics or {}),
+    )
+
+
+def _run_comparison_report_response(report: RunComparisonReport) -> RunComparisonReportResponse:
+    return RunComparisonReportResponse(
+        base_run=_evaluation_run_info_response(report.base_run),
+        target_run=_evaluation_run_info_response(report.target_run),
+        regression_count=report.regression_count,
+        improvement_count=report.improvement_count,
+        overall_base_pass_rate=report.overall_base_pass_rate,
+        overall_target_pass_rate=report.overall_target_pass_rate,
+        comparisons=[
+            CaseComparisonResponse(
+                case_key=c.case_key,
+                case_type=c.case_type,
+                risk_level=c.risk_level,
+                visibility=c.visibility,
+                base_passed=c.base_passed,
+                target_passed=c.target_passed,
+                regression=c.regression,
+                improvement=c.improvement,
+                base_scores=dict(c.base_scores or {}),
+                target_scores=dict(c.target_scores or {}),
+                topic=c.topic,
+                language=c.language,
+                madhhab=c.madhhab,
+            )
+            for c in report.comparisons
+        ],
+        version=report.version,
+    )
+
+
 def _incident_response(item: IncidentPublic, *, idempotent: bool = False) -> IncidentResponse:
     return IncidentResponse(
         id=item.id,
@@ -2427,6 +2528,11 @@ def create_app() -> FastAPI:
 
         return FeedbackReviewService(SQLAlchemyUnitOfWork(session_factory))
 
+    def benchmark_comparison_service() -> BenchmarkComparisonService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return BenchmarkComparisonService(SQLAlchemyUnitOfWork(session_factory))
+
     def incident_management_service() -> IncidentManagementService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -2688,6 +2794,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(AnswerInvalidationError)
     async def answer_invalidation_error_handler(
         request: Request, exc: AnswerInvalidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(BenchmarkComparisonError)
+    async def benchmark_comparison_error_handler(
+        request: Request, exc: BenchmarkComparisonError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -3641,6 +3756,46 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _feedback_review_detail_response(detail)
+
+    # -- Evaluation Dashboard and Run Comparison ----------------------------
+
+    @app.get("/admin/evaluation/runs", response_model=EvaluationRunListResponse)
+    async def list_evaluation_runs(
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.EVALUATIONS_READ))
+        ],
+        service: Annotated[BenchmarkComparisonService, Depends(benchmark_comparison_service)],
+        dataset_id: UUID | None = Query(default=None),  # noqa: B008
+    ) -> EvaluationRunListResponse:
+        runs = service.list_runs(permissions=principal.permissions, dataset_id=dataset_id)
+        return EvaluationRunListResponse(runs=[_evaluation_run_info_response(r) for r in runs])
+
+    @app.get("/admin/evaluation/runs/{run_id}", response_model=EvaluationRunInfoResponse)
+    async def get_evaluation_run(
+        run_id: UUID,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.EVALUATIONS_READ))
+        ],
+        service: Annotated[BenchmarkComparisonService, Depends(benchmark_comparison_service)],
+    ) -> EvaluationRunInfoResponse:
+        run = service.get_run(run_id, permissions=principal.permissions)
+        return _evaluation_run_info_response(run)
+
+    @app.get("/admin/evaluation/compare", response_model=RunComparisonReportResponse)
+    async def compare_evaluation_runs(
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.EVALUATIONS_READ))
+        ],
+        service: Annotated[BenchmarkComparisonService, Depends(benchmark_comparison_service)],
+        base_run_id: UUID = Query(...),  # noqa: B008
+        target_run_id: UUID = Query(...),  # noqa: B008
+    ) -> RunComparisonReportResponse:
+        report = service.compare_runs(
+            base_run_id=base_run_id,
+            target_run_id=target_run_id,
+            permissions=principal.permissions,
+        )
+        return _run_comparison_report_response(report)
 
     @app.post("/admin/incidents", response_model=IncidentResponse, status_code=201)
     async def create_incident(

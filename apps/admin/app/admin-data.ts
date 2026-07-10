@@ -619,3 +619,90 @@ export async function revokeRole(
     },
   );
 }
+
+export type EvaluationRunInfo = {
+  readonly run_id: string;
+  readonly dataset_name: string;
+  readonly dataset_version: string;
+  readonly provider_name: string;
+  readonly model_name: string;
+  readonly retriever_version: string;
+  readonly embedding_version: string | null;
+  readonly reranker_version: string | null;
+  readonly git_commit: string;
+  readonly random_seed: number;
+  readonly started_at: string;
+  readonly finished_at: string | null;
+  readonly metrics: Record<string, unknown>;
+};
+
+export type CaseComparison = {
+  readonly case_key: string;
+  readonly case_type: string;
+  readonly risk_level: string;
+  readonly visibility: string;
+  readonly base_passed: boolean;
+  readonly target_passed: boolean;
+  readonly regression: boolean;
+  readonly improvement: boolean;
+  readonly base_scores: Record<string, number>;
+  readonly target_scores: Record<string, number>;
+  readonly topic: string;
+  readonly language: string;
+  readonly madhhab: string;
+};
+
+export type RunComparisonReport = {
+  readonly base_run: EvaluationRunInfo;
+  readonly target_run: EvaluationRunInfo;
+  readonly regression_count: number;
+  readonly improvement_count: number;
+  readonly overall_base_pass_rate: number;
+  readonly overall_target_pass_rate: number;
+  readonly comparisons: readonly CaseComparison[];
+  readonly version: string;
+};
+
+export async function listEvaluationRuns(
+  baseUrl: string,
+  authToken: string,
+  datasetId?: string,
+): Promise<readonly EvaluationRunInfo[]> {
+  const search = new URLSearchParams();
+  if (datasetId) {
+    search.set("dataset_id", datasetId);
+  }
+  const payload = await request<{ readonly runs: readonly EvaluationRunInfo[] }>(
+    url(baseUrl, "/admin/evaluation/runs", search),
+    authToken,
+  );
+  return payload.runs;
+}
+
+export async function getEvaluationRun(
+  baseUrl: string,
+  authToken: string,
+  runId: string,
+): Promise<EvaluationRunInfo> {
+  return request<EvaluationRunInfo>(
+    url(baseUrl, `/admin/evaluation/runs/${runId}`),
+    authToken,
+  );
+}
+
+export async function compareEvaluationRuns(
+  baseUrl: string,
+  authToken: string,
+  baseRunId: string,
+  targetRunId: string,
+): Promise<RunComparisonReport> {
+  const search = new URLSearchParams({
+    base_run_id: baseRunId,
+    target_run_id: targetRunId,
+  });
+  return request<RunComparisonReport>(
+    url(baseUrl, "/admin/evaluation/compare", search),
+    authToken,
+  );
+}
+

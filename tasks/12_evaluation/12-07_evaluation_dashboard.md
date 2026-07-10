@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Build dashboard to compare runs, filter by model/category/version, surface regre
 
 ## Acceptance Criteria
 
-- [ ] Access to private test cases/results is restricted.
-- [ ] Regressions are clearly distinguished from statistical noise/config differences.
-- [ ] Dashboard links to reproducible run configuration.
+- [x] Access to private test cases/results is restricted.
+- [x] Regressions are clearly distinguished from statistical noise/config differences.
+- [x] Dashboard links to reproducible run configuration.
 
 ## Required Tests
 
@@ -86,32 +86,38 @@ Build dashboard to compare runs, filter by model/category/version, surface regre
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/evaluation/src/zayd_service_evaluation/comparison.py` - Core run comparison service.
+- `services/evaluation/tests/test_comparison.py` - Unit tests for benchmark comparison.
+- `services/api/src/zayd_service_api/app.py` - Regsistered comparison/listing API routes.
+- `services/api/tests/test_comparison_api.py` - Integration tests for the comparison APIs.
+- `apps/admin/app/admin-data.ts` - Client-side comparison and run typings and fetchers.
+- `apps/admin/app/workspace.tsx` - Registered evaluation dashboard in admin tabs.
+- `apps/admin/app/evaluation-console.tsx` - Evaluation run dashboard/console React view.
+- `docs/user/evaluation-dashboard.md` - Dashboard user and security documentation.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_comparison.py services/api/tests/test_comparison_api.py -q`
+- `uv run ruff check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Exposes a clean, secure run comparison dashboard with support for regression and improvement mapping, slicing by topic/madhhab/language, exporting JSON report logs, displaying reproducible configurations, and strictly locking restricted details behind `Permission.EVALUATIONS_READ`.
 
 ### Security and License Review
 
-- Pending
+- Verified. Private case details and question payloads are filtered out before comparison serialization when the requester lack read permissions. MFA is required on endpoints.
 
 ### Known Limitations
 
-- Pending
+- Comparison does not display diff content of generated answers on the UI (accessible via JSON report instead).
 
 ### Follow-up Tasks
 
-- Pending
+- Human Scholar Audit configuration.
 
 ### Commit
 
-- Pending
+- `feat(evaluation): add run comparison and evaluation dashboard`

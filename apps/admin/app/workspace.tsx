@@ -6,8 +6,9 @@ import { ProviderModelConsole } from "./provider-model-console.js";
 import { SourceLicenseAdminConsole } from "./source-license-admin-console.js";
 import { UserRoleAdminConsole } from "./user-role-admin-console.js";
 import { AdminDashboard } from "./admin-dashboard.js";
+import { EvaluationConsole } from "./evaluation-console.js";
 
-type ViewKey = "dashboard" | "sources" | "providers" | "users";
+type ViewKey = "dashboard" | "sources" | "providers" | "users" | "evaluation";
 
 export function AdminWorkspace(props: {
   readonly apiBaseUrl: string;
@@ -39,6 +40,11 @@ export function AdminWorkspace(props: {
               label="Sources & Licenses"
               onClick={() => setView("sources")}
             />
+            <TabButton
+              active={view === "evaluation"}
+              label="Evaluation Dashboard"
+              onClick={() => setView("evaluation")}
+            />
           </nav>
         </header>
 
@@ -51,6 +57,9 @@ export function AdminWorkspace(props: {
         ) : null}
         {view === "sources" ? (
           <SourceLicenseAdminConsole apiBaseUrl={props.apiBaseUrl} />
+        ) : null}
+        {view === "evaluation" ? (
+          <EvaluationConsole apiBaseUrl={props.apiBaseUrl} />
         ) : null}
       </div>
     </main>

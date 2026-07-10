@@ -1,5 +1,18 @@
 ## 2026-07-10T16:00:00+07:00
 
+- Task: TASK-12-07 - Evaluation Dashboard
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Designed and implemented benchmark run comparison and evaluation listing APIs. Built a front-office Evaluation Dashboard for Next.js admin app workspace, incorporating side-by-side run detail config, regression/improvement highlighting, metrics breakdown, sliced evaluations, reproducible targets, and JSON exports. Enforced permission gates on private cases.
+- Changed files: `services/evaluation/src/zayd_service_evaluation/comparison.py`, `services/evaluation/tests/test_comparison.py`, `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_comparison_api.py`, `apps/admin/app/admin-data.ts`, `apps/admin/app/workspace.tsx`, `apps/admin/app/evaluation-console.tsx`, `docs/user/evaluation-dashboard.md`, `tasks/12_evaluation/12-07_evaluation_dashboard.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/evaluation/tests/test_comparison.py services/api/tests/test_comparison_api.py -q` — passed; `uv run ruff check` — passed
+- Self-review: Regressions and improvements are clearly isolated. Access controls restrict private case visibility and prevent notes leaking. Config parameters are correctly linked.
+- Remaining risks: Telemetry requires backend db logs (in-process runner results).
+- Telegram notification: sent
+
+## 2026-07-10T16:00:00+07:00
+
 - Task: TASK-12-05 - Safety and Abstention Metrics
 - Attempt: 1
 - Status: completed

@@ -33,6 +33,14 @@ from .safety_metrics import (
     SafetyMetricsService,
     SafetyMetricSummary,
 )
+from .comparison import (
+    COMPARISON_SERVICE_VERSION,
+    BenchmarkComparisonError,
+    BenchmarkComparisonService,
+    CaseComparison,
+    RunComparisonReport,
+    RunInfo,
+)
 from .schema import (
     EVALUATION_CASE_SCHEMA_VERSION,
     Choice,
@@ -88,6 +96,12 @@ __all__ = [
     "SafetyMetricsError",
     "SafetyMetricsReport",
     "SafetyMetricsService",
+    "COMPARISON_SERVICE_VERSION",
+    "BenchmarkComparisonError",
+    "BenchmarkComparisonService",
+    "CaseComparison",
+    "RunComparisonReport",
+    "RunInfo",
     "STARTER_SET_SEED_VERSION",
     "StarterSetSeedError",
     "StarterSetSeedResult",

@@ -128,7 +128,7 @@
 | TASK-12-04 | Citation Metrics | S | DONE | TASK-12-02 | `12_evaluation/12-04_citation_metrics.md` |
 | TASK-12-05 | Safety and Abstention Metrics | S | DONE | TASK-12-02 | `12_evaluation/12-05_safety_and_abstention_metrics.md` |
 | TASK-12-06 | Create Zayd-IslamicQA-TH Starter Set | S + Human Scholar Review | DONE | TASK-12-01 | `12_evaluation/12-06_create_zayd_islamicqa_th_starter_set.md` |
-| TASK-12-07 | Evaluation Dashboard | A | TODO | TASK-12-03, TASK-12-04, TASK-12-05 | `12_evaluation/12-07_evaluation_dashboard.md` |
+| TASK-12-07 | Evaluation Dashboard | A | DONE | TASK-12-03, TASK-12-04, TASK-12-05 | `12_evaluation/12-07_evaluation_dashboard.md` |
 | TASK-13-01 | Central Logging and Request IDs | A | DONE | EPIC-01 complete | `13_operations/13-01_central_logging_and_request_ids.md` |
 | TASK-13-02 | OpenTelemetry Instrumentation | A | DONE | TASK-13-01 | `13_operations/13-02_opentelemetry_instrumentation.md` |
 | TASK-13-03 | Metrics and Dashboards | A | DONE | TASK-13-02 | `13_operations/13-03_metrics_and_dashboards.md` |
