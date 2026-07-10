@@ -594,3 +594,16 @@
 - Remaining risks: Retrieval adapters must consistently emit source IDs and metadata filters for full production coverage.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-10T22:35:00+07:00
+
+- Task: TASK-12-04 - Citation Metrics
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added deterministic citation correctness/completeness, fabrication, and claim-support metrics with explicit failure classes and traceable human-review overrides.
+- Changed files: citation metrics service/tests, evaluation exports, documentation, and task records.
+- Verification: citation metric tests — 3 passed; focused Ruff and MyPy passed; broader evaluation and citation-verifier regressions passed; `git diff --check` passed.
+- Self-review: Metrics consume deterministic verifier checks and do not re-grade religious claims. Stored aggregates omit reviewer identities and case content. Overrides remain separately traceable.
+- Remaining risks: Override approval UI/policy and quote-accuracy metrics remain outside this task.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending

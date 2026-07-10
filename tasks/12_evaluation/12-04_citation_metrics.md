@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,8 +61,8 @@ Measure citation correctness, completeness, fabricated citation rate and claim s
 
 ## Acceptance Criteria
 
-- [ ] Metrics distinguish nonexistent, wrong-reference, unsupported-claim and incomplete-citation failures.
-- [ ] Human-review overrides are traceable.
+- [x] Metrics distinguish nonexistent, wrong-reference, unsupported-claim and incomplete-citation failures.
+- [x] Human-review overrides are traceable.
 
 ## Required Tests
 
@@ -87,28 +87,28 @@ Measure citation correctness, completeness, fabricated citation rate and claim s
 
 ### Files Changed
 
-- Pending
+- Citation metrics service/package exports/tests, verifier integration tests, documentation, and task records.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_citation_metrics.py -q` — 3 passed; focused Ruff and MyPy passed. Broader evaluation and citation-verifier regressions passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed. Golden fixtures distinguish all required failure classes and hand-calculated rates. The service consumes real `citation-verification-v1` machine output. Valid human overrides retain reviewer/reason/timestamp traceability.
 
 ### Security and License Review
 
-- Pending
+- Requires `evaluations.read`. Stored aggregates/audits omit reviewer identities and case content. Deterministic verifier results remain authoritative; overrides are separately traceable and do not silently change scores.
 
 ### Known Limitations
 
-- Pending
+- Override approval policy and UI remain outside this metrics task. Quote-accuracy metrics are not included in this task objective.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-12-07 Evaluation Dashboard.
 
 ### Commit
 
-- Pending
+- Pending focused commit.
