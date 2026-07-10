@@ -111,12 +111,12 @@
 | TASK-09-05 | Conversation History | A | DONE | TASK-03-01, TASK-09-02 | `09_user_web/09-05_conversation_history.md` |
 | TASK-09-06 | Saved Answers | B | DONE | TASK-09-03 | `09_user_web/09-06_saved_answers.md` |
 | TASK-09-07 | User Feedback Form | B | DONE | TASK-11-01 | `09_user_web/09-07_user_feedback_form.md` |
-| TASK-10-01 | Reviewer Dashboard | A | TODO | EPIC-06 complete | `10_admin_reviewer/10-01_reviewer_dashboard.md` |
-| TASK-10-02 | Document Review Workspace | S | TODO | TASK-06-02, TASK-10-01 | `10_admin_reviewer/10-02_document_review_workspace.md` |
-| TASK-10-03 | Scholar Approval Workspace | A | TODO | TASK-06-03, TASK-10-02 | `10_admin_reviewer/10-03_scholar_approval_workspace.md` |
-| TASK-10-04 | Admin Dashboard | A | TODO | TASK-13-03 | `10_admin_reviewer/10-04_admin_dashboard.md` |
-| TASK-10-05 | Provider and Model Management UI | A | TODO | TASK-08-01, TASK-03-05 | `10_admin_reviewer/10-05_provider_and_model_management_ui.md` |
-| TASK-10-06 | User and Role Management UI | A | TODO | TASK-03-03 | `10_admin_reviewer/10-06_user_and_role_management_ui.md` |
+| TASK-10-01 | Reviewer Dashboard | A | DONE | EPIC-06 complete | `10_admin_reviewer/10-01_reviewer_dashboard.md` |
+| TASK-10-02 | Document Review Workspace | S | DONE | TASK-06-02, TASK-10-01 | `10_admin_reviewer/10-02_document_review_workspace.md` |
+| TASK-10-03 | Scholar Approval Workspace | A | DONE | TASK-06-03, TASK-10-02 | `10_admin_reviewer/10-03_scholar_approval_workspace.md` |
+| TASK-10-04 | Admin Dashboard | A | DONE | TASK-13-03 | `10_admin_reviewer/10-04_admin_dashboard.md` |
+| TASK-10-05 | Provider and Model Management UI | A | DONE | TASK-08-01, TASK-03-05 | `10_admin_reviewer/10-05_provider_and_model_management_ui.md` |
+| TASK-10-06 | User and Role Management UI | A | DONE | TASK-03-03 | `10_admin_reviewer/10-06_user_and_role_management_ui.md` |
 | TASK-11-01 | Feedback API | A | DONE | EPIC-08 complete | `11_feedback/11-01_feedback_api.md` |
 | TASK-11-02 | Feedback Review Queue | A | READY | TASK-11-01 | `11_feedback/11-02_feedback_review_queue.md` |
 | TASK-11-03 | Incident Management | S | TODO | TASK-11-02, TASK-06-05 | `11_feedback/11-03_incident_management.md` |
@@ -129,9 +129,9 @@
 | TASK-12-05 | Safety and Abstention Metrics | S | TODO | TASK-12-02 | `12_evaluation/12-05_safety_and_abstention_metrics.md` |
 | TASK-12-06 | Create Zayd-IslamicQA-TH Starter Set | S + Human Scholar Review | TODO | TASK-12-01 | `12_evaluation/12-06_create_zayd_islamicqa_th_starter_set.md` |
 | TASK-12-07 | Evaluation Dashboard | A | TODO | TASK-12-03, TASK-12-04, TASK-12-05 | `12_evaluation/12-07_evaluation_dashboard.md` |
-| TASK-13-01 | Central Logging and Request IDs | A | TODO | EPIC-01 complete | `13_operations/13-01_central_logging_and_request_ids.md` |
-| TASK-13-02 | OpenTelemetry Instrumentation | A | TODO | TASK-13-01 | `13_operations/13-02_opentelemetry_instrumentation.md` |
-| TASK-13-03 | Metrics and Dashboards | A | TODO | TASK-13-02 | `13_operations/13-03_metrics_and_dashboards.md` |
+| TASK-13-01 | Central Logging and Request IDs | A | DONE | EPIC-01 complete | `13_operations/13-01_central_logging_and_request_ids.md` |
+| TASK-13-02 | OpenTelemetry Instrumentation | A | DONE | TASK-13-01 | `13_operations/13-02_opentelemetry_instrumentation.md` |
+| TASK-13-03 | Metrics and Dashboards | A | DONE | TASK-13-02 | `13_operations/13-03_metrics_and_dashboards.md` |
 | TASK-13-04 | Security Hardening | S | TODO | All core MVP epics | `13_operations/13-04_security_hardening.md` |
 | TASK-13-05 | CI Pipeline | A | TODO | EPIC-01 complete | `13_operations/13-05_ci_pipeline.md` |
 | TASK-13-06 | Software Bill of Materials | B | TODO | TASK-13-05 | `13_operations/13-06_software_bill_of_materials.md` |

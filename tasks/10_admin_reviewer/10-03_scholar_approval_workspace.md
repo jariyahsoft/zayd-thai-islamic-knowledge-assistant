@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,8 +62,8 @@ Create senior-scholar view of review history, source/license status, conflicts, 
 
 ## Acceptance Criteria
 
-- [ ] Required evidence and license information is visible before approval.
-- [ ] Self-approval restrictions are enforced server-side and reflected in UI.
+- [x] Required evidence and license information is visible before approval.
+- [x] Self-approval restrictions are enforced server-side and reflected in UI.
 
 ## Required Tests
 
@@ -89,27 +89,50 @@ Create senior-scholar view of review history, source/license status, conflicts, 
 
 ### Files Changed
 
-- Pending
+- `apps/reviewer/app/approvals/[reviewTaskId]/page.tsx` — added route entry for the scholar approval workspace.
+- `apps/reviewer/app/approvals/[reviewTaskId]/workspace.tsx` — added the senior-scholar workspace with evidence preview, source/license visibility, madhhab/conflict metadata, approval matrix, approval creation, revocation, and history panels.
+- `apps/reviewer/app/approvals/[reviewTaskId]/workspace.test.ts` — added source-level UI checks for evidence/license sections, self-approval denial messaging, revoke flow hooks, and responsive styling hooks.
+- `apps/reviewer/app/reviewer-data.ts` — extended typed reviewer client support for approval requirements/history, approval create/revoke, public source detail, admin license detail, and license policy decision endpoints; also added scholar-workspace draft metadata fields.
+- `apps/reviewer/app/globals.css` — added responsive scholar approval workspace styling.
+- `apps/reviewer/app/smoke.test.ts` — extended route smoke coverage for the scholar approval page.
+- `services/common/src/zayd_common/document_review.py` — enriched review drafts with document/source/license identity fields plus revision history required by the scholar workspace.
+- `services/common/src/zayd_common/scholar_approval.py` — added approval-history listing for one document version.
+- `services/api/src/zayd_service_api/app.py` — extended review draft response payload and added `GET /documents/{document_version_id}/approvals`.
+- `services/api/tests/test_document_review_api.py` — added contract coverage for enriched review drafts, approval-history endpoint, and updated OpenAPI assertions.
+- `docs/user/scholar-approval.md` — documented scholar approval workflow, access boundaries, evidence/license visibility, and current limitations.
+- `tasks/00_task_index.md` — updated TASK-10-03 to `DONE`.
+- `tasks-update.md` — recorded implementation, verification, review notes, residual risks, and notification status.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/api/tests/test_document_review_api.py -q` — 19 passed.
+- `uv run ruff check services/common/src/zayd_common/document_review.py services/common/src/zayd_common/scholar_approval.py services/api/src/zayd_service_api/app.py services/api/tests/test_document_review_api.py` — passed.
+- `uv run mypy services/common/src/zayd_common/document_review.py services/common/src/zayd_common/scholar_approval.py services/api/src/zayd_service_api/app.py --ignore-missing-imports` — passed.
+- `git diff --check` — passed.
+- Frontend `@zayd/reviewer` test/typecheck/build commands were not executable in this environment because `node`, `pnpm`, and `corepack` are unavailable.
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Required evidence and license information is visible before approval. The workspace now loads review draft identity fields, source detail, admin license detail, license policy decision, revision summary, and approval history before approval actions are shown.
+- [x] Self-approval restrictions are enforced server-side and reflected in UI. Approval creation continues to depend on TASK-06-03 service-side checks, and the workspace surfaces `SCHOLAR_APPROVAL_SELF_APPROVAL_DENIED` as explicit user feedback.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, restricted religious content, or third-party code were introduced.
+- Server-side RBAC and MFA remain authoritative. The workspace consumes existing protected APIs and does not attempt client-side authorization bypasses.
+- License visibility uses existing `licenses.read`-protected admin endpoints already granted to `reviewer`, `senior_scholar`, and `admin` roles in repository RBAC.
+- The UI exposes metadata, policy reason codes, and approval history only; it does not reveal signed URLs, raw object contents beyond review text, provider secrets, or internal traces.
 
 ### Known Limitations
 
-- Pending
+- Reviewer frontend runtime/build verification still needs a Node-enabled environment.
+- The scholar workspace composes several existing APIs rather than using a dedicated aggregate endpoint, so it issues multiple requests per load.
+- Approval history currently reflects approval records only; review comments and revision summaries remain read-only draft data rather than a unified timeline component.
 
 ### Follow-up Tasks
 
-- Pending
+- Future reviewer-app work can consolidate source/license/approval data behind a dedicated scholar aggregate endpoint if request volume becomes a concern.
+- TASK-06-04/TASK-06-05 continue to own publish/suspend/archive lifecycle enforcement after approvals are complete.
 
 ### Commit
 

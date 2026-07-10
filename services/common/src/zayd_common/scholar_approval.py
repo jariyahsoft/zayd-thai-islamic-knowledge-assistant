@@ -91,6 +91,12 @@ class ApprovalPublic:
     created_at: datetime
 
 
+@dataclass(frozen=True)
+class ApprovalListResult:
+    document_version_id: UUID
+    approvals: list[ApprovalPublic]
+
+
 class ScholarApprovalService:
     """Manages senior-scholar and board approvals for document versions."""
 
@@ -127,6 +133,32 @@ class ScholarApprovalService:
                 satisfied_levels=satisfied,
                 missing_levels=missing,
                 ready_for_publish=not missing,
+            )
+
+    def list_approvals(
+        self,
+        *,
+        document_version_id: UUID,
+    ) -> ApprovalListResult:
+        """Return recorded approvals for one document version."""
+        with self.uow:
+            session = self._session()
+            version = session.get(DocumentVersion, document_version_id)
+            if version is None:
+                raise ScholarApprovalError(
+                    "SCHOLAR_APPROVAL_VERSION_NOT_FOUND",
+                    "Document version not found.",
+                    status_code=404,
+                )
+            approvals = session.execute(
+                select(ReviewApproval)
+                .where(ReviewApproval.document_version_id == document_version_id)
+                .order_by(ReviewApproval.created_at.desc(), ReviewApproval.id.desc())
+            ).scalars().all()
+            self.uow.commit()
+            return ApprovalListResult(
+                document_version_id=document_version_id,
+                approvals=[_approval_public(approval) for approval in approvals],
             )
 
     def approve(

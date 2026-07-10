@@ -22,6 +22,7 @@ from zayd_common.database.models import (
     User,
 )
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+from zayd_common.telemetry import telemetry_registry
 from zayd_service_retrieval.hybrid_search import (
     HYBRID_RETRIEVER_VERSION,
     HybridSearchError,
@@ -229,6 +230,7 @@ def _seed_hybrid_data(session_factory: Any) -> dict[str, UUID]:
 
 
 def test_hybrid_search_records_scores_and_trace(db: Any) -> None:
+    telemetry_registry.reset()
     ids = _seed_hybrid_data(db)
     service = HybridSearchService(SQLAlchemyUnitOfWork(db))
 
@@ -265,6 +267,14 @@ def test_hybrid_search_records_scores_and_trace(db: Any) -> None:
         assert len(stored_results) == len(response.results)
         assert stored_results[0].score_exact == response.results[0].score_exact
         assert stored_results[0].metadata_json["hybrid_weights_version"] == "weights-test"
+    assert any(
+        span.name == "retrieval.hybrid_search"
+        and span.attributes.get("trace_id") == "trace-hybrid-1"
+        for span in telemetry_registry.spans()
+    )
+    exported = telemetry_registry.export_prometheus_text()
+    assert "retrieval_latency_ms" in exported
+    assert "local_rag_hit_total" in exported
 
 
 def test_hybrid_search_weight_configuration_changes_ranking(db: Any) -> None:

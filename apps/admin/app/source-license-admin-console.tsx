@@ -69,7 +69,7 @@ type DerivedState = {
   readonly permissionDocumentKey: string | null;
 };
 
-export function AdminConsole(props: {
+export function SourceLicenseAdminConsole(props: {
   readonly apiBaseUrl: string;
 }): ReactElement {
   const [token, setToken] = useState("");

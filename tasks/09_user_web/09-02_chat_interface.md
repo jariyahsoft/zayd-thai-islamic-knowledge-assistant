@@ -90,6 +90,7 @@ Build thread creation, message list, streaming progress, answer display, retry a
 
 ### Files Changed
 
+- `.gitignore` (allow `packages/config/src/env/` despite Python `env/` rule)
 - `packages/config/src/env/public.ts` (new — restores missing public env helper referenced by apps)
 - `apps/web/app/chat/page.tsx`
 - `apps/web/app/chat/chat-interface.tsx` (new)

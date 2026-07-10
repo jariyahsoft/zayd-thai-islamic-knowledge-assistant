@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -89,27 +89,53 @@ Create user search, role assignment/revocation, account disable and session revo
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/user_admin.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/tests/test_user_admin.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_auth_api.py`
+- `services/api/tests/test_rbac_api.py`
+- `apps/admin/app/admin-data.ts`
+- `apps/admin/app/user-admin-ui.ts`
+- `apps/admin/app/user-role-admin-console.tsx`
+- `apps/admin/app/workspace.tsx`
+- `apps/admin/app/page.tsx`
+- `apps/admin/app/smoke.test.ts`
+- `docs/user/user-role-admin.md`
+- `tasks/10_admin_reviewer/10-06_user_and_role_management_ui.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py -q`
+- `uv run ruff check services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/common/src/zayd_common/__init__.py services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/src/zayd_service_api/app.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py`
+- `uv run mypy services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/api/src/zayd_service_api/app.py --ignore-missing-imports`
+- `git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Cannot accidentally remove the final active admin without guarded recovery.
+- [x] Role changes require permission and audit trail.
+- [x] Disabled users lose active sessions.
 
 ### Security and License Review
 
-- Pending
+- User-management changes remain RBAC-protected and MFA-gated through existing privileged dependencies.
+- Account disablement now revokes active sessions and refresh tokens immediately.
+- Final-admin protection remains enforced both in existing RBAC role revoke logic and the new account-status service.
+- No secrets, production data, or restricted religious content were added.
 
 ### Known Limitations
 
-- Pending
+- Admin user search is currently query/status/role filter only; pagination is not yet implemented.
+- Frontend test/typecheck/build for `apps/admin` could not run in this environment because `node` is unavailable.
+- Role grant and revoke still use free-text role names rather than a fetched role catalog.
 
 ### Follow-up Tasks
 
-- Pending
+- Consider exposing a read-only role catalog endpoint for stricter admin UI validation.
+- Add pagination or cursor support if admin user volume grows beyond the current simple list view.
 
 ### Commit
 

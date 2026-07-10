@@ -4,6 +4,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
+from uuid import uuid4
 
 from fastapi import FastAPI
 from sqlalchemy import create_engine, select
@@ -121,9 +122,145 @@ def test_document_approval_endpoint_enforces_separation_of_duties(monkeypatch) -
     assert response["json"]["error"]["code"] == "RBAC_SEPARATION_OF_DUTIES"
 
 
+def test_admin_can_manage_provider_and_model_routes(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    admin = auth_service.register(
+        email="provider-admin@example.com",
+        password="very-strong-password",
+        display_name="Provider Admin",
+    )
+    _grant_role_directly(session_factory, admin.user.id, "admin")
+    _enroll_mfa(session_factory, admin.user.id)
+
+    provider_response = _request(
+        app,
+        "POST",
+        "/admin/providers",
+        json_body={
+            "name": "OpenAI Compatible",
+            "provider_type": "llm",
+            "status": "enabled",
+            "base_url": "https://api.example.com",
+            "secret_ref": "vault://providers/openai",
+            "terms_url": "https://example.com/terms",
+            "data_policy_json": {"classification": "restricted"},
+        },
+        headers={"authorization": f"Bearer {admin.tokens.access_token}"},
+    )
+
+    assert provider_response["status"] == 201
+    provider_id = provider_response["json"]["id"]
+    assert provider_response["json"]["secret_mask"] == "configured"
+
+    model_response = _request(
+        app,
+        "POST",
+        "/admin/models",
+        json_body={
+            "provider_id": provider_id,
+            "model_name": "gpt-4o-mini",
+            "model_type": "llm",
+            "configuration": {"temperature": 0},
+            "allow_listed": True,
+            "fallback_model_id": None,
+            "cost_limit_daily_usd": 2.5,
+            "is_default": True,
+            "status": "enabled",
+        },
+        headers={"authorization": f"Bearer {admin.tokens.access_token}"},
+    )
+
+    assert model_response["status"] == 201
+    assert model_response["json"]["is_default"] is True
+
+    connection_response = _request(
+        app,
+        "POST",
+        f"/admin/providers/{provider_id}/test-connection",
+        json_body={},
+        headers={
+            "authorization": f"Bearer {admin.tokens.access_token}",
+            "x-request-id": "trace-provider-test",
+        },
+    )
+
+    assert connection_response["status"] == 200
+    assert connection_response["json"]["status"] in {"ok", "degraded"}
+    with session_factory() as session:
+        logs = session.execute(select(AuditLog)).scalars().all()
+        assert any(
+            log.action == "providers.connection_test"
+            and log.trace_id == "trace-provider-test"
+            for log in logs
+        )
+
+
+def test_admin_user_status_disable_revokes_sessions_and_last_admin_is_guarded(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    admin = auth_service.register(
+        email="root@example.com",
+        password="very-strong-password",
+        display_name="Root",
+    )
+    member = auth_service.register(
+        email="member@example.com",
+        password="very-strong-password",
+        display_name="Member",
+    )
+    auth_service.login(email="member@example.com", password="very-strong-password")
+    _grant_role_directly(session_factory, admin.user.id, "admin")
+    _enroll_mfa(session_factory, admin.user.id)
+
+    guarded = _request(
+        app,
+        "PATCH",
+        f"/admin/users/{admin.user.id}/status",
+        json_body={"status": "disabled"},
+        headers={"authorization": f"Bearer {admin.tokens.access_token}"},
+    )
+
+    assert guarded["status"] == 409
+    assert guarded["json"]["error"]["code"] == "USER_ADMIN_LAST_ADMIN"
+
+    disabled = _request(
+        app,
+        "PATCH",
+        f"/admin/users/{member.user.id}/status",
+        json_body={"status": "disabled"},
+        headers={
+            "authorization": f"Bearer {admin.tokens.access_token}",
+            "x-request-id": "trace-user-disable",
+        },
+    )
+
+    assert disabled["status"] == 200
+    assert disabled["json"]["user"]["status"] == "disabled"
+    assert disabled["json"]["user"]["active_session_count"] == 0
+
+    sessions = _request(
+        app,
+        "POST",
+        f"/admin/users/{member.user.id}/sessions/revoke",
+        json_body={},
+        headers={"authorization": f"Bearer {admin.tokens.access_token}"},
+    )
+
+    assert sessions["status"] == 200
+    assert sessions["json"]["revoked_sessions"] == 0
+    with session_factory() as session:
+        logs = session.execute(select(AuditLog)).scalars().all()
+        assert any(
+            log.action == "users.status.update"
+            and log.trace_id == "trace-user-disable"
+            for log in logs
+        )
+
+
 def _app(monkeypatch) -> tuple[FastAPI, sessionmaker[Session]]:
     engine = create_engine(
-        "sqlite:///file:zayd_rbac_api_tests?mode=memory&cache=shared&uri=true",
+        f"sqlite:///file:zayd_rbac_api_tests_{uuid4()}?mode=memory&cache=shared&uri=true",
         connect_args={"check_same_thread": False},
     )
     Base.metadata.create_all(engine)

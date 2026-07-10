@@ -1,0 +1,78 @@
+{
+  "title": "Zayd Operations Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "title": "API Latency",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "api_request_latency_ms_sum"
+        }
+      ],
+      "description": "Runbook: docs/operations/metrics.md"
+    },
+    {
+      "title": "Error Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "api_request_total{status=\"error\"}"
+        }
+      ],
+      "description": "Runbook: docs/operations/metrics.md"
+    },
+    {
+      "title": "Queue Depth",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "queue_depth"
+        }
+      ],
+      "description": "Runbook: docs/operations/metrics.md"
+    },
+    {
+      "title": "Provider Health Checks",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "provider_health_total{status=\"ok\"}"
+        }
+      ],
+      "description": "Runbook: docs/operations/tracing.md"
+    },
+    {
+      "title": "Citation Verification Failures",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "citation_verification_total{status!=\"verified\"}"
+        }
+      ],
+      "description": "Runbook: docs/operations/metrics.md"
+    },
+    {
+      "title": "External Fallback Attempts",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "external_fallback_total{status=\"attempted\"}"
+        }
+      ],
+      "description": "Runbook: docs/operations/tracing.md"
+    },
+    {
+      "title": "Token Usage",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "provider_tokens_total_sum"
+        }
+      ],
+      "description": "Runbook: docs/operations/logging.md"
+    }
+  ]
+}

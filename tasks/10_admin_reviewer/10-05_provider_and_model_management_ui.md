@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -90,27 +90,54 @@ Build provider/model configuration, primary/fallback selection, test-connection,
 
 ### Files Changed
 
-- Pending
+- `services/common/src/zayd_common/provider_admin.py`
+- `services/common/src/zayd_common/__init__.py`
+- `services/common/tests/test_provider_admin.py`
+- `services/api/src/zayd_service_api/app.py`
+- `services/api/tests/test_auth_api.py`
+- `services/api/tests/test_rbac_api.py`
+- `apps/admin/app/admin-data.ts`
+- `apps/admin/app/provider-model-ui.ts`
+- `apps/admin/app/provider-model-console.tsx`
+- `apps/admin/app/workspace.tsx`
+- `apps/admin/app/page.tsx`
+- `apps/admin/app/source-license-admin-console.tsx`
+- `apps/admin/app/smoke.test.ts`
+- `docs/user/provider-management.md`
+- `tasks/10_admin_reviewer/10-05_provider_and_model_management_ui.md`
+- `tasks/00_task_index.md`
+- `tasks-update.md`
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py -q`
+- `uv run ruff check services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/common/src/zayd_common/__init__.py services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/src/zayd_service_api/app.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py`
+- `uv run mypy services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/api/src/zayd_service_api/app.py --ignore-missing-imports`
+- `git diff --check`
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Secrets are write-only/masked.
+- [x] Connection tests are rate limited and audited.
+- [x] Disabling a provider shows impact and fallback readiness.
 
 ### Security and License Review
 
-- Pending
+- Provider secret references remain write-only and are never returned in API/UI responses.
+- Provider/model mutations and connection tests emit immutable audit events.
+- RBAC remains server authoritative on all new provider/model routes.
+- No third-party code, production secrets, or restricted religious content were added.
 
 ### Known Limitations
 
-- Pending
+- Connection tests currently validate stored metadata and readiness rather than making live vendor calls.
+- Frontend test/typecheck/build for `apps/admin` could not run in this environment because `node` is unavailable.
+- Model routing state is stored in `configuration_json` until a dedicated schema task formalizes richer model-governance fields.
 
 ### Follow-up Tasks
 
-- Pending
+- Consider a dedicated backend health adapter for real outbound provider probes once provider plugins are available.
+- A future admin dashboard task can consume the new provider and model inventory data.
 
 ### Commit
 

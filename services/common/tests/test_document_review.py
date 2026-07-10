@@ -7,7 +7,6 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-
 from zayd_common.database.models import (
     AuditLog,
     Base,
@@ -246,7 +245,7 @@ def test_request_changes_decision_follows_state_machine(db, reviewer_id):
     with db() as session:
         record = session.execute(select(ReviewDecisionRecord)).scalar_one()
         task = session.get(ReviewTask, task_id)
-        doc = session.get(Document, record.document_version_id)  # wrong lookup intentionally avoided below
+        doc = session.get(Document, record.document_version_id)
         logs = session.execute(
             select(AuditLog).where(AuditLog.action == "document_review.decision.request_changes")
         ).scalars().all()

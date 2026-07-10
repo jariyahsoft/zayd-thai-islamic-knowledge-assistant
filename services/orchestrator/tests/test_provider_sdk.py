@@ -1,4 +1,5 @@
 import pytest
+from zayd_common.telemetry import telemetry_registry
 from zayd_service_orchestrator.provider_sdk import (
     AllowListedProviderRegistry,
     EmbeddingRequest,
@@ -36,6 +37,12 @@ async def test_mock_llm_is_deterministic_and_supports_streaming() -> None:
     assert first.usage.total_tokens > 0
     assert streamed
     assert first.trace["trace_id"] == "trace-123"
+
+
+def test_registry_metrics_can_be_exported() -> None:
+    telemetry_registry.record_counter("provider_health_total", provider="mock")
+    exported = telemetry_registry.export_prometheus_text()
+    assert "provider_health_total" in exported
 
 
 @pytest.mark.asyncio

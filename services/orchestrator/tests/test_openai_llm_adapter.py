@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import pytest
 import respx
+from zayd_common.telemetry import telemetry_registry
 from zayd_service_orchestrator.openai_llm_adapter import OpenAICompatibleLLMAdapter
 from zayd_service_orchestrator.provider_sdk import (
     LLMMessage,
@@ -46,6 +47,7 @@ def mock_openai_response(
 @respx.mock
 async def test_openai_adapter_generate_success() -> None:
     """Test successful generation with OpenAI adapter."""
+    telemetry_registry.reset()
     adapter = OpenAICompatibleLLMAdapter(
         provider_name="openai-test",
         base_url="https://api.openai.com/v1",
@@ -69,12 +71,16 @@ async def test_openai_adapter_generate_success() -> None:
     assert response.usage.total_tokens == 15
     assert response.provider.kind == "llm"
     assert response.trace["trace_id"] == "trace-123"
+    exported = telemetry_registry.export_prometheus_text()
+    assert "provider_generate_total" in exported
+    assert 'status="ok"' in exported
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_openai_adapter_streaming() -> None:
     """Test streaming with OpenAI adapter."""
+    telemetry_registry.reset()
     adapter = OpenAICompatibleLLMAdapter(
         provider_name="openai-test",
         base_url="https://api.openai.com/v1",
@@ -131,6 +137,7 @@ async def test_openai_adapter_json_response_format() -> None:
 @respx.mock
 async def test_openai_adapter_retry_on_500() -> None:
     """Test retry logic on 5xx errors."""
+    telemetry_registry.reset()
     adapter = OpenAICompatibleLLMAdapter(
         provider_name="openai-test",
         base_url="https://api.openai.com/v1",
@@ -159,6 +166,7 @@ async def test_openai_adapter_retry_on_500() -> None:
 @respx.mock
 async def test_openai_adapter_no_retry_on_400() -> None:
     """Test no retry on 4xx errors."""
+    telemetry_registry.reset()
     adapter = OpenAICompatibleLLMAdapter(
         provider_name="openai-test",
         base_url="https://api.openai.com/v1",
@@ -178,6 +186,9 @@ async def test_openai_adapter_no_retry_on_400() -> None:
 
     assert exc_info.value.code == "PROVIDER_RESPONSE_INVALID"
     assert mock_route.call_count == 1
+    exported = telemetry_registry.export_prometheus_text()
+    assert "provider_generate_total" in exported
+    assert 'status="http_error"' in exported
 
 
 @pytest.mark.asyncio
@@ -377,3 +388,31 @@ async def test_openai_adapter_masks_api_key_in_errors() -> None:
 
     error_message = str(exc_info.value)
     assert "sk-secret-key-12345" not in error_message
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_openai_adapter_records_provider_span() -> None:
+    adapter = OpenAICompatibleLLMAdapter(
+        provider_name="openai-test",
+        base_url="https://api.openai.com/v1",
+        api_key="test-key",
+    )
+
+    respx.post("https://api.openai.com/v1/chat/completions").mock(
+        return_value=httpx.Response(200, json=mock_openai_response())
+    )
+
+    await adapter.generate(
+        LLMRequest(
+            messages=(LLMMessage(role="user", content="Explain prayer"),),
+            trace_id="trace-provider-span",
+        )
+    )
+
+    spans = telemetry_registry.spans()
+    assert any(
+        span.name == "provider.generate"
+        and span.attributes.get("provider_name") == "openai-test"
+        for span in spans
+    )

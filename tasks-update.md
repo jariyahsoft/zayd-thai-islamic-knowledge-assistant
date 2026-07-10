@@ -1,3 +1,143 @@
+## 2026-07-10T15:24:44+07:00
+
+- Task: TASK-13-01 - Central Logging and Request IDs
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added structured JSON logging with secret redaction, normalized request/trace ID propagation at the API boundary, worker lifecycle request context, and logging safety guards so sink failures do not break requests.
+- Changed files: `services/common/src/zayd_common/logging.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/worker/src/zayd_service_worker/main.py`, `services/orchestrator/src/zayd_service_orchestrator/service.py`, `services/common/tests/test_logging.py`, `services/api/tests/test_logging_api.py`, `services/worker/tests/test_worker_imports.py`, `docs/operations/logging.md`, `tasks/13_operations/13-01_central_logging_and_request_ids.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_logging.py services/api/tests/test_logging_api.py services/worker/tests/test_worker_imports.py -q` — passed; `uv run mypy services/common/src/zayd_common/logging.py services/common/src/zayd_common/__init__.py services/api/src/zayd_service_api/app.py services/worker/src/zayd_service_worker/main.py services/orchestrator/src/zayd_service_orchestrator/service.py --ignore-missing-imports` — passed; `uv run ruff check services/api/src/zayd_service_api/app.py services/common/src/zayd_common/logging.py services/common/src/zayd_common/__init__.py services/worker/src/zayd_service_worker/main.py services/common/tests/test_logging.py services/api/tests/test_logging_api.py services/worker/tests/test_worker_imports.py` — passed; `git diff --check` — passed
+- Self-review: Request correlation is now explicit and sanitized across API and worker logs. Tokens, passwords, provider keys, cookies, signed URLs, and prompt-like fields are redacted before serialization. Logging write failures are absorbed by the custom handler.
+- Remaining risks: Web frontend runtime logging remains outside this Python-service task boundary. Cross-service propagation still relies on explicit forwarding rather than a distributed collector.
+- Telegram notification: disabled (invocation credentials were not available as shell environment variables in this run, and credentials from user text were not embedded into commands or persisted).
+- Commit: Pending
+
+## 2026-07-10T15:24:44+07:00
+
+- Task: TASK-13-02 - OpenTelemetry Instrumentation
+- Attempt: 2
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added lightweight in-process span instrumentation and low-cardinality metrics across API requests, orchestration, retrieval, provider calls, and worker lifecycle, plus deterministic configurable sampling and telemetry sanitization.
+- Changed files: `services/common/src/zayd_common/telemetry.py`, `services/common/src/zayd_common/__init__.py`, `services/api/src/zayd_service_api/app.py`, `services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py`, `services/orchestrator/src/zayd_service_orchestrator/openai_llm_adapter.py`, `services/retrieval/src/zayd_service_retrieval/hybrid_search.py`, `services/worker/src/zayd_service_worker/main.py`, `services/common/tests/test_telemetry.py`, `services/orchestrator/tests/test_openai_llm_adapter.py`, `services/orchestrator/tests/test_provider_sdk.py`, `services/retrieval/tests/test_hybrid_search.py`, `docs/operations/tracing.md`, `tasks/13_operations/13-02_opentelemetry_instrumentation.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_telemetry.py services/orchestrator/tests/test_openai_llm_adapter.py services/orchestrator/tests/test_provider_sdk.py services/retrieval/tests/test_hybrid_search.py -q` — passed; `uv run mypy services/common/src/zayd_common/telemetry.py services/common/src/zayd_common/__init__.py services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/openai_llm_adapter.py services/retrieval/src/zayd_service_retrieval/hybrid_search.py services/worker/src/zayd_service_worker/main.py services/api/src/zayd_service_api/app.py --ignore-missing-imports` — passed; `uv run ruff check services/common/src/zayd_common/telemetry.py services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/openai_llm_adapter.py services/retrieval/src/zayd_service_retrieval/hybrid_search.py services/worker/src/zayd_service_worker/main.py services/api/src/zayd_service_api/app.py services/common/tests/test_telemetry.py services/orchestrator/tests/test_openai_llm_adapter.py services/orchestrator/tests/test_provider_sdk.py services/retrieval/tests/test_hybrid_search.py` — passed; `git diff --check` — passed
+- Self-review: Telemetry remains low-cardinality and strips prompt, message, token, secret, and document-body attributes before recording. Sampling is deterministic and trace/request based. Async chat/orchestration flows now preserve trace context into instrumented spans.
+- Remaining risks: This is repository-stage instrumentation, not a full external collector/exporter. Fine-grained SQL tracing is not yet present.
+- Telegram notification: disabled (invocation credentials were not available as shell environment variables in this run, and credentials from user text were not embedded into commands or persisted).
+- Commit: Pending
+
+## 2026-07-10T15:24:44+07:00
+
+- Task: TASK-13-03 - Metrics and Dashboards
+- Attempt: 3
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added `/metrics` operational snapshot and Prometheus-style export, aggregated latency/error/fallback/RAG/citation/provider/cost summaries, and baseline Prometheus/Grafana monitoring assets with runbook-linked panels.
+- Changed files: `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_metrics_api.py`, `services/api/tests/test_logging_api.py`, `services/common/src/zayd_common/telemetry.py`, `docs/operations/metrics.md`, `infra/monitoring/README.md`, `infra/monitoring/prometheus.yml`, `infra/monitoring/grafana-dashboard.json`, `tasks/13_operations/13-03_metrics_and_dashboards.md`, `tasks/10_admin_reviewer/10-04_admin_dashboard.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/api/tests/test_metrics_api.py services/common/tests/test_telemetry.py services/common/tests/test_logging.py services/api/tests/test_logging_api.py services/worker/tests/test_worker_imports.py services/orchestrator/tests/test_openai_llm_adapter.py services/orchestrator/tests/test_provider_sdk.py services/retrieval/tests/test_hybrid_search.py -q` — passed; `uv run mypy services/api/src/zayd_service_api/app.py services/common/src/zayd_common/logging.py services/common/src/zayd_common/telemetry.py services/common/src/zayd_common/__init__.py services/worker/src/zayd_service_worker/main.py services/orchestrator/src/zayd_service_orchestrator/service.py services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/openai_llm_adapter.py services/retrieval/src/zayd_service_retrieval/hybrid_search.py --ignore-missing-imports` — passed; `uv run ruff check services/api/src/zayd_service_api/app.py services/api/tests/test_metrics_api.py services/common/src/zayd_common/logging.py services/common/src/zayd_common/telemetry.py services/common/src/zayd_common/__init__.py services/worker/src/zayd_service_worker/main.py services/orchestrator/src/zayd_service_orchestrator/service.py services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/openai_llm_adapter.py services/retrieval/src/zayd_service_retrieval/hybrid_search.py services/common/tests/test_logging.py services/common/tests/test_telemetry.py services/api/tests/test_logging_api.py services/api/tests/test_metrics_api.py services/worker/tests/test_worker_imports.py services/orchestrator/tests/test_openai_llm_adapter.py services/orchestrator/tests/test_provider_sdk.py services/retrieval/tests/test_hybrid_search.py` — passed; `git diff --check` — passed
+- Self-review: Metrics expose only aggregate low-cardinality signals and avoid raw conversation/document data. Dashboard scaffolding now covers API health, latency, errors, queue depth, provider health, fallback, citation failures, and token usage. TASK-10-04 is now unblocked and moved to `READY`.
+- Remaining risks: `/metrics` currently returns JSON plus embedded Prometheus text rather than a dedicated scrape-only payload. Queue age remains an approximation from in-process lifecycle spans. Cost reporting is configuration- and trace-based, not billing reconciliation.
+- Telegram notification: disabled (invocation credentials were not available as shell environment variables in this run, and credentials from user text were not embedded into commands or persisted).
+- Commit: Pending
+
+## 2026-07-10T06:00:00+07:00
+
+- Task: TASK-13-03 - Metrics and Dashboards
+- Attempt: 2
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Did not implement metrics and dashboards in this range run because prerequisite `TASK-13-02` remained incomplete after it was blocked by out-of-range dependency `TASK-13-01`.
+- Changed files: `tasks/13_operations/13-02_opentelemetry_instrumentation.md`, `tasks/13_operations/13-03_metrics_and_dashboards.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Dependency review only; no code or test commands executed because the prerequisite task in this range could not start.
+- Self-review: This preserves dependency order inside the requested range and avoids inventing metrics, alerts, or dashboards before the underlying logging and tracing prerequisites exist.
+- Remaining risks: `TASK-13-03` remains blocked until `TASK-13-01` is completed first and `TASK-13-02` can then be implemented successfully.
+- Telegram notification: disabled (invocation credentials were not available as shell environment variables in this run, and credentials from user text were not embedded into commands or persisted).
+- Commit: None
+
+## 2026-07-10T05:59:00+07:00
+
+- Task: TASK-13-02 - OpenTelemetry Instrumentation
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Did not implement OpenTelemetry instrumentation because required dependency `TASK-13-01` remains incomplete and is outside the requested task range.
+- Changed files: `tasks/13_operations/13-02_opentelemetry_instrumentation.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Dependency review only; no code or test commands executed because implementation is blocked by unmet out-of-range prerequisite.
+- Self-review: This follows the task-runner range contract and avoids adding partial tracing behavior before structured logging and request/trace propagation are established.
+- Remaining risks: `TASK-13-02` remains blocked until `TASK-13-01` is complete.
+- Telegram notification: disabled (invocation credentials were not available as shell environment variables in this run, and credentials from user text were not embedded into commands or persisted).
+- Commit: None
+
+## 2026-07-10T05:53:18+07:00
+
+- Task: TASK-13-03 - Metrics and Dashboards
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Did not implement metrics and dashboards because prerequisite `TASK-13-02` remains incomplete and is outside the requested single-task run. The task was marked `BLOCKED` rather than building observability surfaces without the required instrumentation layer.
+- Changed files: `tasks/13_operations/13-03_metrics_and_dashboards.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Dependency review only; no code or test commands executed because implementation is blocked by unmet prerequisite.
+- Self-review: This preserves the task-runner dependency contract and avoids inventing latency, error, queue, cost, or provider-health metrics before trace propagation and instrumentation are implemented.
+- Remaining risks: `TASK-13-03` remains blocked until `TASK-13-02` is complete and exposes the instrumentation needed for safe low-cardinality metrics and dashboards.
+- Telegram notification: disabled (required invocation environment variables are unavailable in this shell, and credentials from user text were not persisted or embedded into commands).
+- Commit: None
+
+## 2026-07-10T00:05:00+07:00
+
+- Task: TASK-10-04 - Admin Dashboard
+- Attempt: 1
+- Status: blocked
+- Recommended model: Tier A
+- Summary: Did not implement the admin dashboard because its required dependency `TASK-13-03` is outside the requested range and remains incomplete. The task was marked `BLOCKED` rather than building speculative telemetry surfaces without the operations/metrics foundation.
+- Changed files: `tasks/10_admin_reviewer/10-04_admin_dashboard.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Dependency review only; no code or test commands executed because implementation is blocked by unmet prerequisite.
+- Self-review: This preserves the range runner contract and avoids inventing unsupported system/provider health, queue-depth, RAG hit-rate, cost, or incident metrics outside the completed architecture.
+- Remaining risks: `TASK-10-04` remains blocked until `TASK-13-03` is complete and exposes stable metrics/dashboard data for the admin UI.
+- Telegram notification: STARTED sent; BLOCKED notification pending send at end of this task.
+- Commit: None
+
+## 2026-07-10T02:20:00+07:00
+
+- Task: TASK-10-05 - Provider and Model Management UI
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added admin provider/model management APIs and services with write-only secret references, audited/rate-limited provider connection tests, fallback-readiness impact analysis for provider disablement, and a new admin workspace section for provider and model routing operations.
+- Changed files: `services/common/src/zayd_common/provider_admin.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_provider_admin.py`, `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_auth_api.py`, `services/api/tests/test_rbac_api.py`, `apps/admin/app/admin-data.ts`, `apps/admin/app/provider-model-ui.ts`, `apps/admin/app/provider-model-console.tsx`, `apps/admin/app/workspace.tsx`, `apps/admin/app/page.tsx`, `apps/admin/app/source-license-admin-console.tsx`, `apps/admin/app/smoke.test.ts`, `docs/user/provider-management.md`, `tasks/10_admin_reviewer/10-05_provider_and_model_management_ui.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py -q` — 14 passed; `uv run ruff check services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/common/src/zayd_common/__init__.py services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/src/zayd_service_api/app.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py` — success; `uv run mypy services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/api/src/zayd_service_api/app.py --ignore-missing-imports` — success; `git diff --check` — success
+- Self-review: Secret references are never returned after save, connection-test attempts are bounded with persistent rate-limit state and immutable audit events, and provider disablement now exposes per-model-type fallback readiness instead of allowing opaque breakage. Default route updates still fail closed when no enabled replacement exists.
+- Remaining risks: Connection tests currently validate stored readiness metadata instead of performing live vendor handshakes. Admin frontend runtime/build validation still requires a Node-enabled environment because `node` is unavailable here.
+- Telegram notification: disabled (required invocation environment variables are unavailable in this shell; no credentials were persisted).
+- Commit: Pending
+
+## 2026-07-10T02:25:00+07:00
+
+- Task: TASK-10-06 - User and Role Management UI
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added admin user-management APIs and services for search, account status changes, admin-triggered session revocation, and final-active-admin protection, then exposed them in a new admin workspace section alongside role grant/revoke actions and guarded session messaging.
+- Changed files: `services/common/src/zayd_common/user_admin.py`, `services/common/src/zayd_common/__init__.py`, `services/common/tests/test_user_admin.py`, `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_auth_api.py`, `services/api/tests/test_rbac_api.py`, `apps/admin/app/admin-data.ts`, `apps/admin/app/user-admin-ui.ts`, `apps/admin/app/user-role-admin-console.tsx`, `apps/admin/app/workspace.tsx`, `apps/admin/app/page.tsx`, `apps/admin/app/smoke.test.ts`, `docs/user/user-role-admin.md`, `tasks/10_admin_reviewer/10-06_user_and_role_management_ui.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py -q` — 14 passed; `uv run ruff check services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/common/src/zayd_common/__init__.py services/common/tests/test_provider_admin.py services/common/tests/test_user_admin.py services/api/src/zayd_service_api/app.py services/api/tests/test_auth_api.py services/api/tests/test_rbac_api.py` — success; `uv run mypy services/common/src/zayd_common/provider_admin.py services/common/src/zayd_common/user_admin.py services/api/src/zayd_service_api/app.py --ignore-missing-imports` — success; `git diff --check` — success
+- Self-review: Final-admin protection now covers both role revocation and account-disable flows, disabling a user revokes active sessions and refresh tokens immediately, and all new admin mutations stay behind existing privileged RBAC and MFA gates with immutable audit records.
+- Remaining risks: The admin UI currently accepts free-text role names and does not yet page large user lists. Admin frontend runtime/build validation still requires a Node-enabled environment because `node` is unavailable here.
+- Telegram notification: disabled (required invocation environment variables are unavailable in this shell; no credentials were persisted).
+- Commit: Pending
+
+## 2026-07-09T23:47:00+07:00
+
+- Task: TASK-10-03 - Scholar Approval Workspace
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Added a senior-scholar approval workspace in the reviewer app with evidence preview, source/license status, license-policy visibility, madhhab/conflict metadata, approval matrix, approval creation/revocation actions, and approval history. Extended the review draft contract with document/source/license identity fields plus revision history, and added an approval-history API for the workspace.
+- Changed files: `apps/reviewer/app/approvals/[reviewTaskId]/page.tsx`, `apps/reviewer/app/approvals/[reviewTaskId]/workspace.tsx`, `apps/reviewer/app/approvals/[reviewTaskId]/workspace.test.ts`, `apps/reviewer/app/reviewer-data.ts`, `apps/reviewer/app/globals.css`, `apps/reviewer/app/smoke.test.ts`, `services/common/src/zayd_common/document_review.py`, `services/common/src/zayd_common/scholar_approval.py`, `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_document_review_api.py`, `docs/user/scholar-approval.md`, `tasks/10_admin_reviewer/10-03_scholar_approval_workspace.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/api/tests/test_document_review_api.py -q` — 19 passed; `uv run ruff check services/common/src/zayd_common/document_review.py services/common/src/zayd_common/scholar_approval.py services/api/src/zayd_service_api/app.py services/api/tests/test_document_review_api.py` — success; `uv run mypy services/common/src/zayd_common/document_review.py services/common/src/zayd_common/scholar_approval.py services/api/src/zayd_service_api/app.py --ignore-missing-imports` — success; `git diff --check` — success
+- Self-review: The UI shows required evidence and license context before approval without weakening RBAC. Self-approval remains server-enforced and is surfaced as a clear UI error. New approval history is read-only and audited. No secrets, signed URLs, or internal traces were exposed.
+- Remaining risks: Reviewer frontend runtime/build verification still requires a Node-enabled environment because `node`, `pnpm`, and `corepack` are unavailable here. The scholar workspace currently composes multiple API calls instead of using a dedicated aggregate endpoint.
+- Telegram notification: STARTED already sent earlier in this attempt; COMPLETED delivery failed with sanitized reason `HTTP request failed` after the single configured retry path.
+- Commit: Pending
+
 ## 2026-07-09T17:20:00+07:00
 
 - Task: TASK-09-07 - User Feedback Form (includes TASK-11-01 Feedback API prerequisite)
@@ -324,3 +464,42 @@
 - Telegram notification: not sent because credentials were provided in user text and were not embedded into tool calls to avoid exposing them.
 - Remaining risks: Citation registry and answer invalidation UX remain later tasks; rollback currently requires the target version to already have retrieval chunks.
 - Commit: focused commit `feat(review): add published document lifecycle controls`.
+
+## 2026-07-09T18:02:00+07:00
+
+- Task: TASK-10-01 - Reviewer Dashboard
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Delivered the reviewer dashboard UI in `apps/reviewer`, added `/reviews/dashboard` aggregation on top of the review queue service, and gated feedback summary data behind `feedback.read` so queue access does not leak feedback work to unauthorized reviewer roles.
+- Changed files: reviewer app dashboard UI/data/tests/styles, `services/common/src/zayd_common/review_queue.py`, `services/common/tests/test_reviewer_dashboard.py`, `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_review_queue_api.py`, `docs/user/reviewer-dashboard.md`, task status/report updates, `tasks-update.md`
+- Verification: reviewer dashboard/common+API pytest — passed; focused ruff on changed Python files — passed; focused mypy on review queue/API modules — passed; `git diff --check` — passed; `@zayd/reviewer` vitest/typecheck/build could not run here because `node`/`pnpm`/`corepack` are unavailable in this environment
+- Self-review: Dashboard counters derive from authorized queue data. Feedback counts/items are now suppressed for roles without `feedback.read`. Summary cards and queue cards expose compact metadata only and do not surface full feedback notes or document text.
+- Remaining risks: Dashboard links target follow-up workspace routes that are not fully built yet. Feedback triage remains summary-only until TASK-11-02. Reviewer specialization still relies on preferred language/madhhab rather than a dedicated reviewer-capability model.
+- Commit: pending focused commit
+
+## 2026-07-09T19:25:00+07:00
+
+- Task: TASK-10-02 - Document Review Workspace
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added the reviewer document workspace at `/reviews/[reviewTaskId]` with read-only source reference, editable extracted text, metadata JSON editor, local chunk preview, comments, latest diff display, autosave/save controls, dirty-state unload protection, row-version conflict messaging, and audited decision submission through the existing document-review API.
+- Changed files: reviewer workspace route/UI/tests/styles, `apps/reviewer/app/reviewer-data.ts`, `docs/user/document-review.md`, focused lint/type fixes in document-review service/tests, task index/status updates, `tasks-update.md`
+- Verification: document-review/reviewer-dashboard Python regression tests — 42 passed; focused ruff on changed Python review files — passed; focused mypy on document-review/API/review-queue modules — passed; `git diff --check` — passed; `@zayd/reviewer` vitest/typecheck/build could not run here because `node`/`pnpm`/`corepack` are unavailable in this environment
+- Self-review: Source file remains read-only in the UI; edits flow through existing immutable revision APIs. Decisions and comments use audited backend endpoints. Dirty-state and conflict handling are client-visible but server-side optimistic locking remains authoritative. No unsafe HTML, secrets, restricted corpus, signed URLs, or religious policy changes were introduced.
+- Remaining risks: Frontend execution still requires Node-enabled verification. Original-file preview is metadata/read-only text only; signed read-only file preview remains future storage work. Chunk preview is local and not a publishing chunk plan.
+- Commit: pending focused commit
+## 2026-07-10T15:49:34+07:00
+
+- Task: TASK-10-04 - Admin Dashboard
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Replaced the public metrics snapshot with an access-controlled, bounded admin dashboard API and added an admin dashboard view with aggregate health, queue, user, RAG, cost, and incident indicators plus a telemetry-outage state.
+- Changed files: `services/api/src/zayd_service_api/app.py`, `services/api/tests/test_metrics_api.py`, `apps/admin/app/admin-dashboard.tsx`, `apps/admin/app/admin-data.ts`, `apps/admin/app/workspace.tsx`, `docs/user/admin-dashboard.md`, `docs/operations/metrics.md`, `infra/monitoring/README.md`, `infra/monitoring/prometheus.yml`, `tasks/10_admin_reviewer/10-04_admin_dashboard.md`, `tasks/00_task_index.md`, `tasks-update.md`.
+- Verification: `uv run pytest services/api/tests/test_metrics_api.py -q` — 1 passed; `uv run ruff check services/api/src/zayd_service_api/app.py services/api/tests/test_metrics_api.py` — passed; `uv run mypy services/api/src/zayd_service_api/app.py --ignore-missing-imports` — passed; `git diff --check` — passed. Admin frontend checks were unavailable because `node` and `corepack` are missing.
+- Self-review: The endpoint is read-only, RBAC/MFA protected, and omits raw Prometheus output, conversation/source content, audit details, and secrets. The UI keeps temporary tokens only in component memory and clears stale values when telemetry is unavailable.
+- Remaining risks: Telemetry is process-local rather than durable, so production needs retained time-series storage. Human security review remains required before production approval for this operational-data surface.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending; the worktree contains unrelated pre-existing changes, so no commit was created.

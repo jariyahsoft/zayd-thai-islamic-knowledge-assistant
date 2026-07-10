@@ -20,10 +20,14 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from zayd_common.auth import AuthService
 from zayd_common.database.models import (
+    Answer,
     AuditLog,
     Base,
+    Conversation,
     Document,
     DocumentVersion,
+    Feedback,
+    Message,
     ReviewTask,
     Role,
     User,
@@ -180,6 +184,62 @@ def test_list_queue_filters_by_language(monkeypatch) -> None:
     )
     assert response["status"] == 200
     assert all(t["language"] == "ar" for t in response["json"]["tasks"])
+
+
+def test_reviewer_dashboard_returns_counts_and_feedback_for_reviewer(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    actor = auth_service.register(
+        email="dashboard-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    _grant_role_directly(session_factory, actor.user.id, "reviewer")
+    _enroll_mfa(session_factory, actor.user.id)
+    _set_user_preferences(session_factory, actor.user.id, language="th", madhhab="shafii")
+
+    _seed_queue_task(session_factory, title="คิวเปิด", language="th", madhhab="shafii", status="open")
+    _seed_feedback_record(session_factory, user_id=actor.user.id)
+
+    response = _request(
+        app,
+        "GET",
+        "/reviews/dashboard",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+
+    assert response["status"] == 200
+    assert response["json"]["summary"]["total_visible_count"] >= 1
+    assert response["json"]["summary"]["feedback_open_count"] == 1
+    assert len(response["json"]["feedback_items"]) == 1
+
+
+def test_reviewer_dashboard_hides_feedback_for_translator(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    actor = auth_service.register(
+        email="dashboard-translator@example.com",
+        password="very-strong-password",
+        display_name="Translator",
+    )
+    _grant_role_directly(session_factory, actor.user.id, "translator")
+    _enroll_mfa(session_factory, actor.user.id)
+    _set_user_preferences(session_factory, actor.user.id, language="th", madhhab="shafii")
+
+    _seed_queue_task(session_factory, title="คิวแปล", language="th", madhhab="shafii", status="open")
+    _seed_feedback_record(session_factory, user_id=actor.user.id)
+
+    response = _request(
+        app,
+        "GET",
+        "/reviews/dashboard",
+        headers={"authorization": f"Bearer {actor.tokens.access_token}"},
+    )
+
+    assert response["status"] == 200
+    assert response["json"]["summary"]["total_visible_count"] >= 1
+    assert response["json"]["summary"]["feedback_open_count"] == 0
+    assert response["json"]["feedback_items"] == []
 
 
 def test_claim_task_success(monkeypatch) -> None:
@@ -492,6 +552,65 @@ def _set_user_preferences(
             user.preferred_language = language
             user.preferred_madhhab = madhhab
             session.commit()
+
+
+def _seed_feedback_record(
+    session_factory: sessionmaker[Session],
+    *,
+    user_id: UUID,
+) -> str:
+    conversation_id = uuid4()
+    message_id = uuid4()
+    answer_id = uuid4()
+    feedback_id = uuid4()
+    with session_factory() as session:
+        session.add(
+            Conversation(
+                id=conversation_id,
+                user_id=user_id,
+                title="ถาม",
+                language="th",
+                madhhab="shafii",
+            )
+        )
+        session.add(
+            Message(
+                id=message_id,
+                conversation_id=conversation_id,
+                sender_type="assistant",
+                body="answer",
+                body_hash="hash",
+                metadata_json={},
+            )
+        )
+        session.add(
+            Answer(
+                id=answer_id,
+                message_id=message_id,
+                retrieval_run_id=uuid4(),
+                model_configuration_id=uuid4(),
+                prompt_version_id=uuid4(),
+                policy_version_id=uuid4(),
+                risk_level="low",
+                madhhab="shafii",
+                answer_json={"answer": "ตอบ"},
+                confidence_level="high",
+                evidence_sufficient=True,
+            )
+        )
+        session.add(
+            Feedback(
+                id=feedback_id,
+                user_id=user_id,
+                answer_id=answer_id,
+                citation_id=None,
+                category="incorrect_answer",
+                body="note",
+                status="open",
+            )
+        )
+        session.commit()
+    return str(feedback_id)
 
 
 def _app(monkeypatch: Any) -> tuple[FastAPI, sessionmaker[Session]]:

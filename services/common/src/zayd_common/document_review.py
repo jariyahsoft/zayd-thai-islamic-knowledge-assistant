@@ -117,6 +117,14 @@ class ReviewDecisionPublic:
 class ReviewDraft:
     review_task_id: UUID
     document_version_id: UUID
+    document_id: UUID
+    source_id: UUID | None
+    source_license_id: UUID | None
+    canonical_id: str | None
+    document_title: str | None
+    document_type: str | None
+    language: str | None
+    madhhab: str | None
     task_status: str
     task_row_version: int
     document_review_status: str
@@ -124,6 +132,7 @@ class ReviewDraft:
     editable_text: str | None
     editable_metadata: dict[str, Any]
     latest_revision_number: int
+    revisions: list[ReviewRevisionPublic] = field(default_factory=list)
     comments: list[ReviewCommentPublic] = field(default_factory=list)
 
 
@@ -163,6 +172,11 @@ class DocumentReviewService:
             version = self._get_version(session, task.document_version_id)
             document = session.get(Document, task.document_id)
             latest = self._latest_revision(session, review_task_id)
+            revisions = session.execute(
+                select(ReviewRevision)
+                .where(ReviewRevision.review_task_id == review_task_id)
+                .order_by(ReviewRevision.revision_number.desc())
+            ).scalars().all()
             comments = session.execute(
                 select(ReviewComment)
                 .where(ReviewComment.review_task_id == review_task_id)
@@ -172,6 +186,14 @@ class DocumentReviewService:
             draft = ReviewDraft(
                 review_task_id=task.id,
                 document_version_id=task.document_version_id,
+                document_id=task.document_id,
+                source_id=document.source_id if document else None,
+                source_license_id=document.source_license_id if document else None,
+                canonical_id=document.canonical_id if document else None,
+                document_title=document.title if document else None,
+                document_type=document.document_type if document else None,
+                language=document.language if document else None,
+                madhhab=document.madhhab if document else None,
                 task_status=task.status,
                 task_row_version=task.row_version,
                 document_review_status=document.review_status if document else "unknown",
@@ -181,6 +203,7 @@ class DocumentReviewService:
                 if latest
                 else _editable_metadata(document, version),
                 latest_revision_number=latest.revision_number if latest else 0,
+                revisions=[_revision_public(revision) for revision in revisions],
                 comments=[_comment_public(comment) for comment in comments],
             )
             self.uow.commit()
@@ -478,7 +501,11 @@ class DocumentReviewService:
                 "You are not authorized to edit this review task.",
                 status_code=403,
             )
-        if task.review_level == "scholar" and "senior_scholar" not in principal_roles and "admin" not in principal_roles:
+        if (
+            task.review_level == "scholar"
+            and "senior_scholar" not in principal_roles
+            and "admin" not in principal_roles
+        ):
             raise DocumentReviewError(
                 "DOCUMENT_REVIEW_ACCESS_DENIED",
                 "Scholar-level review requires a senior scholar or admin role.",
@@ -521,7 +548,11 @@ class DocumentReviewService:
         actor_user_id: UUID,
         principal_roles: frozenset[str],
     ) -> None:
-        if "admin" not in principal_roles and "senior_scholar" not in principal_roles and task.review_level == "scholar":
+        if (
+            "admin" not in principal_roles
+            and "senior_scholar" not in principal_roles
+            and task.review_level == "scholar"
+        ):
             raise DocumentReviewError(
                 "DOCUMENT_REVIEW_ACCESS_DENIED",
                 "Scholar approval requires senior scholar or admin role.",
@@ -560,12 +591,13 @@ class DocumentReviewService:
 
     @staticmethod
     def _latest_revision(session: Any, review_task_id: UUID) -> ReviewRevision | None:
-        return session.execute(
+        revision = session.execute(
             select(ReviewRevision)
             .where(ReviewRevision.review_task_id == review_task_id)
             .order_by(ReviewRevision.revision_number.desc())
             .limit(1)
         ).scalar_one_or_none()
+        return revision  # type: ignore[no-any-return]
 
     @staticmethod
     def _next_revision_number(session: Any, review_task_id: UUID) -> int:

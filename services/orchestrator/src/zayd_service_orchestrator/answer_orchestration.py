@@ -11,13 +11,14 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from zayd_common.enums import EvidenceStatus
+from zayd_common.prompt_registry import PromptDefinition, prompt_body_only
+from zayd_common.telemetry import telemetry_registry
 from zayd_service_retrieval.evidence_sufficiency import (
     EvidenceCandidate,
     EvidenceSufficiencyDecision,
     EvidenceSufficiencyRequest,
     EvidenceSufficiencyService,
 )
-from zayd_common.prompt_registry import PromptDefinition, prompt_body_only
 
 from .provider_sdk import LLMMessage, LLMProvider, LLMRequest, ProviderSDKError
 from .question_classification import ClassificationResult, QuestionClassifier
@@ -464,76 +465,92 @@ class AnswerOrchestrator:
         policy_decision: PolicyDecision | None = None
         evidence_decision: EvidenceSufficiencyDecision | None = None
 
-        try:
-            self._validate_request(request)
-            self._record_step(
-                steps,
-                OrchestrationStepName.VALIDATE,
-                OrchestrationStepStatus.COMPLETED,
-                {"question_present": True, "actor": request.actor},
-            )
+        with telemetry_registry.span(
+            "orchestrator.answer",
+            attributes={"trace_id": trace_id, "actor": request.actor, "request_id": request_id},
+        ):
+            try:
+                self._validate_request(request)
+                self._record_step(
+                    steps,
+                    OrchestrationStepName.VALIDATE,
+                    OrchestrationStepStatus.COMPLETED,
+                    {"question_present": True, "actor": request.actor},
+                )
 
-            if request.idempotency_key:
-                cached = self.store.get(request.idempotency_key)
-                if cached is not None:
+                if request.idempotency_key:
+                    cached = self.store.get(request.idempotency_key)
+                    if cached is not None:
+                        self._record_step(
+                            steps,
+                            OrchestrationStepName.IDEMPOTENCY,
+                            OrchestrationStepStatus.COMPLETED,
+                            {"cache_hit": True},
+                        )
+                        return cached
                     self._record_step(
                         steps,
                         OrchestrationStepName.IDEMPOTENCY,
                         OrchestrationStepStatus.COMPLETED,
-                        {"cache_hit": True},
+                        {"cache_hit": False},
                     )
-                    return cached
-                self._record_step(
-                    steps,
-                    OrchestrationStepName.IDEMPOTENCY,
-                    OrchestrationStepStatus.COMPLETED,
-                    {"cache_hit": False},
-                )
 
-            result = await asyncio.wait_for(
-                self._run(
+                result = await asyncio.wait_for(
+                    self._run(
+                        request=request,
+                        request_id=request_id,
+                        trace_id=trace_id,
+                        steps=steps,
+                    ),
+                    timeout=request.timeout_seconds,
+                )
+                if request.idempotency_key:
+                    self.store.put(request.idempotency_key, result)
+                telemetry_registry.record_counter(
+                    "orchestrator_answer_total",
+                    status=result.status.value,
+                )
+                return result
+            except TimeoutError:
+                telemetry_registry.record_counter(
+                    "orchestrator_answer_total",
+                    status=AnswerOrchestrationStatus.FAILED.value,
+                )
+                return self._failure_result(
                     request=request,
                     request_id=request_id,
                     trace_id=trace_id,
                     steps=steps,
-                ),
-                timeout=request.timeout_seconds,
-            )
-            if request.idempotency_key:
-                self.store.put(request.idempotency_key, result)
-            return result
-        except TimeoutError:
-            return self._failure_result(
-                request=request,
-                request_id=request_id,
-                trace_id=trace_id,
-                steps=steps,
-                status=AnswerOrchestrationStatus.FAILED,
-                error_code="ANSWER_TIMEOUT",
-                classification=classification,
-                policy_decision=policy_decision,
-                evidence_decision=evidence_decision,
-            )
-        except asyncio.CancelledError:
-            self._record_step(
-                steps,
-                OrchestrationStepName.RETURN,
-                OrchestrationStepStatus.CANCELLED,
-                {"cancelled": True},
-            )
-            raise
-        except ProviderSDKError as error:
-            return self._failure_result(
-                request=request,
-                request_id=request_id,
-                trace_id=trace_id,
-                steps=steps,
-                status=AnswerOrchestrationStatus.FAILED,
-                error_code=error.code,
-                classification=classification,
-                policy_decision=policy_decision,
-                evidence_decision=evidence_decision,
-            )
+                    status=AnswerOrchestrationStatus.FAILED,
+                    error_code="ANSWER_TIMEOUT",
+                    classification=classification,
+                    policy_decision=policy_decision,
+                    evidence_decision=evidence_decision,
+                )
+            except asyncio.CancelledError:
+                self._record_step(
+                    steps,
+                    OrchestrationStepName.RETURN,
+                    OrchestrationStepStatus.CANCELLED,
+                    {"cancelled": True},
+                )
+                raise
+            except ProviderSDKError as error:
+                telemetry_registry.record_counter(
+                    "orchestrator_answer_total",
+                    status=AnswerOrchestrationStatus.FAILED.value,
+                )
+                return self._failure_result(
+                    request=request,
+                    request_id=request_id,
+                    trace_id=trace_id,
+                    steps=steps,
+                    status=AnswerOrchestrationStatus.FAILED,
+                    error_code=error.code,
+                    classification=classification,
+                    policy_decision=policy_decision,
+                    evidence_decision=evidence_decision,
+                )
 
     async def _run(
         self,
@@ -616,8 +633,17 @@ class AnswerOrchestrator:
             trace_id=trace_id,
         )
         self._record_evidence_step(steps, evidence_decision)
+        telemetry_registry.record_counter(
+            "evidence_sufficiency_total",
+            status=evidence_decision.status.value,
+        )
 
         if evidence_decision.should_search_more:
+            telemetry_registry.record_counter(
+                "external_fallback_total",
+                path="expanded_retrieval",
+                status="attempted",
+            )
             expanded_retrieval = await self._retry_retrieve(
                 request,
                 classification=classification,
@@ -643,6 +669,17 @@ class AnswerOrchestrator:
             if _evidence_rank(expanded_evidence.status) > _evidence_rank(evidence_decision.status):
                 retrieval = expanded_retrieval
                 evidence_decision = expanded_evidence
+                telemetry_registry.record_counter(
+                    "external_fallback_total",
+                    path="expanded_retrieval",
+                    status="improved",
+                )
+            else:
+                telemetry_registry.record_counter(
+                    "external_fallback_total",
+                    path="expanded_retrieval",
+                    status="no_improvement",
+                )
 
         if evidence_decision.status == EvidenceStatus.INSUFFICIENT:
             result = self._abstain_result(
@@ -721,6 +758,10 @@ class AnswerOrchestrator:
         )
 
         verification = self.verifier.verify(draft, context)
+        telemetry_registry.record_counter(
+            "citation_verification_total",
+            status=verification.status.value,
+        )
         self._record_step(
             steps,
             OrchestrationStepName.VERIFY,
@@ -742,6 +783,10 @@ class AnswerOrchestrator:
                 {"attempt": attempt, "citation_count": len(draft.citations)},
             )
             verification = self.verifier.verify(draft, context)
+            telemetry_registry.record_counter(
+                "citation_verification_total",
+                status=verification.status.value,
+            )
             self._record_step(
                 steps,
                 OrchestrationStepName.VERIFY,

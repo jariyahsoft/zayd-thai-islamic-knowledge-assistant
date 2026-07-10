@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from time import perf_counter
 from typing import Literal
 from uuid import UUID, uuid4
 
 from zayd_common.database.models import RetrievalResult, RetrievalRun
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 from zayd_common.normalization import NORMALIZATION_FRAMEWORK_VERSION, normalize_text
+from zayd_common.telemetry import telemetry_registry
 
 from .full_text_search import (
     FullTextSearchQuery,
@@ -166,34 +168,19 @@ class HybridSearchService:
         self.vector_service = vector_service or VectorSearchService(uow)
 
     def search(self, query: HybridSearchQuery) -> HybridSearchResponse:
-        self._validate_query(query)
-        weights = query.weights.normalized()
-        normalized = normalize_text(query.text.strip(), language=query.language)
-        candidates: dict[UUID, _Candidate] = {}
+        with telemetry_registry.span(
+            "retrieval.hybrid_search",
+            attributes={"trace_id": query.trace_id, "request_id": query.request_id},
+        ):
+            started_at = perf_counter()
+            self._validate_query(query)
+            weights = query.weights.normalized()
+            normalized = normalize_text(query.text.strip(), language=query.language)
+            candidates: dict[UUID, _Candidate] = {}
 
-        full_text_response = self.full_text_service.search(
-            FullTextSearchQuery(
-                text=query.text,
-                language=query.language,
-                madhhab=query.madhhab,
-                source_type=query.source_type,
-                license_status=query.license_status,
-                source_language=query.source_language,
-                reliability_level_min=query.reliability_level_min,
-                limit=100,
-                offset=0,
-            )
-        )
-        for result in full_text_response.results:
-            self._merge_full_text(candidates, result)
-
-        vector_response = None
-        if query.embedding is not None and query.model_configuration_id is not None:
-            vector_response = self.vector_service.search(
-                VectorSearchQuery(
-                    embedding=query.embedding,
-                    model_configuration_id=query.model_configuration_id,
-                    provider_id=query.provider_id,
+            full_text_response = self.full_text_service.search(
+                FullTextSearchQuery(
+                    text=query.text,
                     language=query.language,
                     madhhab=query.madhhab,
                     source_type=query.source_type,
@@ -202,43 +189,80 @@ class HybridSearchService:
                     reliability_level_min=query.reliability_level_min,
                     limit=100,
                     offset=0,
-                    timeout_ms=query.vector_timeout_ms,
                 )
             )
-            for vector_result in vector_response.results:
-                self._merge_vector(candidates, vector_result)
+            for result in full_text_response.results:
+                self._merge_full_text(candidates, result)
 
-        ranked = self._rank_candidates(candidates, weights)
-        paged = ranked[query.offset : query.offset + query.limit]
-        request_id = query.request_id or f"hybrid-{uuid4()}"
-        retrieval_run_id = (
-            self._persist_run(
-                query=query,
-                request_id=request_id,
-                normalized_query=normalized.normalized,
-                weights=weights,
-                results=paged,
-                vector_metadata=vector_response.embedding_space if vector_response else None,
+            vector_response = None
+            if query.embedding is not None and query.model_configuration_id is not None:
+                vector_response = self.vector_service.search(
+                    VectorSearchQuery(
+                        embedding=query.embedding,
+                        model_configuration_id=query.model_configuration_id,
+                        provider_id=query.provider_id,
+                        language=query.language,
+                        madhhab=query.madhhab,
+                        source_type=query.source_type,
+                        license_status=query.license_status,
+                        source_language=query.source_language,
+                        reliability_level_min=query.reliability_level_min,
+                        limit=100,
+                        offset=0,
+                        timeout_ms=query.vector_timeout_ms,
+                    )
+                )
+                for vector_result in vector_response.results:
+                    self._merge_vector(candidates, vector_result)
+
+            ranked = self._rank_candidates(candidates, weights)
+            paged = ranked[query.offset : query.offset + query.limit]
+            request_id = query.request_id or f"hybrid-{uuid4()}"
+            retrieval_run_id = (
+                self._persist_run(
+                    query=query,
+                    request_id=request_id,
+                    normalized_query=normalized.normalized,
+                    weights=weights,
+                    results=paged,
+                    vector_metadata=vector_response.embedding_space if vector_response else None,
+                )
+                if query.persist_run
+                else None
             )
-            if query.persist_run
-            else None
-        )
-        return HybridSearchResponse(
-            request_id=request_id,
-            trace_id=query.trace_id,
-            query_original=query.text,
-            query_normalized=normalized.normalized,
-            retriever_version=HYBRID_RETRIEVER_VERSION,
-            weights_version=weights.version,
-            weights={
-                "exact": weights.exact,
-                "full_text": weights.full_text,
-                "vector": weights.vector,
-                "reliability": weights.reliability,
-            },
-            retrieval_run_id=retrieval_run_id,
-            results=tuple(paged),
-        )
+            response = HybridSearchResponse(
+                request_id=request_id,
+                trace_id=query.trace_id,
+                query_original=query.text,
+                query_normalized=normalized.normalized,
+                retriever_version=HYBRID_RETRIEVER_VERSION,
+                weights_version=weights.version,
+                weights={
+                    "exact": weights.exact,
+                    "full_text": weights.full_text,
+                    "vector": weights.vector,
+                    "reliability": weights.reliability,
+                },
+                retrieval_run_id=retrieval_run_id,
+                results=tuple(paged),
+            )
+            telemetry_registry.record_histogram(
+                "retrieval_latency_ms",
+                (perf_counter() - started_at) * 1000,
+                service="retrieval",
+            )
+            for item in paged:
+                telemetry_registry.record_histogram(
+                    "retrieval_score_final",
+                    float(item.score_final),
+                    service="retrieval",
+                )
+            telemetry_registry.record_counter(
+                "local_rag_hit_total",
+                service="retrieval",
+                status="hit" if paged else "miss",
+            )
+            return response
 
     def _validate_query(self, query: HybridSearchQuery) -> None:
         if not query.text.strip():

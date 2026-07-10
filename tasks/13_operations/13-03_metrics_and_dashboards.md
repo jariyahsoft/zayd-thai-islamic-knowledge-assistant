@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Expose metrics for latency, errors, queue depth, local RAG hit, external fallbac
 
 ## Acceptance Criteria
 
-- [ ] Metrics avoid high-cardinality personal identifiers.
-- [ ] Dashboards include useful alerts and runbook links.
-- [ ] Cost data distinguishes provider/model where available.
+- [x] Metrics avoid high-cardinality personal identifiers.
+- [x] Dashboards include useful alerts and runbook links.
+- [x] Cost data distinguishes provider/model where available.
 
 ## Required Tests
 
@@ -91,27 +91,44 @@ Expose metrics for latency, errors, queue depth, local RAG hit, external fallbac
 
 ### Files Changed
 
-- Pending
+- `services/api/src/zayd_service_api/app.py` — added `/metrics` snapshot support that combines queue/provider DB summaries with telemetry counters and histograms for latency, errors, local RAG hits, external fallback, citation verification failures, provider health, and cost summary.
+- `services/api/tests/test_metrics_api.py` — added metrics endpoint coverage for summary values and Prometheus export content.
+- `services/common/src/zayd_common/telemetry.py` — exposed metric/counter snapshots and registry reset helpers needed by the metrics surface and tests.
+- `services/api/tests/test_logging_api.py` — verified request metrics are emitted from the API middleware path.
+- `docs/operations/metrics.md` — documented exported metrics, cardinality constraints, dashboard coverage, and repository-stage limitations.
+- `infra/monitoring/README.md` — documented monitoring assets, endpoint contract, runbook links, and sampling note.
+- `infra/monitoring/prometheus.yml` — added baseline scrape configuration for the API metrics endpoint.
+- `infra/monitoring/grafana-dashboard.json` — added baseline dashboard panels for API latency, error rate, queue depth, provider health, citation failures, fallback attempts, and token usage.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/api/tests/test_metrics_api.py services/api/tests/test_logging_api.py services/common/tests/test_telemetry.py services/orchestrator/tests/test_openai_llm_adapter.py services/orchestrator/tests/test_provider_sdk.py services/retrieval/tests/test_hybrid_search.py -q` — passed.
+- `uv run mypy services/api/src/zayd_service_api/app.py services/common/src/zayd_common/telemetry.py services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/openai_llm_adapter.py services/retrieval/src/zayd_service_retrieval/hybrid_search.py --ignore-missing-imports` — passed.
+- `uv run ruff check services/api/src/zayd_service_api/app.py services/api/tests/test_metrics_api.py services/api/tests/test_logging_api.py services/common/src/zayd_common/telemetry.py services/orchestrator/src/zayd_service_orchestrator/answer_orchestration.py services/orchestrator/src/zayd_service_orchestrator/openai_llm_adapter.py services/retrieval/src/zayd_service_retrieval/hybrid_search.py services/common/tests/test_telemetry.py services/orchestrator/tests/test_openai_llm_adapter.py services/orchestrator/tests/test_provider_sdk.py services/retrieval/tests/test_hybrid_search.py` — passed.
+- `git diff --check` — passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- [x] Metrics avoid high-cardinality personal identifiers. Exported counters/histograms use only bounded labels such as method, path, provider, model, service, and status; user IDs, conversation IDs, and raw text are excluded.
+- [x] Dashboards include useful alerts and runbook links. Monitoring scaffolding includes Grafana starter panels with links back to logging, tracing, and metrics runbooks.
+- [x] Cost data distinguishes provider/model where available. Provider generate metrics label by provider/model, while inventory summary still reports configured daily cost limits from model configuration.
 
 ### Security and License Review
 
-- Pending
+- `/metrics` exposes aggregate operational summaries only; it does not include request bodies, conversation text, document text, signed URLs, tokens, or personal identifiers.
+- Baseline dashboards and scrape configs are static repository assets and do not embed live credentials or environment-specific secrets.
+- No third-party dashboard packs, metrics libraries, or copyrighted datasets were imported.
 
 ### Known Limitations
 
-- Pending
+- The current metrics endpoint returns JSON plus embedded Prometheus-style text in one response for repository-stage testing convenience rather than a dedicated plain-text scrape surface.
+- Queue age is approximated from in-process worker lifecycle spans, not a durable queue backend.
+- Cost reporting is limited to configured daily model limits and in-process provider token/latency counters; it is not external billing reconciliation.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-10-04 can now proceed against the completed operations metrics/dashboard foundation.
+- Future production operations work should split JSON and Prometheus scrape contracts and move telemetry storage to durable observability infrastructure.
 
 ### Commit
 

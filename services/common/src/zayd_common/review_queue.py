@@ -10,13 +10,21 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 
-from zayd_common.database.models import AuditLog, Document, DocumentVersion, ReviewTask, User
+from zayd_common.database.models import (
+    AuditLog,
+    Document,
+    DocumentVersion,
+    Feedback,
+    ReviewTask,
+    User,
+)
 from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+from zayd_common.rbac import ROLE_PERMISSION_MATRIX, Permission
 from zayd_common.review_tasks import ReviewTaskCreationError, ReviewTaskService
 
 REVIEW_QUEUE_POLICY_VERSION = "review-queue-v1"
@@ -34,6 +42,14 @@ ReviewQueueErrorCode = Literal[
 _ACTIVE_STATUSES = frozenset({"open", "in_progress"})
 
 _PRIVILEGED_ROLES = frozenset({"admin", "senior_scholar"})
+
+
+def _normalize_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 class ReviewQueueError(Exception):
@@ -132,6 +148,48 @@ class ReviewQueueResult:
     next_offset: int | None
 
 
+@dataclass(frozen=True)
+class ReviewerDashboardSummary:
+    """Authorized dashboard counters for reviewer work."""
+
+    total_visible_count: int
+    pending_count: int
+    assigned_count: int
+    overdue_count: int
+    changes_requested_count: int
+    feedback_open_count: int
+
+
+@dataclass(frozen=True)
+class ReviewerFeedbackWorkItem:
+    """Privacy-safe feedback work item for reviewer triage."""
+
+    id: UUID
+    category: str
+    status: str
+    answer_id: UUID | None
+    citation_id: UUID | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class ReviewerDashboardResult:
+    """Reviewer dashboard snapshot with queue page and feedback work."""
+
+    summary: ReviewerDashboardSummary
+    queue: ReviewQueueResult
+    feedback_items: list[ReviewerFeedbackWorkItem]
+
+
+@dataclass(frozen=True)
+class _QueuePage:
+    tasks: list[ReviewTask]
+    total_count: int
+    limit: int
+    offset: int
+    next_offset: int | None
+
+
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
@@ -155,60 +213,108 @@ class ReviewQueueService:
         """List review tasks visible to the caller."""
         with self.uow:
             session = self._session()
-
-            stmt = select(ReviewTask)
-
-            # Role-based visibility
-            stmt = self._apply_visibility_filter(
-                stmt, session, actor_user_id, principal_roles
+            stmt = self._build_queue_stmt(
+                session,
+                actor_user_id=actor_user_id,
+                principal_roles=principal_roles,
+                query=query,
             )
-
-            # Optional filters
-            if query.language is not None:
-                stmt = stmt.where(ReviewTask.language == query.language)
-            if query.madhhab is not None:
-                stmt = stmt.where(ReviewTask.madhhab == query.madhhab)
-            if query.content_type is not None:
-                stmt = stmt.where(ReviewTask.category == query.content_type)
-            if query.status is not None:
-                stmt = stmt.where(ReviewTask.status == query.status)
-            if query.priority is not None:
-                stmt = stmt.where(ReviewTask.priority == query.priority)
-            if query.assigned_to is not None:
-                stmt = stmt.where(ReviewTask.assigned_to == query.assigned_to)
-            if query.review_level is not None:
-                stmt = stmt.where(ReviewTask.review_level == query.review_level)
-            if query.due_before is not None:
-                stmt = stmt.where(ReviewTask.due_at <= query.due_before)
-            if query.due_after is not None:
-                stmt = stmt.where(ReviewTask.due_at >= query.due_after)
-
-            # Total count
-            count_stmt = select(func.count()).select_from(stmt.subquery())
-            total_count = session.execute(count_stmt).scalar() or 0
-
-            # Paginate
-            limit = min(max(query.limit, 1), 200)
-            offset = max(query.offset, 0)
-            ordered = (
-                stmt.order_by(ReviewTask.created_at.desc())
-                .limit(limit + 1)
-                .offset(offset)
-            )
-            rows = list(session.execute(ordered).scalars().all())
-            has_more = len(rows) > limit
-            tasks = rows[:limit]
-
-            # Load document metadata for titles
-            doc_map = self._load_document_map(session, tasks)
+            result = self._paginate_queue(session, stmt, query)
+            doc_map = self._load_document_map(session, result.tasks)
             self.uow.commit()
-
             return ReviewQueueResult(
-                tasks=[_task_summary(t, doc_map.get(t.document_id)) for t in tasks],
-                total_count=total_count,
-                limit=limit,
-                offset=offset,
-                next_offset=offset + len(tasks) if has_more else None,
+                tasks=[_task_summary(t, doc_map.get(t.document_id)) for t in result.tasks],
+                total_count=result.total_count,
+                limit=result.limit,
+                offset=result.offset,
+                next_offset=result.next_offset,
+            )
+
+    def get_dashboard(
+        self,
+        query: ReviewQueueQuery,
+        *,
+        actor_user_id: UUID,
+        principal_roles: frozenset[str],
+        feedback_limit: int = 5,
+    ) -> ReviewerDashboardResult:
+        """Return reviewer dashboard counters, queue page, and feedback work."""
+        with self.uow:
+            session = self._session()
+            base_stmt = self._build_queue_stmt(
+                session,
+                actor_user_id=actor_user_id,
+                principal_roles=principal_roles,
+            )
+            visible_tasks = list(session.execute(base_stmt).scalars().all())
+            doc_map = self._load_document_map(session, visible_tasks)
+            now = datetime.now(UTC)
+
+            summary = ReviewerDashboardSummary(
+                total_visible_count=len(visible_tasks),
+                pending_count=sum(
+                    1
+                    for task in visible_tasks
+                    if task.status == "open" and task.assigned_to is None
+                ),
+                assigned_count=sum(
+                    1
+                    for task in visible_tasks
+                    if task.assigned_to == actor_user_id and task.status in _ACTIVE_STATUSES
+                ),
+                overdue_count=sum(
+                    1
+                    for task in visible_tasks
+                    if (due_at := _normalize_utc(task.due_at)) is not None
+                    and due_at < now
+                    and task.status in _ACTIVE_STATUSES
+                ),
+                changes_requested_count=sum(
+                    1
+                    for task in visible_tasks
+                    if (
+                        (document := doc_map.get(task.document_id)) is not None
+                        and document.review_status == "changes_requested"
+                    )
+                ),
+                feedback_open_count=(
+                    self._count_open_feedback(session)
+                    if self._can_read_feedback(principal_roles)
+                    else 0
+                ),
+            )
+
+            filtered_stmt = self._build_queue_stmt(
+                session,
+                actor_user_id=actor_user_id,
+                principal_roles=principal_roles,
+                query=query,
+            )
+            queue_page = self._paginate_queue(session, filtered_stmt, query)
+            queue_doc_map = self._load_document_map(session, queue_page.tasks)
+            can_read_feedback = self._can_read_feedback(principal_roles)
+            feedback_items = (
+                self._list_feedback_work(
+                    session,
+                    limit=min(max(feedback_limit, 1), 20),
+                )
+                if can_read_feedback
+                else []
+            )
+            self.uow.commit()
+            return ReviewerDashboardResult(
+                summary=summary,
+                queue=ReviewQueueResult(
+                    tasks=[
+                        _task_summary(task, queue_doc_map.get(task.document_id))
+                        for task in queue_page.tasks
+                    ],
+                    total_count=queue_page.total_count,
+                    limit=queue_page.limit,
+                    offset=queue_page.offset,
+                    next_offset=queue_page.next_offset,
+                ),
+                feedback_items=feedback_items,
             )
 
     # -- Detail view ---------------------------------------------------------
@@ -493,6 +599,112 @@ class ReviewQueueService:
             filters.append(madhhab_cond)
 
         return stmt.where(*filters)
+
+    def _build_queue_stmt(
+        self,
+        session: Any,
+        *,
+        actor_user_id: UUID,
+        principal_roles: frozenset[str],
+        query: ReviewQueueQuery | None = None,
+    ) -> Any:
+        stmt = self._apply_visibility_filter(
+            select(ReviewTask),
+            session,
+            actor_user_id,
+            principal_roles,
+        )
+        return self._apply_query_filters(stmt, query)
+
+    @staticmethod
+    def _apply_query_filters(stmt: Any, query: ReviewQueueQuery | None) -> Any:
+        if query is None:
+            return stmt
+        if query.language is not None:
+            stmt = stmt.where(ReviewTask.language == query.language)
+        if query.madhhab is not None:
+            stmt = stmt.where(ReviewTask.madhhab == query.madhhab)
+        if query.content_type is not None:
+            stmt = stmt.where(ReviewTask.category == query.content_type)
+        if query.status is not None:
+            stmt = stmt.where(ReviewTask.status == query.status)
+        if query.priority is not None:
+            stmt = stmt.where(ReviewTask.priority == query.priority)
+        if query.assigned_to is not None:
+            stmt = stmt.where(ReviewTask.assigned_to == query.assigned_to)
+        if query.review_level is not None:
+            stmt = stmt.where(ReviewTask.review_level == query.review_level)
+        if query.due_before is not None:
+            stmt = stmt.where(ReviewTask.due_at <= query.due_before)
+        if query.due_after is not None:
+            stmt = stmt.where(ReviewTask.due_at >= query.due_after)
+        return stmt
+
+    @staticmethod
+    def _paginate_queue(
+        session: Any,
+        stmt: Any,
+        query: ReviewQueueQuery,
+    ) -> _QueuePage:
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total_count = session.execute(count_stmt).scalar() or 0
+        limit = min(max(query.limit, 1), 200)
+        offset = max(query.offset, 0)
+        ordered = (
+            stmt.order_by(ReviewTask.created_at.desc())
+            .limit(limit + 1)
+            .offset(offset)
+        )
+        rows = list(session.execute(ordered).scalars().all())
+        has_more = len(rows) > limit
+        tasks = rows[:limit]
+        return _QueuePage(
+            tasks=tasks,
+            total_count=total_count,
+            limit=limit,
+            offset=offset,
+            next_offset=offset + len(tasks) if has_more else None,
+        )
+
+    @staticmethod
+    def _count_open_feedback(session: Any) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(Feedback)
+            .where(Feedback.deleted_at.is_(None))
+            .where(Feedback.status == "open")
+        )
+        return session.execute(stmt).scalar() or 0
+
+    @staticmethod
+    def _can_read_feedback(principal_roles: frozenset[str]) -> bool:
+        return any(
+            Permission.FEEDBACK_READ
+            in ROLE_PERMISSION_MATRIX[cast("Any", role_name)]
+            for role_name in principal_roles
+            if role_name in ROLE_PERMISSION_MATRIX
+        )
+
+    @staticmethod
+    def _list_feedback_work(session: Any, *, limit: int) -> list[ReviewerFeedbackWorkItem]:
+        rows = session.execute(
+            select(Feedback)
+            .where(Feedback.deleted_at.is_(None))
+            .where(Feedback.status == "open")
+            .order_by(Feedback.created_at.desc())
+            .limit(limit)
+        ).scalars().all()
+        return [
+            ReviewerFeedbackWorkItem(
+                id=row.id,
+                category=row.category,
+                status=row.status,
+                answer_id=row.answer_id,
+                citation_id=row.citation_id,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
 
     def _get_visible_task(
         self,

@@ -3,5 +3,5 @@ from zayd_common.settings import ServiceSettings
 
 
 def get_health() -> HealthStatus:
-    settings = ServiceSettings(app_name="orchestrator")
+    settings = ServiceSettings.from_runtime_env(app_name="orchestrator")
     return HealthStatus(service=settings.app_name)

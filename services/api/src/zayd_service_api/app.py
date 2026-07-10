@@ -1,17 +1,23 @@
-import base64
 import asyncio
-import json
+import base64
 import re
-from collections.abc import Callable
-from datetime import date, datetime
-from typing import Annotated, Any
+from collections.abc import Awaitable, Callable
+from datetime import UTC, date, datetime
+from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, Request, Response
+from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from zayd_common.audit import AuditLogQuery, AuditOutcome, AuditService, serialize_audit_log
 from zayd_common.auth import AccessTokenClaims, AuthError, AuthResult, AuthService
+from zayd_common.conversations import (
+    ConversationDetailPublic,
+    ConversationHistoryError,
+    ConversationHistoryService,
+    ConversationListResult,
+    ConversationSummaryPublic,
+)
 from zayd_common.database import get_sessionmaker
 from zayd_common.document_lifecycle import (
     AffectedAnswerPublic,
@@ -42,6 +48,7 @@ from zayd_common.documents import (
     DocumentUploadResult,
     DocumentUploadService,
 )
+from zayd_common.feedback import FeedbackError, FeedbackPublic, FeedbackService, FeedbackSubmit
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
 from zayd_common.licenses import (
@@ -53,7 +60,13 @@ from zayd_common.licenses import (
     PermissionDocumentAccess,
     PublicationAuthorization,
 )
-from zayd_common.logging import get_logger
+from zayd_common.logging import (
+    bind_request_context,
+    configure_logging,
+    get_logger,
+    new_trace_context,
+    normalize_request_id,
+)
 from zayd_common.malware_scanning import MalwareScannerUnavailable
 from zayd_common.mfa import (
     MfaEnrollment,
@@ -65,15 +78,48 @@ from zayd_common.parsing import (
     ParserError,
     ParserRegistry,
 )
+from zayd_common.prompt_registry import (
+    DEFAULT_ANSWER_PROMPT_NAME,
+    PromptComparison,
+    PromptCreate,
+    PromptDefinition,
+    PromptRegistryError,
+    PromptRegistryService,
+    PromptStatusChange,
+    PromptTestCase,
+    bootstrap_registry_defaults,
+)
+from zayd_common.provider_admin import (
+    ModelConfigurationCreate,
+    ModelConfigurationPublic,
+    ModelConfigurationUpdate,
+    ProviderAdminError,
+    ProviderAdminService,
+    ProviderConnectionTestResult,
+    ProviderCreate,
+    ProviderDisableImpact,
+    ProviderPublic,
+    ProviderUpdate,
+)
 from zayd_common.rbac import Permission, RbacError, RbacService, UserPrincipal
 from zayd_common.review_queue import (
+    ReviewerDashboardResult,
+    ReviewerDashboardSummary,
+    ReviewerFeedbackWorkItem,
     ReviewQueueError,
     ReviewQueueQuery,
     ReviewQueueService,
     ReviewTaskDetail,
     ReviewTaskSummary,
 )
+from zayd_common.saved_answers import (
+    SavedAnswerError,
+    SavedAnswerListResult,
+    SavedAnswerPublic,
+    SavedAnswerService,
+)
 from zayd_common.scholar_approval import (
+    ApprovalListResult,
     ApprovalPublic,
     ApprovalRequirement,
     ScholarApprovalError,
@@ -86,39 +132,14 @@ from zayd_common.sources import (
     SourceSearchQuery,
     SourceService,
 )
-from zayd_common.conversations import (
-    ConversationDetailPublic,
-    ConversationHistoryError,
-    ConversationHistoryService,
-    ConversationListResult,
-    ConversationSummaryPublic,
-)
-from zayd_common.feedback import FeedbackError, FeedbackPublic, FeedbackService, FeedbackSubmit
-from zayd_common.saved_answers import (
-    SavedAnswerError,
-    SavedAnswerListResult,
-    SavedAnswerPublic,
-    SavedAnswerService,
-)
+from zayd_common.storage import S3ObjectStorage, S3StorageSettings, SignedUrl, StorageError
+from zayd_common.telemetry import telemetry_registry
+from zayd_common.user_admin import AdminUserPublic, UserAdminError, UserAdminService
 from zayd_common.user_preferences import (
     UserPreferencesError,
     UserPreferencesPublic,
     UserPreferencesService,
     UserPreferencesUpdate,
-)
-from zayd_common.storage import S3ObjectStorage, S3StorageSettings, SignedUrl, StorageError
-from zayd_common.prompt_registry import (
-    DEFAULT_ANSWER_PROMPT_NAME,
-    DEFAULT_ANSWER_PROMPT_VERSION,
-    DEFAULT_POLICY_VERSION,
-    PromptComparison,
-    PromptCreate,
-    PromptRegistryError,
-    PromptRegistryService,
-    PromptStatusChange,
-    PromptTestCase,
-    bootstrap_registry_defaults,
-    default_answer_generation_prompt,
 )
 from zayd_service_orchestrator import (
     ChatRequest,
@@ -127,12 +148,15 @@ from zayd_service_orchestrator import (
     CitationDetailPublic,
     CitationRegistryError,
     CitationRegistryService,
+    LLMProvider,
     MockLLMProvider,
-    PromptRegistryService as OrchestratorPromptRegistryService,
     StaticAnswerRetriever,
     build_managed_answer_orchestrator,
     citation_id_from_token,
     sse_encode,
+)
+from zayd_service_orchestrator import (
+    PromptRegistryService as OrchestratorPromptRegistryService,
 )
 
 logger = get_logger("zayd.api")
@@ -325,6 +349,150 @@ class RoleAssignmentRequest(BaseModel):
 class RoleAssignmentResponse(BaseModel):
     status: str
     changed: bool
+
+
+class ProviderDisableImpactReadinessResponse(BaseModel):
+    model_type: str
+    active_model_count: int
+    alternative_model_count: int
+    fallback_ready: bool
+
+
+class ProviderDisableImpactResponse(BaseModel):
+    provider_id: str
+    provider_name: str
+    active_model_count: int
+    impacted_model_types: list[str]
+    fallback_readiness: list[ProviderDisableImpactReadinessResponse]
+    safe_to_disable: bool
+
+
+class ProviderCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    provider_type: str = Field(min_length=1, max_length=40)
+    status: str = Field(default="disabled", min_length=1, max_length=40)
+    base_url: str | None = Field(default=None, max_length=1000)
+    secret_ref: str | None = Field(default=None, max_length=1000)
+    terms_url: str | None = Field(default=None, max_length=1000)
+    data_policy_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProviderUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    status: str | None = Field(default=None, min_length=1, max_length=40)
+    base_url: str | None = Field(default=None, max_length=1000)
+    secret_ref: str | None = Field(default=None, max_length=1000)
+    terms_url: str | None = Field(default=None, max_length=1000)
+    data_policy_json: dict[str, Any] | None = None
+
+
+class ProviderResponse(BaseModel):
+    id: str
+    name: str
+    provider_type: str
+    status: str
+    base_url: str | None
+    terms_url: str | None
+    data_policy_json: dict[str, Any]
+    secret_configured: bool
+    secret_mask: str
+    created_by: str
+    updated_by: str | None
+    created_at: str
+    updated_at: str
+    row_version: int
+    model_count: int
+    active_model_count: int
+    disable_impact: ProviderDisableImpactResponse
+
+
+class ProviderListResponse(BaseModel):
+    providers: list[ProviderResponse]
+
+
+class ProviderConnectionTestResponse(BaseModel):
+    provider_id: str
+    provider_name: str
+    status: str
+    checked_at: str
+    latency_ms: int
+    message: str
+
+
+class ModelConfigurationCreateRequest(BaseModel):
+    provider_id: UUID
+    model_name: str = Field(min_length=1, max_length=200)
+    model_type: str = Field(min_length=1, max_length=40)
+    configuration: dict[str, Any] = Field(default_factory=dict)
+    allow_listed: bool = True
+    fallback_model_id: UUID | None = None
+    cost_limit_daily_usd: float | None = Field(default=None, ge=0)
+    is_default: bool = False
+    status: str = Field(default="disabled", min_length=1, max_length=40)
+
+
+class ModelConfigurationUpdateRequest(BaseModel):
+    model_name: str | None = Field(default=None, min_length=1, max_length=200)
+    configuration: dict[str, Any] | None = None
+    allow_listed: bool | None = None
+    fallback_model_id: UUID | None = None
+    cost_limit_daily_usd: float | None = Field(default=None, ge=0)
+    is_default: bool | None = None
+    status: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class ModelConfigurationResponse(BaseModel):
+    id: str
+    provider_id: str
+    provider_name: str
+    provider_status: str
+    model_name: str
+    model_type: str
+    configuration: dict[str, Any]
+    allow_listed: bool
+    fallback_model_id: str | None
+    fallback_model_name: str | None
+    cost_limit_daily_usd: float | None
+    is_default: bool
+    status: str
+    created_by: str
+    created_at: str
+    updated_at: str
+    row_version: int
+
+
+class ModelConfigurationListResponse(BaseModel):
+    models: list[ModelConfigurationResponse]
+
+
+class AdminUserResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str
+    status: str
+    roles: list[str]
+    active_session_count: int
+    last_login_at: str | None
+    created_at: str
+    updated_at: str
+    row_version: int
+    last_admin_guarded: bool
+
+
+class AdminUserListResponse(BaseModel):
+    users: list[AdminUserResponse]
+
+
+class AdminUserStatusRequest(BaseModel):
+    status: str = Field(min_length=1, max_length=40)
+
+
+class AdminUserStatusResponse(BaseModel):
+    user: AdminUserResponse
+
+
+class AdminUserSessionRevokeResponse(BaseModel):
+    revoked_sessions: int
 
 
 class PromptTestCaseRequest(BaseModel):
@@ -784,6 +952,56 @@ class ReviewQueueListResponse(BaseModel):
     next_offset: int | None = None
 
 
+class ReviewerDashboardSummaryResponse(BaseModel):
+    total_visible_count: int
+    pending_count: int
+    assigned_count: int
+    overdue_count: int
+    changes_requested_count: int
+    feedback_open_count: int
+
+
+class ReviewerFeedbackWorkItemResponse(BaseModel):
+    id: str
+    category: str
+    status: str
+    answer_id: str | None = None
+    citation_id: str | None = None
+    created_at: str
+
+
+class ReviewerDashboardResponse(BaseModel):
+    summary: ReviewerDashboardSummaryResponse
+    queue: ReviewQueueListResponse
+    feedback_items: list[ReviewerFeedbackWorkItemResponse]
+
+
+class MetricsSummaryResponse(BaseModel):
+    registered_user_count: int
+    queue_depth: int
+    feedback_open_count: int
+    incident_open_count: int
+    provider_count: int
+    enabled_provider_count: int
+    model_count: int
+    default_model_count: int
+    provider_cost_limit_daily_usd: float
+    provider_health_ok_count: int
+    spans_recorded: int
+    api_latency_ms_avg: float = 0.0
+    error_count: int = 0
+    external_fallback_count: int = 0
+    local_rag_hit_count: int = 0
+    citation_failure_count: int = 0
+    queue_age_seconds_avg: float = 0.0
+
+
+class MetricsSnapshotResponse(BaseModel):
+    generated_at: str
+    window_minutes: int
+    summary: MetricsSummaryResponse
+
+
 class ReviewTaskAssignRequest(BaseModel):
     assignee_user_id: UUID
 
@@ -805,6 +1023,14 @@ class ReviewCommentResponse(BaseModel):
 class ReviewDraftResponse(BaseModel):
     review_task_id: str
     document_version_id: str
+    document_id: str
+    source_id: str | None
+    source_license_id: str | None
+    canonical_id: str | None
+    document_title: str | None
+    document_type: str | None
+    language: str | None
+    madhhab: str | None
     task_status: str
     task_row_version: int
     document_review_status: str
@@ -812,6 +1038,7 @@ class ReviewDraftResponse(BaseModel):
     editable_text: str | None
     editable_metadata: dict[str, object]
     latest_revision_number: int
+    revisions: list["ReviewRevisionResponse"]
     comments: list[ReviewCommentResponse]
 
 
@@ -907,6 +1134,11 @@ class ApprovalRequirementResponse(BaseModel):
     ready_for_publish: bool
 
 
+class ApprovalListResponse(BaseModel):
+    document_version_id: str
+    approvals: list[ApprovalResponse]
+
+
 class ScholarApprovalActionResponse(BaseModel):
     status: str
     approval: ApprovalResponse
@@ -994,6 +1226,102 @@ def _principal_response(principal: UserPrincipal) -> PrincipalResponse:
     )
 
 
+def _provider_disable_impact_response(
+    impact: ProviderDisableImpact,
+) -> ProviderDisableImpactResponse:
+    return ProviderDisableImpactResponse(
+        provider_id=str(impact.provider_id),
+        provider_name=impact.provider_name,
+        active_model_count=impact.active_model_count,
+        impacted_model_types=list(impact.impacted_model_types),
+        fallback_readiness=[
+            ProviderDisableImpactReadinessResponse(
+                model_type=item.model_type,
+                active_model_count=item.active_model_count,
+                alternative_model_count=item.alternative_model_count,
+                fallback_ready=item.fallback_ready,
+            )
+            for item in impact.fallback_readiness
+        ],
+        safe_to_disable=impact.safe_to_disable,
+    )
+
+
+def _provider_response(provider: ProviderPublic) -> ProviderResponse:
+    return ProviderResponse(
+        id=str(provider.id),
+        name=provider.name,
+        provider_type=provider.provider_type,
+        status=provider.status,
+        base_url=provider.base_url,
+        terms_url=provider.terms_url,
+        data_policy_json=provider.data_policy_json,
+        secret_configured=provider.secret_configured,
+        secret_mask=provider.secret_mask,
+        created_by=str(provider.created_by),
+        updated_by=str(provider.updated_by) if provider.updated_by else None,
+        created_at=provider.created_at.isoformat(),
+        updated_at=provider.updated_at.isoformat(),
+        row_version=provider.row_version,
+        model_count=provider.model_count,
+        active_model_count=provider.active_model_count,
+        disable_impact=_provider_disable_impact_response(provider.disable_impact),
+    )
+
+
+def _provider_connection_test_response(
+    result: ProviderConnectionTestResult,
+) -> ProviderConnectionTestResponse:
+    return ProviderConnectionTestResponse(
+        provider_id=str(result.provider_id),
+        provider_name=result.provider_name,
+        status=result.status,
+        checked_at=result.checked_at.isoformat(),
+        latency_ms=result.latency_ms,
+        message=result.message,
+    )
+
+
+def _model_configuration_response(
+    model: ModelConfigurationPublic,
+) -> ModelConfigurationResponse:
+    return ModelConfigurationResponse(
+        id=str(model.id),
+        provider_id=str(model.provider_id),
+        provider_name=model.provider_name,
+        provider_status=model.provider_status,
+        model_name=model.model_name,
+        model_type=model.model_type,
+        configuration=model.configuration,
+        allow_listed=model.allow_listed,
+        fallback_model_id=str(model.fallback_model_id) if model.fallback_model_id else None,
+        fallback_model_name=model.fallback_model_name,
+        cost_limit_daily_usd=model.cost_limit_daily_usd,
+        is_default=model.is_default,
+        status=model.status,
+        created_by=str(model.created_by),
+        created_at=model.created_at.isoformat(),
+        updated_at=model.updated_at.isoformat(),
+        row_version=model.row_version,
+    )
+
+
+def _admin_user_response(user: AdminUserPublic) -> AdminUserResponse:
+    return AdminUserResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        status=user.status,
+        roles=list(user.roles),
+        active_session_count=user.active_session_count,
+        last_login_at=user.last_login_at.isoformat() if user.last_login_at else None,
+        created_at=user.created_at.isoformat(),
+        updated_at=user.updated_at.isoformat(),
+        row_version=user.row_version,
+        last_admin_guarded=user.last_admin_guarded,
+    )
+
+
 def _enrollment_response(enrollment: MfaEnrollment) -> MfaEnrollmentResponse:
     secret_text = base64.b32encode(enrollment.secret).decode("ascii").rstrip("=")
     return MfaEnrollmentResponse(
@@ -1019,7 +1347,7 @@ def _audit_outcome(value: str | None) -> AuditOutcome | None:
     return None
 
 
-def _prompt_test_case_request(case) -> PromptTestCaseRequest:
+def _prompt_test_case_request(case: PromptTestCase) -> PromptTestCaseRequest:
     return PromptTestCaseRequest(
         name=case.name,
         input_payload=case.input_payload,
@@ -1027,7 +1355,7 @@ def _prompt_test_case_request(case) -> PromptTestCaseRequest:
     )
 
 
-def _prompt_response(prompt) -> PromptResponse:
+def _prompt_response(prompt: PromptDefinition) -> PromptResponse:
     return PromptResponse(
         id=str(prompt.id),
         name=prompt.name,
@@ -1101,7 +1429,7 @@ def build_chat_streaming_service(
     orchestrator = build_managed_answer_orchestrator(
         prompt_registry=OrchestratorPromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
         retriever=StaticAnswerRetriever(candidates=()),
-        llm_provider=MockLLMProvider(),
+        llm_provider=cast(LLMProvider, MockLLMProvider()),
     )
     orchestrator.prompt_version_id = prompt.id
     orchestrator.policy_version_id = policy_version_id
@@ -1109,7 +1437,9 @@ def build_chat_streaming_service(
     return ChatStreamingService(
         uow_factory=lambda: SQLAlchemyUnitOfWork(session_factory),
         orchestrator=orchestrator,
-        prompt_registry_factory=lambda: PromptRegistryService(SQLAlchemyUnitOfWork(session_factory)),
+        prompt_registry_factory=lambda: PromptRegistryService(
+            SQLAlchemyUnitOfWork(session_factory)
+        ),
     )
 
 
@@ -1238,6 +1568,123 @@ def _parse_citation_ref(value: str) -> UUID:
     if normalized.startswith("CIT-"):
         return citation_id_from_token(normalized)
     return UUID(normalized)
+
+
+def _metrics_summary(session_factory: Any) -> MetricsSummaryResponse:
+    from sqlalchemy import select
+    from zayd_common.database.models import (
+        AuditLog,
+        Feedback,
+        ModelConfiguration,
+        Provider,
+        ReviewTask,
+        User,
+    )
+
+    with session_factory() as session:
+        queue_depth = len(
+            session.execute(
+                select(ReviewTask).where(ReviewTask.status.in_(("open", "in_progress")))
+            )
+            .scalars()
+            .all()
+        )
+        feedback_open_count = len(
+            session.execute(
+                select(Feedback)
+                .where(Feedback.deleted_at.is_(None))
+                .where(Feedback.status == "open")
+            )
+            .scalars()
+            .all()
+        )
+        registered_user_count = len(
+            session.execute(select(User).where(User.deleted_at.is_(None))).scalars().all()
+        )
+        incident_open_count = len(
+            session.execute(
+                select(AuditLog)
+                .where(AuditLog.action.like("incident.%"))
+                .where(AuditLog.outcome.in_(("open", "investigating")))
+            )
+            .scalars()
+            .all()
+        )
+        providers = session.execute(
+            select(Provider).where(Provider.deleted_at.is_(None))
+        ).scalars().all()
+        models = session.execute(
+            select(ModelConfiguration).where(ModelConfiguration.deleted_at.is_(None))
+        ).scalars().all()
+
+    counters = telemetry_registry.counters()
+    histograms = telemetry_registry.histograms()
+    queue_age_samples = [
+        span.duration_ms
+        for span in telemetry_registry.spans()
+        if span.name == "worker.lifecycle"
+    ]
+    provider_health_ok_count = sum(
+        int(snapshot.value)
+        for snapshot in counters
+        if snapshot.name == "provider_health_total"
+        and snapshot.labels.get("status") == "ok"
+    )
+    fallback_count = sum(
+        int(snapshot.value)
+        for snapshot in counters
+        if snapshot.name == "external_fallback_total"
+        and snapshot.labels.get("status") in {"attempted", "improved", "no_improvement"}
+    )
+    rag_hit_count = sum(
+        int(snapshot.value)
+        for snapshot in counters
+        if snapshot.name == "local_rag_hit_total" and snapshot.labels.get("status") == "hit"
+    )
+    citation_failure_count = sum(
+        int(snapshot.value)
+        for snapshot in counters
+        if snapshot.name == "citation_verification_total"
+        and snapshot.labels.get("status") != "verified"
+    )
+    error_count = sum(
+        int(snapshot.value)
+        for snapshot in counters
+        if snapshot.name in {"provider_generate_total", "orchestrator_answer_total"}
+        and snapshot.labels.get("status") not in {"ok", "completed"}
+    )
+    api_latency_sum = sum(
+        snapshot.sum_value
+        for snapshot in histograms
+        if snapshot.name == "provider_generate_latency_ms"
+    )
+    api_latency_count = sum(
+        snapshot.count for snapshot in histograms if snapshot.name == "provider_generate_latency_ms"
+    )
+
+    return MetricsSummaryResponse(
+        registered_user_count=registered_user_count,
+        queue_depth=queue_depth,
+        feedback_open_count=feedback_open_count,
+        incident_open_count=incident_open_count,
+        provider_count=len(providers),
+        enabled_provider_count=sum(1 for provider in providers if provider.status == "enabled"),
+        model_count=len(models),
+        default_model_count=sum(1 for model in models if model.is_default),
+        provider_cost_limit_daily_usd=sum(
+            float(model.configuration_json.get("cost_limit_daily_usd") or 0.0) for model in models
+        ),
+        provider_health_ok_count=provider_health_ok_count,
+        spans_recorded=len(telemetry_registry.spans()),
+        api_latency_ms_avg=(api_latency_sum / api_latency_count) if api_latency_count else 0.0,
+        error_count=error_count,
+        external_fallback_count=fallback_count,
+        local_rag_hit_count=rag_hit_count,
+        citation_failure_count=citation_failure_count,
+        queue_age_seconds_avg=(sum(queue_age_samples) / len(queue_age_samples) / 1000)
+        if queue_age_samples
+        else 0.0,
+    )
 
 
 def _citation_record_response(citation: CitationDetailPublic) -> CitationRecordResponse:
@@ -1593,8 +2040,73 @@ def _signed_url_response(signed_url: SignedUrl) -> SignedUrlResponse:
 
 def create_app() -> FastAPI:
     settings = ServiceSettings.from_runtime_env(app_name="api")
+    configure_logging(level=settings.log_level)
     app = FastAPI(title=f"Zayd {settings.app_name} service")
     session_factory = get_sessionmaker(settings.database_url)
+
+    @app.middleware("http")
+    async def request_context_middleware(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        inbound_request_id = normalize_request_id(request.headers.get("x-request-id"))
+        inbound_trace_id = normalize_request_id(request.headers.get("x-trace-id"))
+        context = new_trace_context(
+            request_id=inbound_request_id,
+            trace_id=inbound_trace_id or inbound_request_id,
+            source="header" if inbound_request_id or inbound_trace_id else "generated",
+            service=settings.app_name,
+        )
+        headers = [
+            (key, value)
+            for key, value in request.scope["headers"]
+            if key not in {b"x-request-id", b"x-trace-id"}
+        ]
+        headers.append((b"x-request-id", context.request_id.encode("utf-8")))
+        headers.append((b"x-trace-id", context.trace_id.encode("utf-8")))
+        request.scope["headers"] = headers
+        request.state.request_context = context
+        request.state.request_id = context.request_id
+        request.state.trace_id = context.trace_id
+        with bind_request_context(context):
+            started_at = datetime.now(UTC)
+            try:
+                response = await call_next(request)
+            except Exception:
+                telemetry_registry.record_counter(
+                    "api_request_total",
+                    method=request.method,
+                    path=request.url.path,
+                    status="error",
+                )
+                logger.exception(
+                    "request_failed method=%s path=%s",
+                    request.method,
+                    request.url.path,
+                )
+                raise
+            duration_ms = (datetime.now(UTC) - started_at).total_seconds() * 1000
+            telemetry_registry.record_counter(
+                "api_request_total",
+                method=request.method,
+                path=request.url.path,
+                status=str(response.status_code),
+            )
+            telemetry_registry.record_histogram(
+                "api_request_latency_ms",
+                duration_ms,
+                method=request.method,
+                path=request.url.path,
+            )
+            response.headers["x-request-id"] = context.request_id
+            response.headers["x-trace-id"] = context.trace_id
+            logger.info(
+                "request_completed method=%s path=%s status_code=%s",
+                request.method,
+                request.url.path,
+                response.status_code,
+            )
+            return response
 
     def auth_service() -> AuthService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
@@ -1634,6 +2146,11 @@ def create_app() -> FastAPI:
 
         return PromptRegistryService(SQLAlchemyUnitOfWork(session_factory))
 
+    def provider_admin_service() -> ProviderAdminService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return ProviderAdminService(SQLAlchemyUnitOfWork(session_factory))
+
     def citation_registry_service() -> CitationRegistryService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -1643,6 +2160,11 @@ def create_app() -> FastAPI:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
         return UserPreferencesService(SQLAlchemyUnitOfWork(session_factory))
+
+    def user_admin_service() -> UserAdminService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return UserAdminService(SQLAlchemyUnitOfWork(session_factory))
 
     def conversation_history_service() -> ConversationHistoryService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
@@ -1823,6 +2345,24 @@ def create_app() -> FastAPI:
             content={"error": {"code": exc.code, "message": exc.message}},
         )
 
+    @app.exception_handler(ProviderAdminError)
+    async def provider_admin_error_handler(
+        request: Request, exc: ProviderAdminError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(UserAdminError)
+    async def user_admin_error_handler(
+        request: Request, exc: UserAdminError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
     @app.exception_handler(ChatStreamingError)
     async def chat_streaming_error_handler(
         request: Request, exc: ChatStreamingError
@@ -1881,6 +2421,17 @@ def create_app() -> FastAPI:
     async def health() -> HealthStatus:
         logger.info("health_check")
         return HealthStatus(service=settings.app_name)
+
+    @app.get("/admin/dashboard", response_model=MetricsSnapshotResponse)
+    async def admin_dashboard(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.AUDIT_READ))],
+        window_minutes: int = Query(default=60, ge=1, le=1440),
+    ) -> MetricsSnapshotResponse:
+        return MetricsSnapshotResponse(
+            generated_at=datetime.now().isoformat(),
+            window_minutes=window_minutes,
+            summary=_metrics_summary(session_factory),
+        )
 
     @app.post("/auth/register", response_model=AuthResponse, status_code=201)
     async def register(
@@ -2054,6 +2605,187 @@ def create_app() -> FastAPI:
         )
         return RoleAssignmentResponse(status="ok", changed=changed)
 
+    @app.get("/admin/users", response_model=AdminUserListResponse)
+    async def list_admin_users(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.USERS_READ))],
+        service: Annotated[UserAdminService, Depends(user_admin_service)],
+        query: str | None = None,
+        status: str | None = None,
+        role: str | None = None,
+    ) -> AdminUserListResponse:
+        users = service.list_users(query=query, status=status, role=role)
+        return AdminUserListResponse(users=[_admin_user_response(user) for user in users])
+
+    @app.patch("/admin/users/{user_id}/status", response_model=AdminUserStatusResponse)
+    async def update_admin_user_status(
+        user_id: UUID,
+        payload: AdminUserStatusRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.USERS_MANAGE))],
+        service: Annotated[UserAdminService, Depends(user_admin_service)],
+    ) -> AdminUserStatusResponse:
+        user = service.set_status(
+            user_id=user_id,
+            status=payload.status,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return AdminUserStatusResponse(user=_admin_user_response(user))
+
+    @app.post(
+        "/admin/users/{user_id}/sessions/revoke",
+        response_model=AdminUserSessionRevokeResponse,
+    )
+    async def revoke_admin_user_sessions(
+        user_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.USERS_MANAGE))],
+        service: Annotated[UserAdminService, Depends(user_admin_service)],
+    ) -> AdminUserSessionRevokeResponse:
+        revoked = service.revoke_sessions(
+            user_id=user_id,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return AdminUserSessionRevokeResponse(revoked_sessions=revoked)
+
+    @app.get("/admin/providers", response_model=ProviderListResponse)
+    async def list_admin_providers(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROVIDERS_READ))],
+        service: Annotated[ProviderAdminService, Depends(provider_admin_service)],
+    ) -> ProviderListResponse:
+        providers = service.list_providers()
+        return ProviderListResponse(
+            providers=[_provider_response(provider) for provider in providers]
+        )
+
+    @app.post("/admin/providers", response_model=ProviderResponse, status_code=201)
+    async def create_admin_provider(
+        payload: ProviderCreateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROVIDERS_MANAGE))],
+        service: Annotated[ProviderAdminService, Depends(provider_admin_service)],
+    ) -> ProviderResponse:
+        provider = service.create_provider(
+            data=ProviderCreate(
+                name=payload.name,
+                provider_type=payload.provider_type,
+                status=payload.status,
+                base_url=payload.base_url,
+                secret_ref=payload.secret_ref,
+                terms_url=payload.terms_url,
+                data_policy_json=payload.data_policy_json,
+            ),
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _provider_response(provider)
+
+    @app.patch("/admin/providers/{provider_id}", response_model=ProviderResponse)
+    async def update_admin_provider(
+        provider_id: UUID,
+        payload: ProviderUpdateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROVIDERS_MANAGE))],
+        service: Annotated[ProviderAdminService, Depends(provider_admin_service)],
+    ) -> ProviderResponse:
+        provider = service.update_provider(
+            provider_id=provider_id,
+            data=ProviderUpdate(
+                name=payload.name,
+                status=payload.status,
+                base_url=payload.base_url,
+                secret_ref=payload.secret_ref,
+                terms_url=payload.terms_url,
+                data_policy_json=payload.data_policy_json,
+            ),
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _provider_response(provider)
+
+    @app.post(
+        "/admin/providers/{provider_id}/test-connection",
+        response_model=ProviderConnectionTestResponse,
+    )
+    async def test_admin_provider_connection(
+        provider_id: UUID,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROVIDERS_MANAGE))],
+        service: Annotated[ProviderAdminService, Depends(provider_admin_service)],
+    ) -> ProviderConnectionTestResponse:
+        result = service.test_connection(
+            provider_id=provider_id,
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _provider_connection_test_response(result)
+
+    @app.get("/admin/models", response_model=ModelConfigurationListResponse)
+    async def list_admin_models(
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.PROVIDERS_READ))],
+        service: Annotated[ProviderAdminService, Depends(provider_admin_service)],
+    ) -> ModelConfigurationListResponse:
+        models = service.list_models()
+        return ModelConfigurationListResponse(
+            models=[_model_configuration_response(model) for model in models]
+        )
+
+    @app.post("/admin/models", response_model=ModelConfigurationResponse, status_code=201)
+    async def create_admin_model(
+        payload: ModelConfigurationCreateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.MODELS_MANAGE))],
+        service: Annotated[ProviderAdminService, Depends(provider_admin_service)],
+    ) -> ModelConfigurationResponse:
+        model = service.create_model(
+            data=ModelConfigurationCreate(
+                provider_id=payload.provider_id,
+                model_name=payload.model_name,
+                model_type=payload.model_type,
+                configuration=payload.configuration,
+                allow_listed=payload.allow_listed,
+                fallback_model_id=payload.fallback_model_id,
+                cost_limit_daily_usd=payload.cost_limit_daily_usd,
+                is_default=payload.is_default,
+                status=payload.status,
+            ),
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _model_configuration_response(model)
+
+    @app.patch("/admin/models/{model_id}", response_model=ModelConfigurationResponse)
+    async def update_admin_model(
+        model_id: UUID,
+        payload: ModelConfigurationUpdateRequest,
+        request: Request,
+        claims: Annotated[AccessTokenClaims, Depends(get_current_claims)],
+        _: Annotated[UserPrincipal, Depends(require_permission(Permission.MODELS_MANAGE))],
+        service: Annotated[ProviderAdminService, Depends(provider_admin_service)],
+    ) -> ModelConfigurationResponse:
+        model = service.update_model(
+            model_id=model_id,
+            data=ModelConfigurationUpdate(
+                model_name=payload.model_name,
+                configuration=payload.configuration,
+                allow_listed=payload.allow_listed,
+                fallback_model_id=payload.fallback_model_id,
+                cost_limit_daily_usd=payload.cost_limit_daily_usd,
+                is_default=payload.is_default,
+                status=payload.status,
+            ),
+            actor_user_id=claims.user_id,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _model_configuration_response(model)
+
     @app.post("/authorization/documents/approve", response_model=AuthorizationCheckResponse)
     async def authorize_document_approval(
         payload: DocumentApprovalAuthorizationRequest,
@@ -2152,7 +2884,9 @@ def create_app() -> FastAPI:
         service: Annotated[PromptRegistryService, Depends(prompt_registry_service)],
         name: str | None = None,
     ) -> PromptListResponse:
-        return PromptListResponse(prompts=[_prompt_response(prompt) for prompt in service.list_prompts(name=name)])
+        return PromptListResponse(
+            prompts=[_prompt_response(prompt) for prompt in service.list_prompts(name=name)]
+        )
 
     @app.get("/admin/prompts/compare", response_model=PromptComparisonResponse)
     async def compare_prompt_versions(
@@ -3079,6 +3813,48 @@ def create_app() -> FastAPI:
             content_type=detail.content_type,
         )
 
+    def _reviewer_dashboard_summary_response(
+        summary: ReviewerDashboardSummary,
+    ) -> ReviewerDashboardSummaryResponse:
+        return ReviewerDashboardSummaryResponse(
+            total_visible_count=summary.total_visible_count,
+            pending_count=summary.pending_count,
+            assigned_count=summary.assigned_count,
+            overdue_count=summary.overdue_count,
+            changes_requested_count=summary.changes_requested_count,
+            feedback_open_count=summary.feedback_open_count,
+        )
+
+    def _reviewer_feedback_item_response(
+        item: ReviewerFeedbackWorkItem,
+    ) -> ReviewerFeedbackWorkItemResponse:
+        return ReviewerFeedbackWorkItemResponse(
+            id=str(item.id),
+            category=item.category,
+            status=item.status,
+            answer_id=str(item.answer_id) if item.answer_id else None,
+            citation_id=str(item.citation_id) if item.citation_id else None,
+            created_at=item.created_at.isoformat(),
+        )
+
+    def _reviewer_dashboard_response(
+        dashboard: ReviewerDashboardResult,
+    ) -> ReviewerDashboardResponse:
+        return ReviewerDashboardResponse(
+            summary=_reviewer_dashboard_summary_response(dashboard.summary),
+            queue=ReviewQueueListResponse(
+                tasks=[_review_task_summary_response(task) for task in dashboard.queue.tasks],
+                total_count=dashboard.queue.total_count,
+                limit=dashboard.queue.limit,
+                offset=dashboard.queue.offset,
+                next_offset=dashboard.queue.next_offset,
+            ),
+            feedback_items=[
+                _reviewer_feedback_item_response(item)
+                for item in dashboard.feedback_items
+            ],
+        )
+
     def _review_comment_response(comment: ReviewCommentPublic) -> ReviewCommentResponse:
         return ReviewCommentResponse(
             id=str(comment.id),
@@ -3093,6 +3869,14 @@ def create_app() -> FastAPI:
         return ReviewDraftResponse(
             review_task_id=str(draft.review_task_id),
             document_version_id=str(draft.document_version_id),
+            document_id=str(draft.document_id),
+            source_id=str(draft.source_id) if draft.source_id else None,
+            source_license_id=str(draft.source_license_id) if draft.source_license_id else None,
+            canonical_id=draft.canonical_id,
+            document_title=draft.document_title,
+            document_type=draft.document_type,
+            language=draft.language,
+            madhhab=draft.madhhab,
             task_status=draft.task_status,
             task_row_version=draft.task_row_version,
             document_review_status=draft.document_review_status,
@@ -3100,6 +3884,7 @@ def create_app() -> FastAPI:
             editable_text=draft.editable_text,
             editable_metadata=dict(draft.editable_metadata),
             latest_revision_number=draft.latest_revision_number,
+            revisions=[_review_revision_response(revision) for revision in draft.revisions],
             comments=[_review_comment_response(comment) for comment in draft.comments],
         )
 
@@ -3166,6 +3951,12 @@ def create_app() -> FastAPI:
             satisfied_levels=list(requirement.satisfied_levels),
             missing_levels=list(requirement.missing_levels),
             ready_for_publish=requirement.ready_for_publish,
+        )
+
+    def _approval_list_response(result: ApprovalListResult) -> ApprovalListResponse:
+        return ApprovalListResponse(
+            document_version_id=str(result.document_version_id),
+            approvals=[_approval_response(approval) for approval in result.approvals],
         )
 
     def _document_publish_response(result: DocumentPublishResult) -> DocumentPublishResponse:
@@ -3269,6 +4060,46 @@ def create_app() -> FastAPI:
             offset=result.offset,
             next_offset=result.next_offset,
         )
+
+    @app.get("/reviews/dashboard", response_model=ReviewerDashboardResponse)
+    async def get_reviewer_dashboard(
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ReviewQueueService, Depends(review_queue_service)],
+        language: str | None = None,
+        madhhab: str | None = None,
+        content_type: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
+        assigned_to: UUID | None = None,
+        review_level: str | None = None,
+        due_before: str | None = None,
+        due_after: str | None = None,
+        limit: int = 10,
+        offset: int = 0,
+        feedback_limit: int = 5,
+    ) -> ReviewerDashboardResponse:
+        query = ReviewQueueQuery(
+            language=language,
+            madhhab=madhhab,
+            content_type=content_type,
+            status=status,
+            priority=priority,
+            assigned_to=assigned_to,
+            review_level=review_level,
+            due_before=_parse_iso_datetime(due_before),
+            due_after=_parse_iso_datetime(due_after),
+            limit=limit,
+            offset=offset,
+        )
+        dashboard = service.get_dashboard(
+            query,
+            actor_user_id=principal.id,
+            principal_roles=principal.roles,
+            feedback_limit=feedback_limit,
+        )
+        return _reviewer_dashboard_response(dashboard)
 
     @app.get("/reviews/{review_task_id}", response_model=ReviewTaskDetailResponse)
     async def get_review_task_detail(
@@ -3414,6 +4245,20 @@ def create_app() -> FastAPI:
             content_risk=content_risk,
         )
         return _approval_requirement_response(requirement)
+
+    @app.get(
+        "/documents/{document_version_id}/approvals",
+        response_model=ApprovalListResponse,
+    )
+    async def list_document_approvals(
+        document_version_id: UUID,
+        _: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.DOCUMENTS_REVIEW))
+        ],
+        service: Annotated[ScholarApprovalService, Depends(scholar_approval_service)],
+    ) -> ApprovalListResponse:
+        result = service.list_approvals(document_version_id=document_version_id)
+        return _approval_list_response(result)
 
     @app.post(
         "/documents/{document_version_id}/publish",

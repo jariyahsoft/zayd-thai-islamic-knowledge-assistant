@@ -79,6 +79,7 @@ def test_scholar_approval_openapi_contract(monkeypatch) -> None:
     assert paths["/documents/{document_version_id}/approval-requirements"]["get"]["responses"][
         "200"
     ]
+    assert paths["/documents/{document_version_id}/approvals"]["get"]["responses"]["200"]
     assert paths["/review-approvals/{approval_id}/revoke"]["post"]["responses"]["200"]
     assert paths["/documents/{document_version_id}/publish"]["post"]["responses"]["200"]
     assert paths["/documents/{document_id}/suspend"]["post"]["responses"]["200"]
@@ -86,6 +87,7 @@ def test_scholar_approval_openapi_contract(monkeypatch) -> None:
     assert paths["/documents/{document_id}/rollback"]["post"]["responses"]["200"]
     assert schema["components"]["schemas"]["ScholarApprovalRequest"]
     assert schema["components"]["schemas"]["ApprovalRequirementResponse"]
+    assert schema["components"]["schemas"]["ApprovalListResponse"]
     assert schema["components"]["schemas"]["ScholarApprovalActionResponse"]
     assert schema["components"]["schemas"]["DocumentPublishRequest"]
     assert schema["components"]["schemas"]["DocumentPublishResponse"]
@@ -136,9 +138,18 @@ def test_get_review_draft_success(monkeypatch) -> None:
     assert response["status"] == 200
     assert response["json"]["review_task_id"] == str(task_id)
     assert response["json"]["document_version_id"] == str(version_id)
+    assert UUID(response["json"]["document_id"])
+    assert UUID(response["json"]["source_id"])
+    assert UUID(response["json"]["source_license_id"])
+    assert response["json"]["canonical_id"].startswith("doc-")
+    assert response["json"]["document_title"] == "API Test Doc Title"
+    assert response["json"]["document_type"] == "book"
+    assert response["json"]["language"] == "th"
+    assert response["json"]["madhhab"] == "shafii"
     assert response["json"]["editable_text"] == "Old content lines"
     assert response["json"]["editable_metadata"]["title"] == "API Test Doc Title"
     assert response["json"]["task_row_version"] == 1
+    assert response["json"]["revisions"] == []
 
 
 def test_apply_edit_validation_errors(monkeypatch) -> None:
@@ -502,6 +513,80 @@ def test_scholar_approval_api_revoke_marks_requirement_missing(monkeypatch) -> N
     assert requirements["status"] == 200
     assert requirements["json"]["ready_for_publish"] is False
     assert requirements["json"]["missing_levels"] == ["initial"]
+
+
+def test_scholar_approval_api_lists_history(monkeypatch) -> None:
+    app, session_factory = _app(monkeypatch)
+    auth_service = AuthService(SQLAlchemyUnitOfWork(session_factory), signing_secret="test-secret")
+    reviewer = auth_service.register(
+        email="approval-history-reviewer@example.com",
+        password="very-strong-password",
+        display_name="Reviewer",
+    )
+    scholar = auth_service.register(
+        email="approval-history-scholar@example.com",
+        password="very-strong-password",
+        display_name="Scholar",
+    )
+    _grant_role_directly(session_factory, reviewer.user.id, "reviewer")
+    _grant_role_directly(session_factory, scholar.user.id, "senior_scholar")
+    _enroll_mfa(session_factory, reviewer.user.id)
+    _enroll_mfa(session_factory, scholar.user.id)
+    _set_user_preferences(session_factory, reviewer.user.id)
+    _set_user_preferences(session_factory, scholar.user.id)
+    task_id, version_id = _seed_draft_task(
+        session_factory,
+        assigned_to=scholar.user.id,
+        review_level="scholar",
+        document_status="scholar_review",
+    )
+
+    initial = _request(
+        app,
+        "POST",
+        f"/reviews/{task_id}/approvals",
+        json_body={
+            "content_risk": "sensitive",
+            "approval_level": "initial",
+            "reason": "Initial approval recorded.",
+        },
+        headers={"authorization": f"Bearer {reviewer.tokens.access_token}"},
+    )
+    scholar_response = _request(
+        app,
+        "POST",
+        f"/reviews/{task_id}/approvals",
+        json_body={
+            "content_risk": "sensitive",
+            "approval_level": "scholar",
+            "reason": "Scholar approval recorded.",
+        },
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+    revoke = _request(
+        app,
+        "POST",
+        f"/review-approvals/{initial['json']['approval']['id']}/revoke",
+        json_body={"reason": "Evidence gap."},
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+    history = _request(
+        app,
+        "GET",
+        f"/documents/{version_id}/approvals",
+        headers={"authorization": f"Bearer {scholar.tokens.access_token}"},
+    )
+
+    assert scholar_response["status"] == 200
+    assert revoke["status"] == 200
+    assert history["status"] == 200
+    assert history["json"]["document_version_id"] == str(version_id)
+    assert [item["approval_level"] for item in history["json"]["approvals"]] == [
+        "scholar",
+        "initial",
+    ]
+    assert history["json"]["approvals"][1]["status"] == "revoked"
+    assert history["json"]["approvals"][1]["revoke_reason"] == "Evidence gap."
 
 
 def test_document_publish_api_success_and_retry(monkeypatch) -> None:

@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any
 
 import httpx
+from zayd_common.telemetry import telemetry_registry
 
 from zayd_service_orchestrator.provider_sdk import (
     PROVIDER_SDK_VERSION,
@@ -117,41 +119,72 @@ class OpenAICompatibleLLMAdapter:
     async def health_check(self) -> ProviderHealth:
         """Perform health check against the provider."""
         checked_at = datetime.now(UTC)
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                headers = self._build_headers()
-                # Try to list models endpoint as a lightweight health check
-                response = await client.get(
-                    f"{self._base_url}/models",
-                    headers=headers,
-                )
-                if response.status_code == 200:
+        with telemetry_registry.span(
+            "provider.health_check",
+            attributes={"provider_name": self._provider_name, "provider_kind": "llm"},
+        ):
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    headers = self._build_headers()
+                    response = await client.get(
+                        f"{self._base_url}/models",
+                        headers=headers,
+                    )
+                    if response.status_code == 200:
+                        latency_ms = (datetime.now(UTC) - checked_at).total_seconds() * 1000
+                        telemetry_registry.record_counter(
+                            "provider_health_total",
+                            provider=self._provider_name,
+                            kind="llm",
+                            status="ok",
+                        )
+                        telemetry_registry.record_histogram(
+                            "provider_health_latency_ms",
+                            latency_ms,
+                            provider=self._provider_name,
+                            kind="llm",
+                        )
+                        return ProviderHealth(
+                            status="ok",
+                            checked_at=checked_at,
+                            provider_name=self._provider_name,
+                            kind="llm",
+                            sdk_version=PROVIDER_SDK_VERSION,
+                            message="Provider endpoint is reachable",
+                            latency_ms=latency_ms,
+                            trace={"provider_name": self._provider_name},
+                        )
+                    telemetry_registry.record_counter(
+                        "provider_health_total",
+                        provider=self._provider_name,
+                        kind="llm",
+                        status="degraded",
+                    )
                     return ProviderHealth(
-                        status="ok",
+                        status="degraded",
                         checked_at=checked_at,
                         provider_name=self._provider_name,
                         kind="llm",
                         sdk_version=PROVIDER_SDK_VERSION,
-                        message="Provider endpoint is reachable",
-                        latency_ms=(datetime.now(UTC) - checked_at).total_seconds() * 1000,
+                        message=f"Provider returned status {response.status_code}",
+                        trace={"provider_name": self._provider_name},
                     )
+            except Exception as error:
+                telemetry_registry.record_counter(
+                    "provider_health_total",
+                    provider=self._provider_name,
+                    kind="llm",
+                    status="unavailable",
+                )
                 return ProviderHealth(
-                    status="degraded",
+                    status="unavailable",
                     checked_at=checked_at,
                     provider_name=self._provider_name,
                     kind="llm",
                     sdk_version=PROVIDER_SDK_VERSION,
-                    message=f"Provider returned status {response.status_code}",
+                    message=f"Health check failed: {type(error).__name__}",
+                    trace={"provider_name": self._provider_name},
                 )
-        except Exception as error:
-            return ProviderHealth(
-                status="unavailable",
-                checked_at=checked_at,
-                provider_name=self._provider_name,
-                kind="llm",
-                sdk_version=PROVIDER_SDK_VERSION,
-                message=f"Health check failed: {type(error).__name__}",
-            )
 
     async def generate(self, request: LLMRequest) -> LLMResponse:
         """Generate LLM response using OpenAI-compatible API."""
@@ -163,49 +196,101 @@ class OpenAICompatibleLLMAdapter:
 
         payload = self._build_payload(request, stream=False)
 
-        try:
-            async with httpx.AsyncClient(
-                timeout=self._timeout_ms / 1000.0,
-            ) as client:
-                for attempt in range(self._max_retries + 1):
-                    try:
-                        response = await client.post(
-                            f"{self._base_url}/chat/completions",
-                            json=payload,
-                            headers=self._build_headers(),
-                        )
-                        response.raise_for_status()
-                        return self._parse_response(response.json(), request)
-                    except httpx.HTTPStatusError as error:
-                        if attempt == self._max_retries or error.response.status_code < 500:
-                            raise
-                        continue
-            # If we reach here, all retries failed without raising
-            raise ProviderSDKError(
-                "PROVIDER_RESPONSE_INVALID",
-                "All retry attempts failed",
-                status_code=500,
-            )
-        except httpx.HTTPStatusError as error:
-            raise ProviderSDKError(
-                "PROVIDER_RESPONSE_INVALID",
-                f"HTTP {error.response.status_code}: {error.response.text[:200]}",
-                status_code=error.response.status_code,
-            ) from error
-        except httpx.TimeoutException as error:
-            raise ProviderSDKError(
-                "PROVIDER_RESPONSE_INVALID",
-                "Request timeout exceeded.",
-                status_code=504,
-            ) from error
-        except ProviderSDKError:
-            raise
-        except Exception as error:
-            raise ProviderSDKError(
-                "PROVIDER_RESPONSE_INVALID",
-                f"Request failed: {type(error).__name__}",
-                status_code=500,
-            ) from error
+        with telemetry_registry.span(
+            "provider.generate",
+            attributes={
+                "provider_name": self._provider_name,
+                "provider_kind": "llm",
+                "trace_id": request.trace_id,
+            },
+        ):
+            started_at = perf_counter()
+            try:
+                async with httpx.AsyncClient(
+                    timeout=self._timeout_ms / 1000.0,
+                ) as client:
+                    for attempt in range(self._max_retries + 1):
+                        try:
+                            response = await client.post(
+                                f"{self._base_url}/chat/completions",
+                                json=payload,
+                                headers=self._build_headers(),
+                            )
+                            response.raise_for_status()
+                            parsed = self._parse_response(response.json(), request)
+                            telemetry_registry.record_counter(
+                                "provider_generate_total",
+                                provider=self._provider_name,
+                                model=self._model_id,
+                                status="ok",
+                            )
+                            telemetry_registry.record_histogram(
+                                "provider_generate_latency_ms",
+                                (perf_counter() - started_at) * 1000,
+                                provider=self._provider_name,
+                                model=self._model_id,
+                            )
+                            if parsed.usage is not None:
+                                telemetry_registry.record_histogram(
+                                    "provider_tokens_total",
+                                    float(parsed.usage.total_tokens),
+                                    provider=self._provider_name,
+                                    model=self._model_id,
+                                )
+                            return parsed
+                        except httpx.HTTPStatusError as error:
+                            if attempt == self._max_retries or error.response.status_code < 500:
+                                raise
+                            continue
+                raise ProviderSDKError(
+                    "PROVIDER_RESPONSE_INVALID",
+                    "All retry attempts failed",
+                    status_code=500,
+                )
+            except httpx.HTTPStatusError as error:
+                telemetry_registry.record_counter(
+                    "provider_generate_total",
+                    provider=self._provider_name,
+                    model=self._model_id,
+                    status="http_error",
+                )
+                raise ProviderSDKError(
+                    "PROVIDER_RESPONSE_INVALID",
+                    f"HTTP {error.response.status_code}: {error.response.text[:200]}",
+                    status_code=error.response.status_code,
+                ) from error
+            except httpx.TimeoutException as error:
+                telemetry_registry.record_counter(
+                    "provider_generate_total",
+                    provider=self._provider_name,
+                    model=self._model_id,
+                    status="timeout",
+                )
+                raise ProviderSDKError(
+                    "PROVIDER_RESPONSE_INVALID",
+                    "Request timeout exceeded.",
+                    status_code=504,
+                ) from error
+            except ProviderSDKError:
+                telemetry_registry.record_counter(
+                    "provider_generate_total",
+                    provider=self._provider_name,
+                    model=self._model_id,
+                    status="provider_error",
+                )
+                raise
+            except Exception as error:
+                telemetry_registry.record_counter(
+                    "provider_generate_total",
+                    provider=self._provider_name,
+                    model=self._model_id,
+                    status="error",
+                )
+                raise ProviderSDKError(
+                    "PROVIDER_RESPONSE_INVALID",
+                    f"Request failed: {type(error).__name__}",
+                    status_code=500,
+                ) from error
 
     async def stream(self, request: LLMRequest) -> AsyncIterator[str]:
         """Stream LLM response using OpenAI-compatible API."""
