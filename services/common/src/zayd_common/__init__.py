@@ -136,6 +136,16 @@ from .guest import (
     hash_guest_token,
 )
 from .health import HealthStatus
+from .incident_management import (
+    INCIDENT_POLICY_VERSION,
+    DisabledIncidentAlertSink,
+    IncidentAlert,
+    IncidentCreate,
+    IncidentManagementError,
+    IncidentManagementService,
+    IncidentPublic,
+    IncidentTimelineItem,
+)
 from .licenses import (
     LicenseCreate,
     LicenseError,
@@ -322,6 +332,14 @@ __all__ = [
     "AuditService",
     "serialize_audit_log",
     "HealthStatus",
+    "INCIDENT_POLICY_VERSION",
+    "DisabledIncidentAlertSink",
+    "IncidentAlert",
+    "IncidentCreate",
+    "IncidentManagementError",
+    "IncidentManagementService",
+    "IncidentPublic",
+    "IncidentTimelineItem",
     "ServiceSettings",
     "get_logger",
     "DocumentStatus",

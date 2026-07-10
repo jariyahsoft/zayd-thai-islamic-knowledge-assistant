@@ -1227,6 +1227,13 @@ class Incident(Base):
     opened_by: Mapped[UUID] = mapped_column(
         BaseUUID, ForeignKey("auth_users.id", ondelete="RESTRICT"), nullable=False
     )
+    owner_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    idempotency_key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    alert_status: Mapped[str] = mapped_column(String, default="not_required", nullable=False)
+    policy_version: Mapped[str] = mapped_column(String, nullable=False)
+    row_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
@@ -1236,4 +1243,24 @@ class Incident(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
+    )
+
+
+class IncidentEvent(Base):
+    __tablename__ = "incident_events"
+
+    id: Mapped[UUID] = mapped_column(BaseUUID, primary_key=True, default=uuid4)
+    incident_id: Mapped[UUID] = mapped_column(
+        BaseUUID, ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False
+    )
+    actor_user_id: Mapped[UUID | None] = mapped_column(
+        BaseUUID, ForeignKey("auth_users.id", ondelete="SET NULL"), nullable=True
+    )
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    status_from: Mapped[str | None] = mapped_column(String, nullable=True)
+    status_to: Mapped[str | None] = mapped_column(String, nullable=True)
+    details_json: Mapped[dict[str, Any]] = mapped_column(BaseJSONB, default=dict, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

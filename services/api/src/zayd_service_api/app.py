@@ -62,6 +62,12 @@ from zayd_common.feedback_review import (
 )
 from zayd_common.guest import GuestError, GuestService
 from zayd_common.health import HealthStatus
+from zayd_common.incident_management import (
+    IncidentCreate,
+    IncidentManagementError,
+    IncidentManagementService,
+    IncidentPublic,
+)
 from zayd_common.licenses import (
     LicenseCreate,
     LicenseError,
@@ -413,6 +419,48 @@ class FeedbackClassifyRequestPayload(BaseModel):
 class FeedbackResolveRequestPayload(BaseModel):
     resolution: str = Field(min_length=1, max_length=4000)
     dismissed: bool = False
+
+
+class IncidentCreateRequest(BaseModel):
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    severity: str = Field(min_length=2, max_length=2)
+    summary: str = Field(min_length=1, max_length=1000)
+    feedback_id: UUID | None = None
+    affected_answer_id: UUID | None = None
+    affected_document_id: UUID | None = None
+    affected_citation_id: UUID | None = None
+    owner_id: UUID | None = None
+
+
+class IncidentTransitionRequest(BaseModel):
+    target_status: str = Field(min_length=1, max_length=20)
+    reason: str = Field(min_length=1, max_length=1000)
+    base_row_version: int = Field(ge=1)
+
+
+class IncidentAssignRequest(BaseModel):
+    owner_id: UUID
+
+
+class IncidentResponse(BaseModel):
+    id: UUID
+    severity: str
+    status: str
+    summary: str
+    owner_id: UUID | None
+    feedback_id: UUID | None
+    affected_answer_id: UUID | None
+    affected_document_id: UUID | None
+    affected_citation_id: UUID | None
+    alert_status: str
+    row_version: int
+    created_at: str
+    updated_at: str
+    idempotent: bool = False
+
+
+class IncidentTimelineResponse(BaseModel):
+    events: list[dict[str, object]]
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -1647,8 +1695,8 @@ def _parse_citation_ref(value: str) -> UUID:
 def _metrics_summary(session_factory: Any) -> MetricsSummaryResponse:
     from sqlalchemy import select
     from zayd_common.database.models import (
-        AuditLog,
         Feedback,
+        Incident,
         ModelConfiguration,
         Provider,
         ReviewTask,
@@ -1676,13 +1724,7 @@ def _metrics_summary(session_factory: Any) -> MetricsSummaryResponse:
             session.execute(select(User).where(User.deleted_at.is_(None))).scalars().all()
         )
         incident_open_count = len(
-            session.execute(
-                select(AuditLog)
-                .where(AuditLog.action.like("incident.%"))
-                .where(AuditLog.outcome.in_(("open", "investigating")))
-            )
-            .scalars()
-            .all()
+            session.execute(select(Incident).where(Incident.status != "closed")).scalars().all()
         )
         providers = (
             session.execute(select(Provider).where(Provider.deleted_at.is_(None))).scalars().all()
@@ -1981,6 +2023,25 @@ def _feedback_queue_list_response(result: FeedbackQueueResult) -> FeedbackQueueL
         limit=result.limit,
         offset=result.offset,
         next_offset=result.next_offset,
+    )
+
+
+def _incident_response(item: IncidentPublic, *, idempotent: bool = False) -> IncidentResponse:
+    return IncidentResponse(
+        id=item.id,
+        severity=item.severity,
+        status=item.status,
+        summary=item.summary,
+        owner_id=item.owner_id,
+        feedback_id=item.feedback_id,
+        affected_answer_id=item.affected_answer_id,
+        affected_document_id=item.affected_document_id,
+        affected_citation_id=item.affected_citation_id,
+        alert_status=item.alert_status,
+        row_version=item.row_version,
+        created_at=item.created_at.isoformat(),
+        updated_at=item.updated_at.isoformat(),
+        idempotent=idempotent,
     )
 
 
@@ -2316,6 +2377,11 @@ def create_app() -> FastAPI:
 
         return FeedbackReviewService(SQLAlchemyUnitOfWork(session_factory))
 
+    def incident_management_service() -> IncidentManagementService:
+        from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
+
+        return IncidentManagementService(SQLAlchemyUnitOfWork(session_factory))
+
     def document_upload_service() -> DocumentUploadService:
         from zayd_common.database.unit_of_work import SQLAlchemyUnitOfWork
 
@@ -2549,6 +2615,15 @@ def create_app() -> FastAPI:
     @app.exception_handler(FeedbackReviewError)
     async def feedback_review_error_handler(
         request: Request, exc: FeedbackReviewError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"code": exc.code, "message": exc.message}},
+        )
+
+    @app.exception_handler(IncidentManagementError)
+    async def incident_management_error_handler(
+        request: Request, exc: IncidentManagementError
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
@@ -3502,6 +3577,86 @@ def create_app() -> FastAPI:
             trace_id=request.headers.get("x-request-id"),
         )
         return _feedback_review_detail_response(detail)
+
+    @app.post("/admin/incidents", response_model=IncidentResponse, status_code=201)
+    async def create_incident(
+        payload: IncidentCreateRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_MANAGE))
+        ],
+        service: Annotated[IncidentManagementService, Depends(incident_management_service)],
+    ) -> IncidentResponse:
+        incident, idempotent = service.create(
+            IncidentCreate(**payload.model_dump()),
+            actor_user_id=principal.id,
+            permissions=principal.permissions,
+            trace_id=request.headers.get("x-request-id"),
+        )
+        return _incident_response(incident, idempotent=idempotent)
+
+    @app.post("/admin/incidents/{incident_id}/transition", response_model=IncidentResponse)
+    async def transition_incident(
+        incident_id: UUID,
+        payload: IncidentTransitionRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_MANAGE))
+        ],
+        service: Annotated[IncidentManagementService, Depends(incident_management_service)],
+    ) -> IncidentResponse:
+        return _incident_response(
+            service.transition(
+                incident_id,
+                target_status=payload.target_status,
+                reason=payload.reason,
+                actor_user_id=principal.id,
+                permissions=principal.permissions,
+                base_row_version=payload.base_row_version,
+                trace_id=request.headers.get("x-request-id"),
+            )
+        )
+
+    @app.put("/admin/incidents/{incident_id}/owner", response_model=IncidentResponse)
+    async def assign_incident_owner(
+        incident_id: UUID,
+        payload: IncidentAssignRequest,
+        request: Request,
+        principal: Annotated[
+            UserPrincipal, Depends(require_permission(Permission.FEEDBACK_MANAGE))
+        ],
+        service: Annotated[IncidentManagementService, Depends(incident_management_service)],
+    ) -> IncidentResponse:
+        return _incident_response(
+            service.assign(
+                incident_id,
+                owner_id=payload.owner_id,
+                actor_user_id=principal.id,
+                permissions=principal.permissions,
+                trace_id=request.headers.get("x-request-id"),
+            )
+        )
+
+    @app.get("/admin/incidents/{incident_id}/timeline", response_model=IncidentTimelineResponse)
+    async def incident_timeline(
+        incident_id: UUID,
+        principal: Annotated[UserPrincipal, Depends(require_permission(Permission.FEEDBACK_READ))],
+        service: Annotated[IncidentManagementService, Depends(incident_management_service)],
+    ) -> IncidentTimelineResponse:
+        events = service.timeline(incident_id, permissions=principal.permissions)
+        return IncidentTimelineResponse(
+            events=[
+                {
+                    "event_type": item.event_type,
+                    "status_from": item.status_from,
+                    "status_to": item.status_to,
+                    "actor_user_id": str(item.actor_user_id) if item.actor_user_id else None,
+                    "details": item.details,
+                    "created_at": item.created_at.isoformat(),
+                }
+                for item in events
+            ]
+        )
 
     @app.get("/citations/{citation_id}", response_model=CitationDetailResponse)
     async def get_citation_detail(

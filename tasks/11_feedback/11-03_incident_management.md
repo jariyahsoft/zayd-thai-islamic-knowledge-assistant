@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Implement P0-P3 incidents, timeline, ownership, notifications and links to sourc
 
 ## Acceptance Criteria
 
-- [ ] P0/P1 trigger configured alerts.
-- [ ] Incident actions are audited and idempotent.
-- [ ] Personal data is minimized in incident exports.
+- [x] P0/P1 trigger configured alerts.
+- [x] Incident actions are audited and idempotent.
+- [x] Personal data is minimized in incident exports.
 
 ## Required Tests
 
@@ -90,28 +90,28 @@ Implement P0-P3 incidents, timeline, ownership, notifications and links to sourc
 
 ### Files Changed
 
-- Pending
+- Incident service/model, API routes/tests, migration `0015`, operations documentation, and task records.
 
 ### Commands and Tests Executed
 
-- Pending
+- Focused pytest: 5 passed; focused Ruff, MyPy, and `git diff --check`: passed.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Passed: P0/P1 invoke the configured alert sink once; timeline/assignment/transitions are audited and idempotent; exports are bounded and privacy-minimized.
 
 ### Security and License Review
 
-- Pending
+- Protected by MFA-backed feedback permissions. Timeline is append-only in PostgreSQL. Migration and alert-sink configuration require human security/DBA review.
 
 ### Known Limitations
 
-- Pending
+- The default application sink reports `not_configured`; production must inject an operations-owned sink. Suspension remains separately authorized.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-11-04 — Answer Invalidation
 
 ### Commit
 
-- Pending
+- Pending focused commit.

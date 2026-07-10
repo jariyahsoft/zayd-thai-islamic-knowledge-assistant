@@ -516,3 +516,16 @@
 - Remaining risks: Migration and reviewer `feedback.manage` permission grant need human DBA/security review before production. Frontend runtime checks were unavailable because Node tooling is absent.
 - Telegram notification: STARTED sent; COMPLETED sent.
 - Commit: Pending
+## 2026-07-10T21:15:00+07:00
+
+- Task: TASK-11-03 - Incident Management
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Added idempotent P0-P3 incident creation, ownership, state transitions, injectable P0/P1 alerts, append-only timeline, privacy-safe bounded exports, protected APIs, and accurate dashboard counts.
+- Changed files: incident service/models/API/tests, migration `0015`, operations docs, and task records.
+- Verification: focused pytest — 5 passed; focused Ruff and MyPy — passed; `git diff --check` — passed.
+- Self-review: Alert and audit payloads exclude reporter identities and conversation bodies. State transitions use optimistic row versions. PostgreSQL prevents timeline updates/deletes.
+- Remaining risks: Production requires an operations-owned alert sink plus human security/DBA migration review.
+- Telegram notification: STARTED sent; COMPLETED sent.
+- Commit: Pending

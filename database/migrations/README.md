@@ -22,6 +22,7 @@ Forward migrations and documented rollback plans belong here.
 | `0012_user_app_preferences` | `0012_user_app_preferences.up.sql`, `0012_user_app_preferences.down.sql` | User answer length, Arabic visibility, and history mode preferences for TASK-09-04 |
 | `0013_saved_answers` | `0013_saved_answers.up.sql`, `0013_saved_answers.down.sql` | User saved-answer bookmarks referencing answers for TASK-09-06 |
 | `0014_feedback_review_queue` | `0014_feedback_review_queue.up.sql`, `0014_feedback_review_queue.down.sql` | Feedback queue assignment, classification, resolution, and reviewer permission grant for TASK-11-02 |
+| `0015_incident_management` | `0015_incident_management.up.sql`, `0015_incident_management.down.sql` | Incident ownership, idempotency, alert status, and append-only timeline for TASK-11-03 |
 
 Use `scripts/migrate.sh up`, `scripts/migrate.sh down`, or `MIGRATION_ACTION=<up|down|reset> make migrate` for development/test execution. The `up` action is idempotent when `schema_migrations` already contains a migration version.
 
