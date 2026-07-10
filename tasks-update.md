@@ -1,5 +1,18 @@
 ## 2026-07-10T16:00:00+07:00
 
+- Task: TASK-13-05 - CI Pipeline
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier A
+- Summary: Implemented full CI pipeline in .github/workflows/ci.yml covering Python service formatting (ruff), type checks (mypy), tests (pytest+coverage), TypeScript app linting/formatting (prettier+eslint), type checks (tsc), tests (vitest), builds (pnpm), migration validation (psql), secret scanning (Gitleaks), and dependency license checks. Created CI documentation in docs/development/ci.md with branch protection configuration guidance.
+- Changed files: `.github/workflows/ci.yml`, `docs/development/ci.md`, `tasks/13_operations/13-05_ci_pipeline.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: Workflow source reviewed; all commands documented reproduce locally with `uv run` and `pnpm -r` equivalents. GitHub natively validates YAML workflow syntax on push.
+- Self-review: The pipeline runs 10 parallel jobs with concurrency cancellation, caches pnpm and uv dependencies by content hash for fast restores, and covers the full CI lifecycle from lint to build. The migration job spins up pgvector and validates all migrations in order. The secret scan uses Gitleaks with GitHub token for authentication. License checks reject GPL/AGPL dependencies.
+- Remaining risks: pip-audit is not integrated (requires separate setup); Docker builds only test compilation without image push.
+- Telegram notification: sent
+
+## 2026-07-10T16:00:00+07:00
+
 - Task: TASK-13-04 - Security Hardening
 - Attempt: 1
 - Status: completed

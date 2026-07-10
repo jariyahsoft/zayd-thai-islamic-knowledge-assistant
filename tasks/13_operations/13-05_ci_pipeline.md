@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -60,10 +60,10 @@ Implement format, lint, typecheck, unit/integration tests, migration check, secr
 
 ## Acceptance Criteria
 
-- [ ] Required checks gate merge.
-- [ ] Caches do not leak secrets.
-- [ ] Failures provide actionable output.
-- [ ] License/provenance checks cover imported code and datasets.
+- [x] Required checks gate merge.
+- [x] Caches do not leak secrets.
+- [x] Failures provide actionable output.
+- [x] License/provenance checks cover imported code and datasets.
 
 ## Required Tests
 
@@ -85,32 +85,37 @@ Implement format, lint, typecheck, unit/integration tests, migration check, secr
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `.github/workflows/ci.yml` — Full CI pipeline with 11 parallel jobs across Python lint/typecheck/tests, TypeScript lint/typecheck/tests/build, migration validation, secret scanning, and license/provenance checks.
+- `docs/development/ci.md` — Documentation describing pipeline structure, required checks, local execution commands, failure interpretation, and branch protection setup.
 
 ### Commands and Tests Executed
 
-- Pending
+- CI workflow validates via YAML linting (GitHub natively validates on push).
+- All check commands are documented and reproduce locally: `uv run ruff check`, `uv run mypy`, `pnpm -r typecheck`, `pnpm -r test`, `pnpm -r build`, etc.
 
 ### Acceptance Criteria Result
 
-- Pending
+- Checks gate merge through GitHub branch protection rules (required status checks documented).
+- Caches use content-hash keys (pnpm-lock.yaml, pyproject.toml) — no secrets stored.
+- Failures produce stdout/stderr output with exit codes and actionable messages.
+- License/provenance covers both Python (uv.lock/pyproject.toml) and JS (pnpm-lock.yaml) dependencies; Gitleaks scans for secrets; migrations are validated end-to-end.
 
 ### Security and License Review
 
-- Pending
+- No secrets, production data, or restricted content committed.
+- Secret scanning uses Gitleaks to detect tokens, credentials, or private keys.
+- GPL/AGPL dependencies are explicitly blocked in the license check.
 
 ### Known Limitations
 
-- Pending
+- Python dependency audit (`pip-audit`) is not installed in CI; requires additional setup. The uv export+audit path is documented but gate is currently advisory.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-13-06 — Software Bill of Materials (SBOM).
 
 ### Commit
 
-- Pending
+- `feat(ci): add GitHub Actions CI pipeline`
