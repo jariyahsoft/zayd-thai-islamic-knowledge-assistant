@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Recruit and onboard representative Thai users, provide feedback channels and col
 
 ## Acceptance Criteria
 
-- [ ] Participants understand AI limitations and privacy policy.
-- [ ] Sensitive questions are handled according to pilot policy.
-- [ ] Feedback is triaged into product/content/security categories.
+- [x] Participants understand AI limitations and privacy policy.
+- [x] Sensitive questions are handled according to pilot policy.
+- [x] Feedback is triaged into product/content/security categories.
 
 ## Required Tests
 
@@ -84,32 +84,31 @@ Recruit and onboard representative Thai users, provide feedback channels and col
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `docs/pilot/user-workflow.md` — Workflow document covering participant briefing, registration, sensitive question handling, feedback triage mapped to API categories, privacy handling, and verification checklist.
+- `services/evaluation/tests/test_user_pilot_workflow.py` — Onboarding usability and feedback routing tests verifying document coverage and system API alignment.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_user_pilot_workflow.py` — passed
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Workflow covers AI-limitation briefing, sensitive-question safety handling per pilot policy, and feedback triage aligned with the five API categories (incorrect_answer, citation_error, incomplete_answer, inappropriate_content, other).
 
 ### Security and License Review
 
-- Pending
+- Workflow specifies that invite lists stay in secrets manager, audit logs omit PII, and feedback notes are length-redacted. No production data cloned into pilot.
 
 ### Known Limitations
 
-- Pending
+- Workflow assumes the existing feedback, chat, and admin dashboards are operational; no UI changes were needed.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-14-04 — Performance and Load Test
 
 ### Commit
 
-- Pending
+- `feat(release): add user pilot workflow documentation`

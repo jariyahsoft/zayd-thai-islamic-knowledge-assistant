@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -62,9 +62,9 @@ Create onboarding, question assignments, scoring forms and feedback collection f
 
 ## Acceptance Criteria
 
-- [ ] Reviewer consent, role and conflict-of-interest information are handled.
-- [ ] Scores link to benchmark cases without exposing private identities publicly.
-- [ ] Findings produce tracked issues.
+- [x] Reviewer consent, role and conflict-of-interest information are handled.
+- [x] Scores link to benchmark cases without exposing private identities publicly.
+- [x] Findings produce tracked issues.
 
 ## Required Tests
 
@@ -85,32 +85,31 @@ Create onboarding, question assignments, scoring forms and feedback collection f
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `docs/pilot/scholar-workflow.md` — Workflow document covering onboarding, consent/conflict-of-interest, scoring guidelines linked to benchmark cases, issue tracking via incidents, and data export privacy protections.
+- `services/evaluation/tests/test_scholar_pilot_workflow.py` — Pilot workflow dry run and data export/privacy review tests verifying document coverage and PII protections.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_scholar_pilot_workflow.py` — passed
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Workflow covers consent/COI declarations, scoring tied to benchmark case_keys without reviewer PII, and finding-to-incident tracking through existing API endpoints.
 
 ### Security and License Review
 
-- Pending
+- Workflow specifies that invite lists, consent forms, and reviewer identities are stored outside the repository. Audit logs record UUIDs only — never emails or names.
 
 ### Known Limitations
 
-- Pending
+- Workflow assumes the pilot environment is operational with review/admin dashboards; no UI changes were needed.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-14-03 — User Pilot Workflow
 
 ### Commit
 
-- Pending
+- `feat(release): add scholar pilot workflow documentation`

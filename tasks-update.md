@@ -1,5 +1,31 @@
 ## 2026-07-11T09:00:00+07:00
 
+- Task: TASK-14-02 - Scholar Pilot Workflow
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Created scholar pilot workflow documentation covering onboarding, consent/COI, scoring tied to benchmark cases with PII-free exports, and finding-to-incident tracking. Added dry-run tests validating document completeness and data export privacy claims.
+- Changed files: `docs/pilot/scholar-workflow.md`, `services/evaluation/tests/test_scholar_pilot_workflow.py`, `tasks/14_release/14-02_scholar_pilot_workflow.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/evaluation/tests/test_scholar_pilot_workflow.py` — 2 passed
+- Self-review: Workflow covers all three acceptance criteria. Export privacy verified against actual CaseComparison fields. No PII fields in documented exports.
+- Remaining risks: Workflow assumes pilot environment operational with existing review/admin dashboards.
+- Telegram notification: sent
+
+## 2026-07-11T09:00:00+07:00
+
+- Task: TASK-14-03 - User Pilot Workflow
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Created user pilot workflow documentation covering participant briefing, invite-only registration, sensitive question handling, feedback triage mapped to API categories, and privacy handling. Added onboarding usability and feedback routing tests verifying document completeness and system API alignment.
+- Changed files: `docs/pilot/user-workflow.md`, `services/evaluation/tests/test_user_pilot_workflow.py`, `tasks/14_release/14-03_user_pilot_workflow.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/evaluation/tests/test_user_pilot_workflow.py` — 3 passed
+- Self-review: All five API feedback categories documented in triage table. Privacy claims match actual system audit behavior. Sensitive-question handling documented per pilot policy.
+- Remaining risks: Workflow assumes existing feedback and chat dashboards are operational.
+- Telegram notification: sent
+
+## 2026-07-11T09:00:00+07:00
+
 - Task: TASK-14-01 - Pilot Environment
 - Attempt: 1
 - Status: completed
