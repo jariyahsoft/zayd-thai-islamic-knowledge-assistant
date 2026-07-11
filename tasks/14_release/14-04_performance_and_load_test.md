@@ -2,7 +2,7 @@
 
 ## Status
 
-`TODO`
+`DONE`
 
 ## Model Tier
 
@@ -61,9 +61,9 @@ Test concurrent chat, retrieval latency, worker throughput, provider timeout and
 
 ## Acceptance Criteria
 
-- [ ] Bottlenecks and capacity assumptions are documented.
-- [ ] System degrades safely when providers or queues are saturated.
-- [ ] No test uses unapproved production personal data.
+- [x] Bottlenecks and capacity assumptions are documented.
+- [x] System degrades safely when providers or queues are saturated.
+- [x] No test uses unapproved production personal data.
 
 ## Required Tests
 
@@ -86,32 +86,31 @@ Test concurrent chat, retrieval latency, worker throughput, provider timeout and
 
 ## Completion Report
 
-> Fill this section before changing the status to `DONE`.
-
 ### Files Changed
 
-- Pending
+- `services/evaluation/tests/test_performance.py` — Implemented test suite covering concurrent load testing, soak simulations, provider failure injections, and database query explain plan audits.
+- `docs/testing/performance.md` — Documented performance targets, component bottlenecks, safe degradation behaviors, and execution instructions.
 
 ### Commands and Tests Executed
 
-- Pending
+- `uv run pytest services/evaluation/tests/test_performance.py` — passed
 
 ### Acceptance Criteria Result
 
-- Pending
+- Completed. Documented bottlenecks and capacity rules. Verified that the orchestrator cancels hanging provider requests on timeout and maps rate-limit failures into structured error codes. Clean evaluation data mocks used (no production PII included).
 
 ### Security and License Review
 
-- Pending
+- Mock databases and mock request queries are used for latency tests; no private records or secrets committed.
 
 ### Known Limitations
 
-- Pending
+- Load tests run in-process using simulated retriever and LLM delays; actual production throughput depends on provider hosting.
 
 ### Follow-up Tasks
 
-- Pending
+- TASK-14-05 — Security Review and Penetration Test.
 
 ### Commit
 
-- Pending
+- `feat(test): add performance and load testing suite`
