@@ -1,5 +1,18 @@
 ## 2026-07-11T09:00:00+07:00
 
+- Task: TASK-14-06 - Release Documentation
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier B
+- Summary: Completed release documentation. Updated docs/README.md to index all 17 documentation categories (~100+ cross-references). Created docs/releases/1.0.md with architecture summary, feature listing, deployment profiles, security overview, known limitations, and migration notes. Added documentation link check, section coverage, and example validation tests.
+- Changed files: `docs/README.md`, `docs/releases/1.0.md`, `services/evaluation/tests/test_release_documentation.py`, `tasks/14_release/14-06_release_documentation.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/evaluation/tests/test_release_documentation.py` — passed
+- Self-review: All ~100+ links in docs index verified to resolve to actual files. Release doc covers architecture, security, deployment, and limitations. No secrets in examples.
+- Remaining risks: Some docs may lag behind edge-case implementation details; structure makes them easy to locate.
+- Telegram notification: sent
+
+## 2026-07-11T09:00:00+07:00
+
 - Task: TASK-14-05 - Security Review and Penetration Test
 - Attempt: 1
 - Status: completed

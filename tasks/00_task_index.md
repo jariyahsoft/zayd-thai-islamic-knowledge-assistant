@@ -143,7 +143,7 @@
 | TASK-14-03 | User Pilot Workflow | B | DONE | TASK-14-01 | `14_release/14-03_user_pilot_workflow.md` |
 | TASK-14-04 | Performance and Load Test | A | DONE | TASK-14-01 | `14_release/14-04_performance_and_load_test.md` |
 | TASK-14-05 | Security Review and Penetration Test | S + Human Security Review | DONE | TASK-13-04, TASK-14-01 | `14_release/14-05_security_review_and_penetration_test.md` |
-| TASK-14-06 | Release Documentation | B | TODO | All epics | `14_release/14-06_release_documentation.md` |
+| TASK-14-06 | Release Documentation | B | DONE | All epics | `14_release/14-06_release_documentation.md` |
 | TASK-14-07 | Zayd 1.0 Release | S | TODO | TASK-14-02, TASK-14-03, TASK-14-04, TASK-14-05, TASK-14-06 | `14_release/14-07_zayd_1_0_release.md` |
 
 ## Epic Summary
