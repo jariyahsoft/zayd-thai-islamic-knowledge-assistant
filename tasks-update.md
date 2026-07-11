@@ -1,5 +1,18 @@
 ## 2026-07-11T09:00:00+07:00
 
+- Task: TASK-14-05 - Security Review and Penetration Test
+- Attempt: 1
+- Status: completed
+- Recommended model: Tier S
+- Summary: Engineered automated penetration testing suite in test_penetration.py covering SSRF queries blocks on cloud metadata endpoints, MFA audit and bypass rejections on admin functions, path traversal limits during file uploads, parameterized SQL injections safety checks, HTML/XSS script disarming, and prompt injections overrides locks. Written disclosure policy and pentest audit results in docs/security/release-review.md.
+- Changed files: `services/api/tests/test_penetration.py`, `docs/security/release-review.md`, `tasks/14_release/14-05_security_review_and_penetration_test.md`, `tasks/00_task_index.md`, `tasks-update.md`
+- Verification: `uv run pytest services/api/tests/test_penetration.py` — passed
+- Self-review: Checks successfully assert all exploit vectors fail closed. Link-local blocks confirmed in S3 and provider admin overlays. XSS filters disarm scripts.
+- Remaining risks: Automated scans check logical controls; external configurations require regular cloud posture audits.
+- Telegram notification: sent
+
+## 2026-07-11T09:00:00+07:00
+
 - Task: TASK-14-04 - Performance and Load Test
 - Attempt: 1
 - Status: completed
